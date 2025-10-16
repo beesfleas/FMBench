@@ -1,0 +1,10 @@
+# @package _global_
+defaults:
+  - model: llama2_7b
+  - device: cpu
+  - scenario: mmlu_ethics
+  - override hydra/job_logging: colorlog
+  - override hydra/hydra_logging: colorlog
+
+reporter:
+  type: json
