@@ -1,2 +1,3 @@
 model_id: TinyLlama/TinyLlama-1.1B-Chat-v1.0
+model_category: LLM
 max_tokens: 128

@@ -1,1 +1,2 @@
-device_type: "cpu"
+device:
+  type: cpu

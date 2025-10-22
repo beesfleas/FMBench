@@ -1,0 +1,3 @@
+model_id: microsoft/TimeGPT-1
+model_category: TIME_SERIES
+max_tokens: 64
