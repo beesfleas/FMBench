@@ -1,3 +1,4 @@
+# components/models/base.py
 class BaseModelLoader:
     def load_model(self, config):
         """Load model with config (model id, device, etc.)"""

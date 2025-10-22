@@ -1,17 +1,11 @@
+# core/runner.py
 from components.models.huggingface import HuggingFaceLoader
 
-def main():
-    config = {
-        "model_id": "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    }
+def run_benchmark(cfg):
+    model_config = cfg.model # cfg.model has everything defined in the chosen YAML model group.
     loader = HuggingFaceLoader()
-    print("Loading model...")
-    loader.load_model(config)
-    print("Model loaded.")
-
+    print("Loading model:", model_config.model_id)
+    loader.load_model(dict(model_id=model_config.model_id))
     prompt = "Once upon a time,"
     result = loader.predict(prompt)
     print("Result:", result)
-
-if __name__ == "__main__":
-    main()
