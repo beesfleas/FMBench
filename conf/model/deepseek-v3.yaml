@@ -1,0 +1,4 @@
+model_id: deepseek-ai/DeepSeek-V3
+model_category: LLM
+max_tokens: 128
+

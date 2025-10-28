@@ -1,2 +1,4 @@
 device:
   type: cpu
+  name: cpu_profiler
+  profiler_class: components.devices.cpu_profiler.LocalCpuProfiler 

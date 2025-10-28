@@ -3,3 +3,4 @@ transformers
 hydra-core
 omegaconf
 Pillow
+accelerate
