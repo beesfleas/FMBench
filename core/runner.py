@@ -1,31 +1,66 @@
 from components.models.model_factory import get_model_loader
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 import hydra
 import time
+import torch
+
+def resolve_device(device_cfg: DictConfig) -> DictConfig:
+    """
+    Resolve device based on config and availability.
+    - type == 'cpu'  -> force CPU
+    - type == 'cuda' -> require GPU (error if not available)
+    - type == 'auto' -> use CUDA if available else CPU
+    Returns a new DictConfig with concrete type ('cpu' or 'cuda') and profiler_class.
+    """
+    dev_type = device_cfg.get("type", "auto")
+    has_cuda = torch.cuda.is_available()
+
+    if dev_type == "cpu":
+        return OmegaConf.create({
+            "type": "cpu",
+            "name": "cpu_profiler",
+            "profiler_class": "components.devices.cpu_profiler.LocalCpuProfiler"
+        })
+    if dev_type == "cuda":
+        if not has_cuda:
+            raise RuntimeError("device=cuda requested but no CUDA device is available.")
+        return OmegaConf.create({
+            "type": "cuda",
+            "cuda_device": device_cfg.get("cuda_device", 0),
+            "name": "nvidia_gpu_profiler",
+            "profiler_class": "components.devices.nvidia_gpu_profiler.NvidiaGpuProfiler"
+        })
+    # auto
+    if has_cuda:
+        return OmegaConf.create({
+            "type": "cuda",
+            "cuda_device": device_cfg.get("cuda_device", 0),
+            "name": "nvidia_gpu_profiler",
+            "profiler_class": "components.devices.nvidia_gpu_profiler.NvidiaGpuProfiler"
+        })
+    return OmegaConf.create({
+        "type": "cpu",
+        "name": "cpu_profiler",
+        "profiler_class": "components.devices.cpu_profiler.LocalCpuProfiler"
+    })
+
 
 def get_profiler(device_config: DictConfig):
-    """
-    Factory function to instantiate the correct device profiler
-    based on the configuration.
-    """
+    devicdevice_confige_type = resolve_device(device_config)
     profiler_class_path = device_config.profiler_class
     print(f"Instantiating profiler from: {profiler_class_path}")
-    
-    # Use hydra's utility to instantiate the class from its path
-    # We pass the device config to the profiler's __init__
-    profiler = hydra.utils.instantiate(
-        {"_target_": profiler_class_path, "config":device_config}
-    )
-    return profiler
+    return hydra.utils.instantiate({"_target_": profiler_class_path, "config": device_config})
 
 def run_benchmark(cfg: DictConfig):
     model_config = cfg.model
-    device_config = cfg.device
+    device_config = resolve_device(cfg.device)
     
     # Load model (Your existing logic)
     loader = get_model_loader(dict(model_config))
     print(f"Loading {model_config.model_category} model: {model_config.model_id}")
-    loader.load_model(dict(model_config))
+    model_cfg_dict = dict(model_config)
+    model_cfg_dict["device_preference"] = device_config.type  # 'cpu' or 'cuda'
+    loader.load_model(model_cfg_dict)
     
     # 2. Instantiate the Device Profiler using the factory
     profiler = get_profiler(device_config)
