@@ -1,4 +1,3 @@
-# @package group
 # device:
 type: cuda 
 cuda_device: 0  # Optional: select GPU id if multiple GPUs are available
