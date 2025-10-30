@@ -2,7 +2,7 @@
 defaults:
   - _self_
   - model: distilgpt2 # tiny model for debugging
-  - device: cpu.yaml
+  - device: cpu
   
   # - scenario: mmlu_ethics
   # - override hydra/job_logging: colorlog

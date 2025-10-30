@@ -14,8 +14,7 @@ def get_profiler(device_config: DictConfig):
     # Use hydra's utility to instantiate the class from its path
     # We pass the device config to the profiler's __init__
     profiler = hydra.utils.instantiate(
-        {"_target_": profiler_class_path},
-        config=device_config
+        {"_target_": profiler_class_path, "config":device_config}
     )
     return profiler
 
