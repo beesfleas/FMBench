@@ -55,7 +55,7 @@ def run_benchmark(cfg: DictConfig):
     model_config = cfg.model
     device_config = resolve_device(cfg.device)
     
-    # Load model (Your existing logic)
+    # 1. Load model
     loader = get_model_loader(dict(model_config))
     print(f"Loading {model_config.model_category} model: {model_config.model_id}")
     model_cfg_dict = dict(model_config)
