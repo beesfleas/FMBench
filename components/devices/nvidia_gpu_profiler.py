@@ -71,17 +71,31 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             # Sample every 0.1 seconds
             time.sleep(0.1)
 
+    # def get_metrics(self):
+    #     """
+    #     Returns the collected metrics.
+    #     """
+    #     if self.metrics["measurements"] > 0:
+    #         self.metrics["average_utilization_percent"] /= self.metrics["measurements"]
+        
+    #     # Clean up transient values
+    #     self.metrics.pop("measurements", None)
+        
+    #     return self.metrics
+
     def get_metrics(self):
         """
-        Returns the collected metrics.
+        Returns a copy of the collected metrics.
         """
-        if self.metrics["measurements"] > 0:
-            self.metrics["average_utilization_percent"] /= self.metrics["measurements"]
+        final_metrics = self.metrics.copy()
+        measurements = final_metrics.get("measurements", 0)
+        if measurements > 0:
+            final_metrics["average_utilization_percent"] /= measurements
         
-        # Clean up transient values
-        self.metrics.pop("measurements", None)
+
+        final_metrics.pop("measurements", None)
         
-        return self.metrics
+        return final_metrics
 
     def stop_monitoring(self):
         """Stops monitoring and shuts down pynvml."""
