@@ -47,8 +47,8 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         inputs = {k: v.to(device) for k, v in inputs.items()}
 
         output_ids = self.model.generate(
-            input_ids=inputs.input_ids,
-            attention_mask=inputs.attention_mask,
+            input_ids=inputs['input_ids'],
+            attention_mask=inputs['attention_mask'],
             max_new_tokens=self.config.get("max_tokens", 64),
             pad_token_id=self.tokenizer.pad_token_id     # Explicitly set pad_token_id (idk why this is needed but it works)
         )

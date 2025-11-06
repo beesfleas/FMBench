@@ -49,14 +49,28 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             # Sample every 0.1 seconds
             time.sleep(0.1)
 
+    # def get_metrics(self):
+    #     """
+    #     Returns the collected metrics.
+    #     """
+    #     if self.metrics["measurements"] > 0:
+    #         self.metrics["average_cpu_percent"] /= self.metrics["measurements"]
+        
+    #     # Clean up transient values
+    #     self.metrics.pop("measurements", None)
+        
+    #     return self.metrics
+    
     def get_metrics(self):
         """
-        Returns the collected metrics.
+        Returns a copy of the collected metrics.
         """
-        if self.metrics["measurements"] > 0:
-            self.metrics["average_cpu_percent"] /= self.metrics["measurements"]
+        final_metrics = self.metrics.copy()
         
-        # Clean up transient values
-        self.metrics.pop("measurements", None)
+        measurements = final_metrics.get("measurements", 0)
+        if measurements > 0:
+            final_metrics["average_cpu_percent"] /= measurements
         
-        return self.metrics
+        final_metrics.pop("measurements", None)
+        
+        return final_metrics

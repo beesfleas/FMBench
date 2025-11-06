@@ -30,7 +30,7 @@ def resolve_device(device_cfg: DictConfig) -> DictConfig:
             "name": "nvidia_gpu_profiler",
             "profiler_class": "components.devices.nvidia_gpu_profiler.NvidiaGpuProfiler"
         })
-    # auto
+
     if has_cuda:
         return OmegaConf.create({
             "type": "cuda",
@@ -156,3 +156,9 @@ def run_basic_test(loader, model_config):
         # Basic LLM test
         prompt = "Hello, what is your name?"
         print(f"Test Prompt: {prompt}")
+        #changes i think ti was missing these
+        try:
+            result = loader.predict(prompt)
+            print(f"Test Result: {result}")
+        except Exception as e:
+            print(f"Test prediction failed: {e}")
