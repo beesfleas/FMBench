@@ -161,10 +161,10 @@ def run_basic_test(loader, model_config):
         print("Time Series model loaded. Use +scenario=simple_timeseries to test.")
     else:
         # Basic LLM test
-        prompt = "Tell me the funniest joke."
-        print(f"Test Prompt: {prompt}")
+        prompt = "Tell me a joke."
+        print(f"Test Prompt:\n{prompt}")
         try:
             result = loader.predict(prompt)
-            print(f"Test Result: {result}")
+            print(f"Test Result:\n{result}")
         except Exception as e:
             print(f"Test prediction failed: {e}")
