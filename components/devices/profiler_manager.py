@@ -10,10 +10,13 @@ class ProfilerManager:
     """
     Coordinates multiple profilers based on device configuration.
     Manages lifecycle and ensures synchronized metrics collection.
+    
+    (Minimally updated to support context manager and metric storage)
     """
     def __init__(self, config: Dict):
         self.config = config
         self.profilers: List[BaseDeviceProfiler] = []
+        self.all_metrics: Dict[str, Dict] = {} # <-- ADDED: To store results
         self._initialize_profilers()
     
     def _initialize_profilers(self):
@@ -38,17 +41,40 @@ class ProfilerManager:
             profiler.start_monitoring()
     
     def stop_all(self):
-        """Stop all profilers simultaneously."""
+        """
+        Stop all profilers simultaneously and store metrics.
+        Returns the collected metrics.
+        """
+        self.all_metrics = {} # <-- ADDED: Clear previous metrics
         for profiler in self.profilers:
-            profiler.stop_monitoring()
+            # stop_monitoring() now returns the metrics
+            metrics = profiler.stop_monitoring() 
+            
+            # ADDED: Determine a robust key for the metrics dict
+            if isinstance(profiler, LocalCpuProfiler):
+                profiler_name = "cpu_profiler"
+            elif isinstance(profiler, NvidiaGpuProfiler):
+                profiler_name = "nvidia_gpu_profiler"
+            else:
+                profiler_name = profiler.__class__.__name__.replace("Profiler", "").lower()
+                
+            self.all_metrics[profiler_name] = metrics
+        
+        return self.all_metrics # <-- ADDED: Return all collected metrics
     
     def get_all_metrics(self) -> Dict[str, Dict]:
         """
-        Collect metrics from all profilers.
-        Returns dict keyed by profiler type.
+        Returns the dictionary of all collected metrics.
         """
-        metrics = {}
-        for profiler in self.profilers:
-            profiler_name = profiler.__class__.__name__.replace("Profiler", "").lower()
-            metrics[profiler_name] = profiler.get_metrics()
-        return metrics
+        return self.all_metrics
+
+    # --- ADDED: Context Manager Support ---
+    def __enter__(self):
+        """Context manager entry."""
+        self.start_all()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Context manager exit. Stops and stores metrics."""
+        self.stop_all()
+    # --- END OF ADDED BLOCK ---
