@@ -5,135 +5,145 @@ import torch
 import json
 from components.devices.profiler_manager import ProfilerManager
 
-def resolve_device(device_cfg: DictConfig) -> DictConfig:
+# --- Helper Functions for Orchestration ---
+
+def _setup_components(cfg: DictConfig):
     """
-    Resolve device based on config and availability.
-    - type == 'cpu'  -> force CPU
-    - type == 'cuda' -> require GPU (error if not available)
-    - type == 'auto' -> use CUDA if available else CPU
-    Returns a new DictConfig with concrete type ('cpu' or 'cuda') and profiler_class.
+    Initialize all necessary components.
+    Returns: (loader, profiler_manager, scenario)
     """
-    dev_type = device_cfg.get("type", "auto")
-    has_cuda = torch.cuda.is_available()
-
-    if dev_type == "cpu":
-        return OmegaConf.create({
-            "type": "cpu",
-            "name": "cpu_profiler",
-            "profiler_class": "components.devices.cpu_profiler.LocalCpuProfiler"
-        })
-    if dev_type == "cuda":
-        if not has_cuda:
-            raise RuntimeError("device=cuda requested but no CUDA device is available.")
-        return OmegaConf.create({
-            "type": "cuda",
-            "cuda_device": device_cfg.get("cuda_device", 0),
-            "name": "nvidia_gpu_profiler",
-            "profiler_class": "components.devices.nvidia_gpu_profiler.NvidiaGpuProfiler"
-        })
-
-    # Auto-detection
-    if has_cuda:
-        print("Auto-detected CUDA, using GPU.")
-        return OmegaConf.create({
-            "type": "cuda",
-            "cuda_device": device_cfg.get("cuda_device", 0),
-            "name": "nvidia_gpu_profiler",
-            "profiler_class": "components.devices.nvidia_gpu_profiler.NvidiaGpuProfiler"
-        })
-    else:
-        print("Auto-detected no CUDA, using CPU.")
-        return OmegaConf.create({
-            "type": "cpu",
-            "name": "cpu_profiler",
-            "profiler_class": "components.devices.cpu_profiler.LocalCpuProfiler"
-        })
-
-def run_benchmark(cfg: DictConfig):
-    """
-    Main benchmark orchestration function.
-    """
-    print("Starting benchmark run...")
-    print("--- Provided Configs ---\n", OmegaConf.to_yaml(cfg)) # Can be noisy
-
-    # 1. Resolve device
-    device_cfg = resolve_device(cfg.get("device", OmegaConf.create({"type": "auto"})))
-    cfg.device = device_cfg # Update config with resolved device
-    print(f"Resolved device: {device_cfg.type}")
-
-    # 2. Initialize ProfilerManager
-    profiler_manager = None
+    # 1. Initialize ProfilerManager
     try:
         profiler_manager = ProfilerManager(cfg) 
         print("ProfilerManager initialized.")
     except Exception as e:
-        print(f"Error initializing ProfilerManager: {e}. Continuing without profiling.")
+        print(f"Error initializing ProfilerManager: {e}. Profiling will be disabled.")
+        profiler_manager = None
 
-    # 3. Load Model
-    print("Loading model...")
-    loader = get_model_loader(cfg.model)
-    loader.load_model(cfg.model)
-    print("Model loaded.")
+    # 2. Load Model
+    try:
+        print("Loading model...")
+        loader = get_model_loader(cfg.model)
+        loader.load_model(cfg.model)
+        print("Model loaded.")
+    except Exception as e:
+        print(f"Fatal Error: Could not load model: {e}")
+        raise 
 
-    # 4. Load Scenario
+    # 3. Load Scenario
     scenario = None
     if "scenario" in cfg and cfg.scenario:
-        print(f"Loading scenario: {cfg.scenario._target_}")
         try:
-            # Instantiate scenario using Hydra
+            print(f"Loading scenario: {cfg.scenario._target_}")
             scenario = hydra.utils.instantiate(cfg.scenario)
             scenario.load_tasks()
             print(f"Scenario '{scenario.name}' loaded with {len(scenario.tasks)} tasks.")
         except Exception as e:
-            print(f"Error loading scenario: {e}")
-            raise
+            print(f"Fatal Error: Could not load scenario: {e}")
+            raise # Re-raise
     else:
-        print("No scenario specified, running basic test.")
+        print("No scenario specified, running basic sanity test.")
 
-    # 5. Run Benchmark and Profile
+    return loader, profiler_manager, scenario
+
+def _run_execution(cfg: DictConfig, loader, profiler_manager, scenario):
+    """
+    Run the core benchmark logic, with or without profiling.
+    Returns: (all_metrics)
+    """
     print("Starting benchmark execution...")
-    all_metrics = {} # This will store device metrics
+    all_metrics = {}
 
-    try:
-        if profiler_manager:
-            # Run WITH profiling
-            print("Starting run with profiling...")
-            with profiler_manager:
-                if scenario:
-                    run_scenario(loader, scenario, cfg.model.model_category)
-                else:
-                    run_basic_test(loader, cfg.model)
-            
-            print("Profiling complete.")
-            device_metrics = profiler_manager.get_all_metrics()
-            all_metrics["device_metrics"] = device_metrics
-            print("Collected device metrics.")
-
-        else:
-            # Run WITHOUT profiling
-            print("Starting run without profiling...")
+    if profiler_manager:
+        # Run WITH profiling
+        print("Starting run with profiling...")
+        with profiler_manager:
             if scenario:
                 run_scenario(loader, scenario, cfg.model.model_category)
             else:
                 run_basic_test(loader, cfg.model)
-            print("Run complete (no profiling).")
+        
+        # Metrics are collected *after* the 'with' block exits
+        all_metrics["device_metrics"] = profiler_manager.get_all_metrics()
+        print("Collected device metrics.")
 
-    except Exception as e:
-        print(f"Benchmark run failed: {e}")
+    else:
+        # Run WITHOUT profiling
+        print("Starting run without profiling...")
+        if scenario:
+            run_scenario(loader, scenario, cfg.model.model_category)
+        else:
+            run_basic_test(loader, cfg.model)
+        print("Run complete (no profiling).")
 
-    # 7. Print Final Metrics
-    print("\n--- Benchmark Complete ---")
-    if all_metrics: # Only print if we collected device metrics
+    return all_metrics
+
+def _run_metric_aggregator(all_metrics: dict):
+    """
+    (Placeholder) Future component for analyzing and saving results.
+    For now, it just prints the final metrics.
+    """
+    print("\n--- Benchmark Complete: Final Metrics ---")
+    
+    if all_metrics:
         try:
             # Use json for a clean print of the collected metrics
             print(json.dumps(all_metrics, indent=2, default=str))
-        except Exception:
-            # Fallback
+        except Exception as e:
+            print(f"Error printing JSON, falling back to raw print: {e}")
             print(all_metrics)
     else:
-        print("No metrics collected.")
-    print("--------------------------")
+        print("No metrics were collected.")
+        
+    print("-----------------------------------------")
 
+def _teardown(loader, all_metrics):
+    """
+    Clean up resources and pass metrics to the aggregator.
+    """
+    # 1. Unload Model
+    if loader:
+        print("Unloading model...")
+        if hasattr(loader, 'unload_model') and callable(loader.unload_model):
+            loader.unload_model()
+        else:
+            print("(Loader has no unload_model method, skipping.)")
+            
+    # 2. Run Metric Aggregator (Placeholder)
+    _run_metric_aggregator(all_metrics)
+
+
+# --- Main Orchestration Function ---
+
+def run_benchmark(cfg: DictConfig):
+    """
+    Main benchmark orchestration function.
+    Orchestrates Setup, Execution, and Teardown.
+    """
+    print("Starting benchmark run...")
+    print("--- Provided Configs ---\n", OmegaConf.to_yaml(cfg))
+
+    loader = None
+    all_metrics = {}
+    
+    try:
+        # 1. SETUP
+        loader, profiler_manager, scenario = _setup_components(cfg)
+
+        # 2. EXECUTION
+        all_metrics = _run_execution(cfg, loader, profiler_manager, scenario)
+
+    except Exception as e:
+        print(f"\n--- Benchmark RUN FAILED ---")
+        print(f"An error occurred during Setup or Execution: {e}")
+        # We still proceed to 'finally' for cleanup
+    
+    finally:
+        # 3. TEARDOWN
+        _teardown(loader, all_metrics)
+
+
+# --- Scenario & Test Functions ---
 
 def run_scenario(loader, scenario, model_category):
     """
@@ -157,9 +167,8 @@ def run_basic_test(loader, model_config):
         print("Time Series model loaded. Use +scenario=simple_timeseries to test.")
     else:
         # Basic LLM test
-        prompt = "Hello, what is your name?"
+        prompt = "Tell me the funniest joke."
         print(f"Test Prompt: {prompt}")
-        #changes i think ti was missing these
         try:
             result = loader.predict(prompt)
             print(f"Test Result: {result}")
