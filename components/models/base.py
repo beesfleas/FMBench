@@ -15,3 +15,9 @@ class BaseModelLoader:
             Generated text response
         """
         raise NotImplementedError
+
+    def unload_model(self):
+        """
+        Releases all model-related resources from VRAM and RAM.
+        """
+        pass

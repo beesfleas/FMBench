@@ -1,6 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from .base import BaseModelLoader
 import torch
+import gc
 
 class HuggingFaceLLMLoader(BaseModelLoader):
     def __init__(self):
@@ -53,3 +54,16 @@ class HuggingFaceLLMLoader(BaseModelLoader):
             pad_token_id=self.tokenizer.pad_token_id     # Explicitly set pad_token_id (idk why this is needed but it works)
         )
         return self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
+
+    def unload_model(self):
+        model_id = self.config.get("model_id", "Unknown model")
+        print(f"Unloading model: {model_id}")
+        
+        self.model = None
+        self.tokenizer = None
+        
+        # 2. Empty the CUDA cache
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
+        gc.collect()

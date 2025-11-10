@@ -102,12 +102,7 @@ def _teardown(loader, all_metrics):
     Clean up resources and pass metrics to the aggregator.
     """
     # 1. Unload Model
-    if loader:
-        print("Unloading model...")
-        if hasattr(loader, 'unload_model') and callable(loader.unload_model):
-            loader.unload_model()
-        else:
-            print("(Loader has no unload_model method, skipping.)")
+    loader.unload_model()
             
     # 2. Run Metric Aggregator (Placeholder)
     _run_metric_aggregator(all_metrics)
@@ -136,7 +131,6 @@ def run_benchmark(cfg: DictConfig):
     except Exception as e:
         print(f"\n--- Benchmark RUN FAILED ---")
         print(f"An error occurred during Setup or Execution: {e}")
-        # We still proceed to 'finally' for cleanup
     
     finally:
         # 3. TEARDOWN
