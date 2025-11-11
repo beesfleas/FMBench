@@ -1,10 +1,12 @@
 # @package _global_
+log_level: INFO
+sampling_interval: 1 # Sample 1 time per 1 second
+
 defaults:
   - _self_
   - model: distilgpt2 # tiny model for debugging
   - device: auto
   # - scenario: mmlu_ethics
-  # - sampling_interval: 0.5 # Sample 1 time per 0.5 second
 
 reporter:
   type: json

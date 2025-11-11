@@ -5,6 +5,9 @@ from PIL import Image
 import os
 import torch
 import gc
+import logging
+
+log = logging.getLogger(__name__)
 
 class HuggingFaceVLMLoader(BaseModelLoader):
     def __init__(self):
@@ -17,7 +20,7 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         self.config = config
         self.processor = AutoProcessor.from_pretrained(model_id)
         self.model = AutoModelForImageTextToText.from_pretrained(model_id)
-        print(f"Loaded VLM model: {model_id}")
+        logging.info(f"Loaded VLM model: {model_id}")
 
     def predict(self, prompt, image=None, time_series_data=None):
         if image is None:
@@ -59,13 +62,13 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         try:
             return self.processor(text=prompt, images=image, return_tensors="pt")
         except Exception as e1:
-            print(f"Method 1 failed: {e1}")
+            logging.debug(f"Method 1 failed: {e1}")
             
         # Method 2: With image placeholder
         try:
             return self.processor(text=f"<image>\n{prompt}", images=image, return_tensors="pt")
         except Exception as e2:
-            print(f"Method 2 failed: {e2}")
+            logging.debug(f"Method 2 failed: {e2}")
             
         # Method 3: Conversation format (for chat models)
         try:
@@ -73,13 +76,13 @@ class HuggingFaceVLMLoader(BaseModelLoader):
             text = self.processor.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
             return self.processor(text=text, images=image, return_tensors="pt")
         except Exception as e3:
-            print(f"Method 3 failed: {e3}")
+            logging.debug(f"Method 3 failed: {e3}")
             
         # Method 4: Just image (for captioning models)
         try:
             return self.processor(images=image, return_tensors="pt")
         except Exception as e4:
-            print(f"Method 4 failed: {e4}")
+            logging.debug(f"Method 4 failed: {e4}")
             
         # If all methods fail, raise error
         raise RuntimeError("Could not process VLM inputs with any supported format")
@@ -97,8 +100,6 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         return self.processor.decode(output_ids[0], skip_special_tokens=True).strip()
 
     def unload_model(self):
-        model_id = self.config.get("model_id", "Unknown model")
-
         self.model = None
         self.tokenizer = None
 
@@ -106,5 +107,3 @@ class HuggingFaceVLMLoader(BaseModelLoader):
             torch.cuda.empty_cache()
             
         gc.collect()
-
-        print(f"Unloaded model: {model_id}")

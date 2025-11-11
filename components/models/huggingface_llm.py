@@ -2,6 +2,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from .base import BaseModelLoader
 import torch
 import gc
+import logging
+
+log = logging.getLogger(__name__)
 
 class HuggingFaceLLMLoader(BaseModelLoader):
     def __init__(self):
@@ -35,11 +38,11 @@ class HuggingFaceLLMLoader(BaseModelLoader):
             # load_in_4bit=True,
         )
 
-        print(f"Loaded LLM model: {model_id}")
+        logging.info(f"Loaded LLM model: {model_id}")
 
     def predict(self, prompt, image=None, time_series_data=None):
         if image is not None:
-            print("Warning: Image input provided to text-only model, ignoring image")
+            logging.warning("Image input provided to text-only model, ignoring image")
 
         inputs = self.tokenizer(prompt, return_tensors="pt", padding=True)
 
@@ -59,8 +62,6 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         return self.tokenizer.decode(new_token_ids, skip_special_tokens=True).strip()
 
     def unload_model(self):
-        model_id = self.config.get("model_id", "Unknown model")
-
         self.model = None
         self.tokenizer = None
 
@@ -68,5 +69,3 @@ class HuggingFaceLLMLoader(BaseModelLoader):
             torch.cuda.empty_cache()
             
         gc.collect()
-
-        print(f"Unloaded model: {model_id}")

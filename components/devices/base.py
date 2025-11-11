@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
 import threading
+import logging
 
+log = logging.getLogger(__name__)
 class BaseDeviceProfiler(ABC):
     """
     Abstract base class for all device profilers.
@@ -13,7 +15,7 @@ class BaseDeviceProfiler(ABC):
         self._monitoring_thread = None
         self._is_monitoring = False
         self.device_name = "[Unknown Device]"
-        print(f"Initialized Profiler: {self.__class__.__name__}")
+        log.info(f"Initialized Profiler: {self.__class__.__name__}")
 
     @abstractmethod
     def get_device_info(self) -> str:
@@ -42,9 +44,9 @@ class BaseDeviceProfiler(ABC):
         if self._monitoring_thread is None:
             self._is_monitoring = True
             self._monitoring_thread = self._start_monitoring_thread()
-            print(f"{self.__class__.__name__} monitoring started...")
+            log.debug(f"{self.__class__.__name__} monitoring started...")
         else:
-            print("Monitoring is already active.")
+            log.warning(f"{self.__class__.__name__} monitoring is already active.")
 
     def stop_monitoring(self):
         """Stops the monitoring thread and collects final metrics."""
@@ -52,9 +54,9 @@ class BaseDeviceProfiler(ABC):
             self._is_monitoring = False
             self._monitoring_thread.join()
             self._monitoring_thread = None
-            print(f"{self.__class__.__name__} monitoring stopped.")
+            log.debug(f"{self.__class__.__name__} monitoring stopped.")
         else:
-            print("No monitoring to stop.")
+            log.warning("No monitoring to stop.")
         
         return self.get_metrics()
 

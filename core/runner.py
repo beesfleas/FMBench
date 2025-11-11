@@ -1,12 +1,17 @@
+import logging
 from components.models.model_factory import get_model_loader
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import torch
 import json
+import os
+import copy
 from components.devices.profiler_manager import ProfilerManager
 from typing import Optional, Tuple
 
-def resolve_device_intent(device_cfg: DictConfig) -> str:
+log = logging.getLogger(__name__)
+
+def resolve_device_type(device_cfg: DictConfig) -> str:
     """
     Resolves the user's *intent* for device type.
     - type == 'cpu'  -> force CPU
@@ -30,9 +35,9 @@ def _setup_environment(cfg: DictConfig) -> ProfilerManager:
     Initializes the ProfilerManager based on the platform.
     """
     # Resolve Device Intent and update config
-    device_type = resolve_device_intent(cfg.get("device", OmegaConf.create({"type": "auto"})))
+    device_type = resolve_device_type(cfg.get("device", OmegaConf.create({"type": "auto"})))
     cfg.device.type = device_type
-    print(f"Resolved device intent: {device_type}")
+    log.debug(f"Resolved device type: {device_type}")
     
     # Setup Device Profilers
     profiler_manager = ProfilerManager(cfg)
@@ -40,22 +45,22 @@ def _setup_environment(cfg: DictConfig) -> ProfilerManager:
 
 def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
     """
-    Loads the model and scenario (if one is provided).
+    Loads the model and scenario.
     """
     # Load Model
-    print("Loading model...")
+    log.debug("Loading model...")
     loader = get_model_loader(cfg.model)
     loader.load_model(cfg.model)
 
     # Load Scenario
     scenario = None
     if "scenario" in cfg and cfg.scenario:
-        print(f"Loading scenario: {cfg.scenario._target_}")
+        log.info(f"Loading scenario: {cfg.scenario._target_}")
         scenario = hydra.utils.instantiate(cfg.scenario)
         scenario.load_tasks()
-        print(f"Scenario '{scenario.name}' loaded with {len(scenario.tasks)} tasks.")
+        log.info(f"Scenario '{scenario.name}' loaded with {len(scenario.tasks)} tasks.")
     else:
-        print("No scenario specified, running basic sanity test.")
+        log.warning("No scenario specified, running basic sanity test.")
         
     return loader, scenario
 
@@ -63,7 +68,7 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
     """
     Run inference with profiling.
     """
-    print("Starting benchmark execution...")
+    log.info("Starting benchmark execution...")
     all_metrics = {}
 
     with profiler_manager:
@@ -72,9 +77,8 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
         else:
             run_basic_test(loader, model_config)
     
-    print("Profiling complete.")
+    log.info("Benchmark completed.")
     all_metrics["device_metrics"] = profiler_manager.get_all_metrics()
-    print("Collected device metrics.")
     
     # TODO: Add scenario metrics collection here
     # all_metrics["scenario_metrics"] = scenario.get_results()
@@ -87,11 +91,11 @@ def _teardown_and_aggregate(loader: Optional[object], all_metrics: dict):
     """
     # Unload Model
     if loader:
-        print("Unloading model...")
+        log.debug("Unloading model...")
         if hasattr(loader, 'unload_model') and callable(loader.unload_model):
             loader.unload_model()
         else:
-            print("(Loader has no unload_model method, skipping.)")
+            log.warning("(Loader has no unload_model method, skipping.)")
             
     # Run Metric Aggregator
     _aggregate_metrics(all_metrics)
@@ -116,8 +120,8 @@ def run_benchmark(cfg: DictConfig):
     """
     Main benchmark orchestration function, now following the ideal flow.
     """
-    print("Starting benchmark run...")
-    print("--- Config Info ---\n", OmegaConf.to_yaml(cfg))
+    log.debug("Starting benchmark run...")
+    print("--- Received Configs ---\n" + OmegaConf.to_yaml(cfg) + "------------------------")
 
     loader, profiler_manager = None, None
     all_metrics = {}
@@ -126,18 +130,18 @@ def run_benchmark(cfg: DictConfig):
         # Setup device profilers
         profiler_manager = _setup_environment(cfg)
         # Print hardware info
-        profiler_manager.print_hardware_info()
+        log.info(profiler_manager.get_hardware_info())
         # Load model
         loader, scenario = _setup_benchmark(cfg)
         # Inference
         all_metrics = _run_execution(loader, scenario, cfg.model, profiler_manager)
 
     except Exception as e:
-        print(f"\n--- FATAL BENCHMARK ERROR ---")
-        print(f"{type(e).__name__}: {e}")
+        log.critical("\n--- FATAL BENCHMARK ERROR ---", exc_info=True)
+        log.critical(f"{type(e).__name__}: {e}")
         import traceback
         traceback.print_exc()
-        print("-------------------------------")
+        log.critical("-------------------------------")
     
     finally:
         # Unload model and Aggregate results
@@ -155,7 +159,7 @@ def run_scenario(loader, scenario, model_category):
 
 def run_basic_test(loader, model_config):
     """Run basic sanity test without scenario"""
-    print("Running basic test...")
+    log.info("Running basic test...")
     
     if model_config.model_category == "VLM":
         print("VLM model loaded. Use +scenario=simple_vlm to test.")
@@ -169,4 +173,4 @@ def run_basic_test(loader, model_config):
             result = loader.predict(prompt)
             print(f"Model Response:\n{result}")
         except Exception as e:
-            print(f"Test prediction failed: {e}")
+            log.error(f"Test prediction failed: {e}", exc_info=True)
