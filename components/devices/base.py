@@ -16,6 +16,14 @@ class BaseDeviceProfiler(ABC):
         print(f"Initialized Profiler: {self.__class__.__name__}")
 
     @abstractmethod
+    def get_device_info(self) -> str:
+        """
+        Return a string describing the hardware being profiled.
+        This should be available after __init__.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
     def _monitor_process(self):
         """
         The core monitoring loop. This should run in a separate thread.

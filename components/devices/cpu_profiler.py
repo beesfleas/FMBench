@@ -1,6 +1,5 @@
 import time
 import psutil
-import threading
 import platform
 from .base import BaseDeviceProfiler
 from collections import defaultdict
@@ -19,6 +18,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         # Store only raw samples
         self.samples = []
         self._start_time = None
+        self.device_name = f"{platform.processor()}"
         
         # Set availability flags
         self.power_monitoring_available = False
@@ -29,6 +29,10 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         # Call once before starting to get a baseline.
         psutil.cpu_percent(interval=None)
         print("Initialized CPU Profiler. Collecting system-wide metrics.")
+
+    def get_device_info(self) -> str:
+        """Return the device name set during initialization."""
+        return self.device_name
 
     def _check_metric_availability(self):
         """
@@ -46,7 +50,6 @@ class LocalCpuProfiler(BaseDeviceProfiler):
     def _monitor_process(self):
         """
         Lightweight monitoring loop - just collect raw data.
-        No calculations or aggregations happen here.
         """
         if self._start_time is None:
             self._start_time = time.perf_counter()
@@ -55,10 +58,9 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             monitor_start_time = time.perf_counter()
             
             # 1. System-wide CPU Utilization
-            # Non-blocking call, compares to last time it was called
             cpu_percent = psutil.cpu_percent(interval=None, percpu=False)
             
-            # 2. System-wide Virtual Memory (RAM)
+            # 2. System-wide Physical (Hardware) RAM
             vmem = psutil.virtual_memory()
             memory_used_mb = vmem.used / (1024 * 1024)
             memory_percent = vmem.percent
@@ -70,16 +72,14 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                     power_info = psutil.sensors_power()
                     if not power_info:
                         raise Exception("No power sensors found by psutil.")
-                        
                     if hasattr(power_info, 'core') and power_info.core:
                          power_watts = power_info.core.current
                     elif power_info:
                         power_watts = power_info[0].current
-                        
                 except Exception as e:
-                    if self._is_monitoring: # Avoid printing error if stopping
+                    if self._is_monitoring:
                         print(f"Warning: Could not read CPU power: {e}. Disabling power monitoring.")
-                    self.power_monitoring_available = False # Stop trying
+                    self.power_monitoring_available = False
             
             # 4. System-wide CPU Temperature (Celsius)
             cpu_temp_c = None
@@ -88,8 +88,6 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                     temps = psutil.sensors_temperatures()
                     if not temps:
                         raise Exception("No temperature sensors found by psutil.")
-                    
-                    # Try to find the main CPU package temperature
                     found_temp = False
                     for sensor_group, readings in temps.items():
                         for sensor in readings:
@@ -100,11 +98,8 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                                 break
                         if found_temp:
                             break
-                    
-                    # Fallback: if no specific CPU temp, grab the first available
                     if not found_temp:
                         cpu_temp_c = list(temps.values())[0][0].current
-                        
                 except Exception as e:
                     if self._is_monitoring:
                         print(f"Warning: Could not read CPU temperature: {e}. Disabling temperature monitoring.")
@@ -130,21 +125,18 @@ class LocalCpuProfiler(BaseDeviceProfiler):
 
     def get_metrics(self):
         """
-        Process all raw samples and return a structured dictionary
-        identical to the NvidiaGpuProfiler.
+        Process all raw samples and return a structured dictionary.
         """
         if not self.samples:
-            return {"error": "No metrics collected."}
+            return {"device_name": self.device_name, "error": "No metrics collected."}
 
         num_samples = len(self.samples)
         
-        # Calculate precise monitoring duration from samples
         if num_samples > 1:
             monitoring_duration = self.samples[-1]['timestamp'] - self.samples[0]['timestamp']
         else:
-            monitoring_duration = 0.0 # Not enough samples for a duration
+            monitoring_duration = 0.0
         
-        # Use defaultdict to simplify aggregation
         stats = defaultdict(list)
         power_values = []
         temp_values = []
@@ -159,36 +151,24 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 temp_values.append(sample["cpu_temp_c"])
 
         metrics = {
-            # Device Info
-            "device_name": f"{platform.processor()} (CPU/RAM)",
-            
-            # Raw data for detailed analysis
+            "device_name": self.device_name,
             "raw_samples": self.samples,
-            
-            # Summary statistics
             "num_samples": num_samples,
             "monitoring_duration_seconds": monitoring_duration,
             "sampling_interval": self.sampling_interval,
-
-            # CPU Utilization statistics
             "peak_cpu_utilization_percent": max(stats["cpu_utilization_percent"]),
             "average_cpu_utilization_percent": sum(stats["cpu_utilization_percent"]) / num_samples,
-            
-            # Memory statistics
             "peak_memory_mb": max(stats["memory_used_mb"]),
             "average_memory_mb": sum(stats["memory_used_mb"]) / num_samples,
             "peak_memory_utilization_percent": max(stats["memory_utilization_percent"]),
             "average_memory_utilization_percent": sum(stats["memory_utilization_percent"]) / num_samples,
         }
         
-        # Add power metrics only if they were successfully collected
         if power_values:
             metrics["peak_power_watts"] = max(power_values)
             metrics["average_power_watts"] = sum(power_values) / len(power_values)
             metrics["min_power_watts"] = min(power_values)
             
-            # Estimate energy consumption (J = W * s)
-            # This is a rough trapezoidal integration
             total_energy_joules = 0
             for i in range(1, len(self.samples)):
                 if self.samples[i]['power_watts'] is not None and self.samples[i-1]['power_watts'] is not None:

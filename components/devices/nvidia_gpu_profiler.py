@@ -1,5 +1,4 @@
 import time
-import threading
 from .base import BaseDeviceProfiler
 import pynvml
 
@@ -7,9 +6,6 @@ import pynvml
 class NvidiaGpuProfiler(BaseDeviceProfiler):
     """
     Profiler for NVIDIA GPUs using pynvml (nvidia-smi).
-    
-    Stores raw timestamped metrics during monitoring.
-    Analysis is deferred until get_metrics() is called.
     """
     def __init__(self, config):
         super().__init__(config)
@@ -26,25 +22,25 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             print(f"Failed to initialize pynvml: {e}")
             raise
         
-        # Configurable sampling rate (default: 1.0 second)
         self.sampling_interval = config.get("gpu_sampling_interval", 
                                             config.get("sampling_interval", 1.0))
-        
-        # Store only raw samples - minimal overhead
         self.samples = []
         self._start_time = None
         
-        # Set availability flags
         self.power_available = False
         self.temp_available = False
         self.memory_available = False
         self.util_available = False
+        
         self._check_metric_availability()
+
+    def get_device_info(self) -> str:
+        """Return the device name set during initialization."""
+        return self.device_name
 
     def _check_metric_availability(self):
         """
         Performs a test-read for each metric to set availability flags.
-        This prevents errors if a metric is unsupported or permissions are missing.
         """
         try:
             pynvml.nvmlDeviceGetPowerUsage(self.handle)
@@ -73,8 +69,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
     def _monitor_process(self):
         """
         Lightweight monitoring loop - just collect raw data.
-        No calculations or aggregations during monitoring.
-        Matches cpu_profiler.py robustness with per-metric error handling.
         """
         if self._start_time is None:
             self._start_time = time.perf_counter()
@@ -82,7 +76,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         while self._is_monitoring:
             monitor_start_time = time.perf_counter()
             
-            # --- 1. Power (Watts) ---
             power_watts = None
             if self.power_available:
                 try:
@@ -92,7 +85,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         print(f"Warning: Could not read GPU power: {e}. Disabling power monitoring.")
                     self.power_available = False
 
-            # --- 2. Temperature (Celsius) ---
             temp_c = None
             if self.temp_available:
                 try:
@@ -102,7 +94,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         print(f"Warning: Could not read GPU temp: {e}. Disabling temp monitoring.")
                     self.temp_available = False
 
-            # --- 3. Memory (MiB) ---
             memory_mb = None
             if self.memory_available:
                 try:
@@ -113,7 +104,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         print(f"Warning: Could not read GPU memory: {e}. Disabling memory monitoring.")
                     self.memory_available = False
 
-            # --- 4. Utilization (%) ---
             util_percent = None
             if self.util_available:
                 try:
@@ -124,10 +114,8 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         print(f"Warning: Could not read GPU util: {e}. Disabling util monitoring.")
                     self.util_available = False
             
-            # Get timestamp relative to the start
             timestamp = time.perf_counter() - self._start_time
             
-            # Store raw sample with minimal processing
             self.samples.append({
                 "timestamp": timestamp,
                 "power_watts": power_watts,
@@ -136,7 +124,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 "utilization_percent": util_percent
             })
             
-            # Use precise sleep to maintain sampling interval
             elapsed = time.perf_counter() - monitor_start_time
             sleep_duration = self.sampling_interval - elapsed
             if sleep_duration > 0:
@@ -145,7 +132,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
     def get_metrics(self):
         """
         Analyze raw samples after monitoring is complete.
-        Returns both raw data and computed statistics.
         """
         if not self.samples:
             return {
@@ -154,13 +140,11 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 "error": "No samples collected"
             }
         
-        # Extract arrays for analysis, gracefully skipping None values
         power_values = [s["power_watts"] for s in self.samples if s["power_watts"] is not None]
         temp_values = [s["temp_c"] for s in self.samples if s["temp_c"] is not None]
         memory_values = [s["memory_mb"] for s in self.samples if s["memory_mb"] is not None]
         util_values = [s["utilization_percent"] for s in self.samples if s["utilization_percent"] is not None]
         
-        # Calculate statistics
         num_samples = len(self.samples)
         if num_samples > 1:
             monitoring_duration = self.samples[-1]["timestamp"] - self.samples[0]["timestamp"]
@@ -168,26 +152,19 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             monitoring_duration = 0.0
         
         metrics = {
-            # Device Info
             "device_name": self.device_name,
-            
-            # Raw data for detailed analysis
             "raw_samples": self.samples,
-            
-            # Summary statistics
             "num_samples": num_samples,
             "monitoring_duration_seconds": monitoring_duration,
             "sampling_interval": self.sampling_interval,
         }
         
-        # --- Power statistics (only if available) ---
         if power_values:
             metrics.update({
                 "peak_power_watts": max(power_values),
                 "average_power_watts": sum(power_values) / len(power_values),
                 "min_power_watts": min(power_values),
             })
-            # Energy calculation (trapezoidal integration for accuracy)
             total_energy_joules = 0.0
             for i in range(1, num_samples):
                 if self.samples[i]["power_watts"] is not None and self.samples[i-1]["power_watts"] is not None:
@@ -200,7 +177,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 "total_energy_wh": total_energy_joules / 3600.0,
             })
 
-        # --- Temperature statistics (only if available) ---
         if temp_values:
             metrics.update({
                 "peak_temp_c": max(temp_values),
@@ -208,7 +184,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 "min_temp_c": min(temp_values),
             })
             
-        # --- Memory statistics (only if available) ---
         if memory_values:
             metrics.update({
                 "peak_memory_mb": max(memory_values),
@@ -216,7 +191,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 "min_memory_mb": min(memory_values),
             })
             
-        # --- Utilization statistics (only if available) ---
         if util_values:
             metrics.update({
                 "peak_utilization_percent": max(util_values),
@@ -230,7 +204,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         """
         Stop the monitoring thread and clean up.
         """
-        # Get metrics *before* pynvml.nvmlShutdown() is called
         metrics = super().stop_monitoring()
         try:
             pynvml.nvmlShutdown()

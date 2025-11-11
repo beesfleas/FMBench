@@ -1,6 +1,7 @@
+# components/devices/profiler_manager.py
 import torch
-import platform  # OS/hardware detection
-import os # Jetson/Pi detection
+import platform
+import os
 from typing import Dict, List
 from .base import BaseDeviceProfiler
 from .cpu_profiler import LocalCpuProfiler
@@ -9,7 +10,6 @@ from .mac_profiler import MacProfiler
 from .jetson_profiler import JetsonProfiler
 from .pi_profiler import PiProfiler
 
-# --- Helper functions for platform detection ---
 
 def is_jetson():
     """Check if we are running on an NVIDIA Jetson device."""
@@ -26,15 +26,47 @@ def is_raspberry_pi():
         pass
     return False
 
-# --- End of Helper Functions ---
+def get_platform_profiler_classes() -> List:
+    """
+    Detects the current hardware platform and returns the
+    appropriate profiler classes to use.
+    """
+    system = platform.system()
+    
+    if system == "Darwin":
+        # macOS (Apple Silicon or Intel)
+        return [MacProfiler]
+        
+    if system == "Linux":
+        if is_jetson():
+            # NVIDIA Jetson
+            return [JetsonProfiler]
+        if is_raspberry_pi():
+            # Raspberry Pi
+            return [PiProfiler]
+        
+        # Standard Linux PC (Intel/AMD)
+        # It will have a CPU and *maybe* an NVIDIA GPU
+        profilers = [LocalCpuProfiler]
+        if torch.cuda.is_available():
+            profilers.append(NvidiaGpuProfiler)
+        return profilers
+        
+    if system == "Windows":
+        # Standard Windows PC (Intel/AMD)
+        profilers = [LocalCpuProfiler]
+        if torch.cuda.is_available():
+            profilers.append(NvidiaGpuProfiler)
+        return profilers
+
+    # Fallback for unknown systems
+    return [LocalCpuProfiler]
 
 
 class ProfilerManager:
     """
     Coordinates multiple profilers based on device configuration.
     Manages lifecycle and ensures synchronized metrics collection.
-    
-    Now platform-aware: selects the correct profiler(s) for the OS and hardware.
     """
     def __init__(self, config: Dict):
         self.config = config
@@ -43,84 +75,58 @@ class ProfilerManager:
         self._initialize_profilers()
     
     def _initialize_profilers(self):
-        """
-        Detect the host platform and initialize the correct profilers.
-        """
-        device_type = self.config.get("device", {}).get("type", "cpu").lower()
-        os_type = platform.system()
+        """Detect available devices and initialize appropriate profilers."""
         
-        # --- 1. Select the CPU/System Profiler ---
-        if os_type == "Darwin":
-            self.profilers.append(MacProfiler(self.config))
+        profiler_classes = get_platform_profiler_classes()
+        
+        # Override with config if "cpu_only" is forced
+        if self.config.get("device", {}).get("type", "auto") == "cpu":
+            profiler_classes = [LocalCpuProfiler]
 
-        elif os_type == "Linux":
-            if is_jetson():
-                # Use the specific Jetson profiler
-                self.profilers.append(JetsonProfiler(self.config))
-            elif is_raspberry_pi():
-                # Use the specific Pi profiler
-                self.profilers.append(PiProfiler(self.config))
-            else:
-                # Standard Linux (e.g., Desktop, Server)
-                self.profilers.append(LocalCpuProfiler(self.config))
-
-        else: # Windows or other operating systems, certain metrics will not be collected.
-            self.profilers.append(LocalCpuProfiler(self.config))
-
-        # --- 2. Add NVIDIA GPU Profiler (if applicable) ---
-        if device_type == "cuda" and not is_jetson() and torch.cuda.is_available():
+        for profiler_class in profiler_classes:
             try:
-                self.profilers.append(NvidiaGpuProfiler(self.config))
-                print("NVIDIA GPU Profiler initialized")
+                profiler_instance = profiler_class(self.config)
+                self.profilers.append(profiler_instance)
             except Exception as e:
-                print(f"NVIDIA GPU Profiler unavailable: {e}")
+                print(f"Failed to initialize profiler {profiler_class.__name__}: {e}")
  
+    def print_hardware_info(self):
+        """
+        Prints the hardware info from all initialized profilers.
+        (Implements Ideal Step 4)
+        """
+        print("\n--- Hardware Info ---")
+        if not self.profilers:
+            print("  No profilers initialized.")
+            return
+            
+        for profiler in self.profilers:
+            print(f"  - {profiler.get_device_info()}")
+        print("---------------------\n")
+
     def start_all(self):
         """Start all profilers simultaneously."""
         for profiler in self.profilers:
             profiler.start_monitoring()
     
     def stop_all(self):
-        """
-        Stop all profilers simultaneously and store metrics.
-        Returns the collected metrics.
-        """
+        """Stop all profilers and collect their metrics."""
         print("Stopping profilers...")
-        self.all_metrics = {} 
         for profiler in self.profilers:
-            metrics = profiler.stop_monitoring() 
-            
-            # Determine a robust key for the metrics dict
-            if isinstance(profiler, LocalCpuProfiler):
-                profiler_name = "cpu_profiler"
-            elif isinstance(profiler, NvidiaGpuProfiler):
-                profiler_name = "nvidia_gpu_profiler"
-            elif isinstance(profiler, MacProfiler):
-                profiler_name = "mac_profiler"
-            elif isinstance(profiler, JetsonProfiler):
-                profiler_name = "jetson_profiler"
-            elif isinstance(profiler, PiProfiler):
-                profiler_name = "pi_profiler"
-            else:
-                profiler_name = profiler.__class__.__name__.replace("Profiler", "").lower()
-                
-            self.all_metrics[profiler_name] = metrics
-        
-        print("Profiling complete.")
-        return self.all_metrics
+            profiler_name = profiler.__class__.__name__.lower().replace("profiler", "")
+            self.all_metrics[profiler_name] = profiler.stop_monitoring()
     
     def get_all_metrics(self) -> Dict[str, Dict]:
         """
-        Returns the dictionary of all collected metrics.
+        Returns the collected metrics from all profilers.
         """
         return self.all_metrics
 
-    # --- Context Manager Support ---
     def __enter__(self):
-        """Context manager entry."""
+        """Start profilers when entering a 'with' block."""
         self.start_all()
         return self
-
+    
     def __exit__(self, exc_type, exc_value, traceback):
-        """Context manager exit. Stops and stores metrics."""
+        """Stop profilers when exiting a 'with' block."""
         self.stop_all()
