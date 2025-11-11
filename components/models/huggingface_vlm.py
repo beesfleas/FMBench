@@ -3,6 +3,8 @@ from transformers import AutoProcessor, AutoModelForImageTextToText
 from .base import BaseModelLoader
 from PIL import Image
 import os
+import torch
+import gc
 
 class HuggingFaceVLMLoader(BaseModelLoader):
     def __init__(self):
@@ -93,3 +95,16 @@ class HuggingFaceVLMLoader(BaseModelLoader):
             
         # Fallback: decode entire output
         return self.processor.decode(output_ids[0], skip_special_tokens=True).strip()
+
+    def unload_model(self):
+        model_id = self.config.get("model_id", "Unknown model")
+
+        self.model = None
+        self.tokenizer = None
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
+        gc.collect()
+
+        print(f"Unloaded model: {model_id}")

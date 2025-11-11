@@ -1,6 +1,7 @@
 from transformers import AutoModel
 from .base import BaseModelLoader
 import torch
+import gc
 
 class HuggingFaceTimeSeriesLoader(BaseModelLoader):
     def __init__(self):
@@ -24,3 +25,16 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
             outputs = self.model(time_series_data)
         # Add post-processing as needed here
         return outputs
+
+    def unload_model(self):
+        model_id = self.config.get("model_id", "Unknown model")
+
+        self.model = None
+        self.tokenizer = None
+
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            
+        gc.collect()
+
+        print(f"Unloaded model: {model_id}")

@@ -4,3 +4,4 @@ hydra-core
 omegaconf
 Pillow
 accelerate
+nvidia-ml-py
