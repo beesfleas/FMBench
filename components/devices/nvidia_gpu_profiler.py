@@ -34,11 +34,41 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         self.samples = []
         self._start_time = None
         
-        # Add graceful failure flags, just like cpu_profiler.py
-        self.power_available = True
-        self.temp_available = True
-        self.memory_available = True
-        self.util_available = True
+        # Set availability flags
+        self.power_available = False
+        self.temp_available = False
+        self.memory_available = False
+        self.util_available = False
+        self._check_metric_availability()
+
+    def _check_metric_availability(self):
+        """
+        Performs a test-read for each metric to set availability flags.
+        This prevents errors if a metric is unsupported or permissions are missing.
+        """
+        try:
+            pynvml.nvmlDeviceGetPowerUsage(self.handle)
+            self.power_available = True
+        except pynvml.NVMLError:
+            print("Warning: Could not read GPU power. Disabling power monitoring.")
+            
+        try:
+            pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
+            self.temp_available = True
+        except pynvml.NVMLError:
+            print("Warning: Could not read GPU temperature. Disabling temp monitoring.")
+            
+        try:
+            pynvml.nvmlDeviceGetMemoryInfo(self.handle)
+            self.memory_available = True
+        except pynvml.NVMLError:
+            print("Warning: Could not read GPU memory. Disabling memory monitoring.")
+            
+        try:
+            pynvml.nvmlDeviceGetUtilizationRates(self.handle)
+            self.util_available = True
+        except pynvml.NVMLError:
+            print("Warning: Could not read GPU utilization. Disabling util monitoring.")
 
     def _monitor_process(self):
         """
@@ -119,6 +149,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         """
         if not self.samples:
             return {
+                "device_name": self.device_name,
                 "raw_samples": [],
                 "error": "No samples collected"
             }
@@ -131,7 +162,10 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         
         # Calculate statistics
         num_samples = len(self.samples)
-        monitoring_duration = self.samples[-1]["timestamp"] - self.samples[0]["timestamp"]
+        if num_samples > 1:
+            monitoring_duration = self.samples[-1]["timestamp"] - self.samples[0]["timestamp"]
+        else:
+            monitoring_duration = 0.0
         
         metrics = {
             # Device Info

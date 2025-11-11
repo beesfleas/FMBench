@@ -20,6 +20,21 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         self.samples = []
         self._start_time = None
         
+        # Set availability flags
+        self.power_monitoring_available = False
+        self.temp_monitoring_available = False
+        self._check_metric_availability()
+
+        # Initialize psutil for CPU percent.
+        # Call once before starting to get a baseline.
+        psutil.cpu_percent(interval=None)
+        print("Initialized CPU Profiler. Collecting system-wide metrics.")
+
+    def _check_metric_availability(self):
+        """
+        Performs a test-read for each metric to set availability flags.
+        This prevents errors if a metric is unsupported or permissions are missing.
+        """
         self.power_monitoring_available = hasattr(psutil, 'sensors_power')
         if not self.power_monitoring_available:
             print("Warning: 'psutil.sensors_power' not found in this psutil build. Disabling power monitoring.")
@@ -27,11 +42,6 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         self.temp_monitoring_available = hasattr(psutil, 'sensors_temperatures')
         if not self.temp_monitoring_available:
             print("Warning: 'psutil.sensors_temperatures' not found in this psutil build. Disabling temperature monitoring.")
-
-        # Initialize psutil for CPU percent.
-        # Call once before starting to get a baseline.
-        psutil.cpu_percent(interval=None)
-        print("Initialized CPU Profiler. Collecting system-wide metrics.")
 
     def _monitor_process(self):
         """
