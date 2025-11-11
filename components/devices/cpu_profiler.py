@@ -28,7 +28,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         # Initialize psutil for CPU percent.
         # Call once before starting to get a baseline.
         psutil.cpu_percent(interval=None)
-        print("Initialized CPU Profiler. Collecting system-wide metrics.")
+        print("Initialized CPU Profiler.")
 
     def get_device_info(self) -> str:
         """Return the device name set during initialization."""

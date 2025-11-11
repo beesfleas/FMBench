@@ -60,13 +60,13 @@ class HuggingFaceLLMLoader(BaseModelLoader):
 
     def unload_model(self):
         model_id = self.config.get("model_id", "Unknown model")
-        print(f"Unloading model: {model_id}")
-        
+
         self.model = None
         self.tokenizer = None
-        
-        # 2. Empty the CUDA cache
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
             
         gc.collect()
+
+        print(f"Unloaded model: {model_id}")

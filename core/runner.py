@@ -46,7 +46,6 @@ def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
     print("Loading model...")
     loader = get_model_loader(cfg.model)
     loader.load_model(cfg.model)
-    print(f"Loaded {cfg.model.model_category} model: {cfg.model.model_id}")
 
     # Load Scenario
     scenario = None
@@ -144,8 +143,6 @@ def run_benchmark(cfg: DictConfig):
         # Unload model and Aggregate results
         _teardown_and_aggregate(loader, all_metrics)
 
-# --- These helper functions are unchanged ---
-
 def run_scenario(loader, scenario, model_category):
     """
     Placeholder for scenario-based benchmarking.
@@ -170,6 +167,6 @@ def run_basic_test(loader, model_config):
         print(f"Test Prompt:\n{prompt}")
         try:
             result = loader.predict(prompt)
-            print(f"Test Result:\n{result}")
+            print(f"Model Response:\n{result}")
         except Exception as e:
             print(f"Test prediction failed: {e}")

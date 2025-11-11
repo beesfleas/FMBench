@@ -16,7 +16,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             self.device_index = config.get("cuda_device", 0)
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_index)
             device_name = pynvml.nvmlDeviceGetName(self.handle)
-            print(f"Monitoring GPU: {device_name}")
             self.device_name = device_name
         except pynvml.NVMLError as e:
             print(f"Failed to initialize pynvml: {e}")
@@ -26,7 +25,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                                             config.get("sampling_interval", 1.0))
         self.samples = []
         self._start_time = None
-        
         self.power_available = False
         self.temp_available = False
         self.memory_available = False

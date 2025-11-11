@@ -2,12 +2,9 @@
 defaults:
   - _self_
   - model: distilgpt2 # tiny model for debugging
-  # - device: cpu
   - device: auto
-  
   # - scenario: mmlu_ethics
-  # - override hydra/job_logging: colorlog
-  # - override hydra/hydra_logging: colorlog
+  # - sampling_interval: 0.5 # Sample 1 time per 0.5 second
 
 reporter:
   type: json

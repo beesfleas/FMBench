@@ -1,4 +1,3 @@
-import time
 from abc import ABC, abstractmethod
 import threading
 
@@ -13,6 +12,7 @@ class BaseDeviceProfiler(ABC):
         self.metrics = {}
         self._monitoring_thread = None
         self._is_monitoring = False
+        self.device_name = "[Unknown Device]"
         print(f"Initialized Profiler: {self.__class__.__name__}")
 
     @abstractmethod
@@ -42,7 +42,7 @@ class BaseDeviceProfiler(ABC):
         if self._monitoring_thread is None:
             self._is_monitoring = True
             self._monitoring_thread = self._start_monitoring_thread()
-            print("Device monitoring started...")
+            print(f"{self.__class__.__name__} monitoring started...")
         else:
             print("Monitoring is already active.")
 
@@ -52,7 +52,7 @@ class BaseDeviceProfiler(ABC):
             self._is_monitoring = False
             self._monitoring_thread.join()
             self._monitoring_thread = None
-            print("Device monitoring stopped.")
+            print(f"{self.__class__.__name__} monitoring stopped.")
         else:
             print("No monitoring to stop.")
         
