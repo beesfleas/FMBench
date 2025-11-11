@@ -99,7 +99,7 @@ class ProfilerManager:
         str = "\n--- Hardware Info ---\n"
         if not self.profilers:
             str += "  No profilers initialized.\n"
-            return
+            return str
             
         for profiler in self.profilers:
             str += f"  - {profiler.get_device_info()}\n"
@@ -113,16 +113,22 @@ class ProfilerManager:
             profiler.start_monitoring()
     
     def stop_all(self):
-        """Stop all profilers and collect their metrics."""
-        log.info("Stopping profilers...")
+        """
+        Stop all profilers and *immediately* collect their metrics.
+        This is called by the __exit__ of the 'with' block.
+        """
+        log.info("Stopping profilers and collecting metrics...")
         for profiler in self.profilers:
-            profiler_name = profiler.__class__.__name__.lower().replace("profiler", "")
-            self.all_metrics[profiler_name] = profiler.stop_monitoring()
+            metrics = profiler.stop_monitoring()
+            profiler_name = profiler.__class__.__name__.lower()
+            self.all_metrics[profiler_name] = metrics
     
     def get_all_metrics(self) -> Dict[str, Dict]:
         """
         Returns the collected metrics from all profilers.
         """
+        if not self.all_metrics:
+            log.warning("get_all_metrics() called before profilers were stopped. No data to return.")
         return self.all_metrics
 
     def __enter__(self):

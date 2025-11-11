@@ -22,7 +22,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         self._start_time = None
         self.device_name = f"{platform.processor()}"
         
-        self.rapl_path = None
+        self.energy_counter_path = None # Generic path for Intel or AMD
         
         # Set availability flags
         self.power_monitoring_available = False
@@ -36,10 +36,9 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         """Return the device name set during initialization."""
         return self.device_name
 
-    def _find_rapl_path(self) -> str | None:
+    def _find_intel_rapl_path(self) -> str | None:
         """
         Find the path to the Intel RAPL package-0 energy counter.
-        e.g., /sys/class/powercap/intel-rapl:0/energy_uj
         """
         base_path = "/sys/class/powercap/"
         if not os.path.exists(base_path):
@@ -51,51 +50,94 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                     energy_path = os.path.join(base_path, dir_name, "energy_uj")
                     if os.path.exists(energy_path):
                         try:
-                            with open(energy_path, 'r') as f:
-                                f.read()
+                            with open(energy_path, 'r') as f: f.read()
                             return energy_path
                         except PermissionError:
-                            log.warning(f"RAPL file found ({energy_path}) but permission denied.")
+                            log.warning(f"Intel RAPL file found ({energy_path}) but permission denied.")
                             return None
         except Exception as e:
-            log.error(f"Error while searching for RAPL path: {e}")
+            log.error(f"Error while searching for Intel RAPL path: {e}")
+        return None
+
+    def _find_amd_energy_path(self) -> str | None:
+        """
+        Find the path to the AMD energy counter via hwmon.
+        """
+        base_path = "/sys/class/hwmon/"
+        if not os.path.exists(base_path):
+            return None
+            
+        try:
+            for dir_name in os.listdir(base_path):
+                if not dir_name.startswith("hwmon"):
+                    continue
+                
+                name_path = os.path.join(base_path, dir_name, "name")
+                energy_path = os.path.join(base_path, dir_name, "energy1_input")
+                
+                if os.path.exists(name_path) and os.path.exists(energy_path):
+                    with open(name_path, 'r') as f:
+                        name = f.read().strip()
+                    
+                    if name == "amd_energy":
+                        try:
+                            with open(energy_path, 'r') as f: f.read()
+                            return energy_path
+                        except PermissionError:
+                            log.warning(f"AMD Energy file found ({energy_path}) but permission denied.")
+                            return None
+        except Exception as e:
+            log.error(f"Error while searching for AMD Energy path: {e}")
         return None
 
     def _check_metric_availability(self):
         """
         Performs a test-read for each metric to set availability flags.
+        Tries psutil, then Intel RAPL, then AMD Energy.
         """
+        # 1. Check for psutil.sensors_power()
         self.power_monitoring_available = hasattr(psutil, 'sensors_power')
-        if not self.power_monitoring_available:
-            log.warning("'psutil.sensors_power' not found. Trying RAPL fallback...")
-            self.rapl_path = self._find_rapl_path()
-            if self.rapl_path:
-                log.info(f"RAPL fallback enabled. Found energy counter at: {self.rapl_path}")
-                self.power_monitoring_available = True # We can monitor power now!
-            else:
-                log.warning("RAPL fallback failed: No readable Intel RAPL energy_uj file found.")
-        else:
+        
+        if self.power_monitoring_available:
             log.info("psutil.sensors_power() found. Using psutil for power monitoring.")
+        else:
+            log.warning("'psutil.sensors_power' not found. Trying kernel file fallbacks...")
+            
+            # 2. Try Intel RAPL
+            self.energy_counter_path = self._find_intel_rapl_path()
+            if self.energy_counter_path:
+                log.info(f"Intel RAPL fallback enabled. Found energy counter at: {self.energy_counter_path}")
+                self.power_monitoring_available = True
+            else:
+                # 3. Try AMD Energy
+                self.energy_counter_path = self._find_amd_energy_path()
+                if self.energy_counter_path:
+                    log.info(f"AMD Energy fallback enabled. Found energy counter at: {self.energy_counter_path}")
+                    self.power_monitoring_available = True
+                else:
+                    log.warning("All power fallbacks failed: No readable Intel RAPL or AMD Energy file found.")
+            
+        # 4. Check for psutil.sensors_temperatures()
         self.temp_monitoring_available = hasattr(psutil, 'sensors_temperatures')
         if not self.temp_monitoring_available:
             log.warning("'psutil.sensors_temperatures' not found. Disabling temperature monitoring.")
 
-    def _read_rapl_energy_uj(self) -> int | None:
+    def _read_energy_uj(self) -> int | None:
         """
-        Reads the raw RAPL energy counter.
+        Reads the raw energy counter from the determined path.
         This is stateLESS and just returns the current microjoule value.
         """
         try:
-            with open(self.rapl_path, 'r') as f:
+            with open(self.energy_counter_path, 'r') as f:
                 current_energy_uj = int(f.read().strip())
             return current_energy_uj
             
         except PermissionError:
-            log.error(f"Permission denied reading RAPL file: {self.rapl_path}. Disabling power monitoring.")
+            log.error(f"Permission denied reading energy file: {self.energy_counter_path}. Disabling power monitoring.")
             self.power_monitoring_available = False
             return None
         except Exception as e:
-            log.error(f"Failed to read RAPL energy: {e}. Disabling power monitoring.")
+            log.error(f"Failed to read energy file: {e}. Disabling power monitoring.")
             self.power_monitoring_available = False
             return None
 
@@ -118,13 +160,14 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             memory_percent = vmem.percent
             
             # 3. System-wide CPU Power (Watts)
-            power_watts = None # Leave as None if using RAPL
+            power_watts = None
             energy_uj = None
             
             if self.power_monitoring_available:
-                if self.rapl_path:
-                    # Use RAPL fallback (Collects Energy)
-                    energy_uj = self._read_rapl_energy_uj()
+                if self.energy_counter_path:
+                    # Use Kernel File Fallback
+                    energy_uj = self._read_energy_uj()
+                    # power_watts remains None
                 else:
                     # Use psutil (Collects Power)
                     try:
@@ -172,7 +215,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 "cpu_utilization_percent": cpu_percent,
                 "memory_used_mb": memory_used_mb,
                 "memory_utilization_percent": memory_percent,
-                "power_watts": power_watts, # Will be None in RAPL mode
+                "power_watts": power_watts, # Will be None in RAPL/Energy mode
                 "energy_uj": energy_uj,     # Will be None in psutil mode
                 "cpu_temp_c": cpu_temp_c
             })
@@ -253,7 +296,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 if self.samples[i]['power_watts'] is not None and self.samples[i-1]['power_watts'] is not None:
                     dt = self.samples[i]['timestamp'] - self.samples[i-1]['timestamp']
                     avg_power = (self.samples[i]['power_watts'] + self.samples[i-1]['power_watts']) / 2
-                    total_energy_joules += avg_power * dt
+                    total_energy_joules += avg_power * dt    
             metrics["total_energy_joules"] = total_energy_joules
 
         if temp_values:
