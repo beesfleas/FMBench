@@ -3,3 +3,4 @@ __pycache__/
 outputs/
 test_image.jpg
 *.DS_Store
+logs

@@ -174,7 +174,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             
             metrics.update({
                 "total_energy_joules": total_energy_joules,
-                "total_energy_wh": total_energy_joules / 3600.0,
             })
 
         if temp_values:

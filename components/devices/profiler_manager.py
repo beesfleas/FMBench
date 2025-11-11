@@ -96,13 +96,13 @@ class ProfilerManager:
         """
         Gets the hardware info from all initialized profilers. Returns a string for printing
         """
-        str = "\n--- Hardware Info ---"
+        str = "\n--- Hardware Info ---\n"
         if not self.profilers:
-            str += "  No profilers initialized."
+            str += "  No profilers initialized.\n"
             return
             
         for profiler in self.profilers:
-            str += f"  - {profiler.get_device_info()}"
+            str += f"  - {profiler.get_device_info()}\n"
         str += "---------------------\n"
 
         return str
