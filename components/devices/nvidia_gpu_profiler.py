@@ -153,7 +153,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         
         metrics = {
             "device_name": self.device_name,
-            "raw_samples": self.samples,
+            # "raw_samples": self.samples,
             "num_samples": num_samples,
             "monitoring_duration_seconds": monitoring_duration,
             "sampling_interval": self.sampling_interval,
