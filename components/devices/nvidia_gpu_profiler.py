@@ -1,7 +1,9 @@
 import time
 from .base import BaseDeviceProfiler
 import pynvml
+import logging
 
+log = logging.getLogger(__name__)
 
 class NvidiaGpuProfiler(BaseDeviceProfiler):
     """
@@ -18,7 +20,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             device_name = pynvml.nvmlDeviceGetName(self.handle)
             self.device_name = device_name
         except pynvml.NVMLError as e:
-            print(f"Failed to initialize pynvml: {e}")
+            log.error(f"Failed to initialize pynvml: {e}")
             raise
         
         self.sampling_interval = config.get("gpu_sampling_interval", 
@@ -44,25 +46,25 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             pynvml.nvmlDeviceGetPowerUsage(self.handle)
             self.power_available = True
         except pynvml.NVMLError:
-            print("Warning: Could not read GPU power. Disabling power monitoring.")
+            log.warning("Could not read GPU power. Disabling power monitoring.")
             
         try:
             pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
             self.temp_available = True
         except pynvml.NVMLError:
-            print("Warning: Could not read GPU temperature. Disabling temp monitoring.")
+            log.warning("Could not read GPU temperature. Disabling temp monitoring.")
             
         try:
             pynvml.nvmlDeviceGetMemoryInfo(self.handle)
             self.memory_available = True
         except pynvml.NVMLError:
-            print("Warning: Could not read GPU memory. Disabling memory monitoring.")
+            log.warning("Could not read GPU memory. Disabling memory monitoring.")
             
         try:
             pynvml.nvmlDeviceGetUtilizationRates(self.handle)
             self.util_available = True
         except pynvml.NVMLError:
-            print("Warning: Could not read GPU utilization. Disabling util monitoring.")
+            log.warning("Could not read GPU utilization. Disabling util monitoring.")
 
     def _monitor_process(self):
         """
@@ -80,7 +82,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     power_watts = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000.0
                 except pynvml.NVMLError as e:
                     if self._is_monitoring:
-                        print(f"Warning: Could not read GPU power: {e}. Disabling power monitoring.")
+                        log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
                     self.power_available = False
 
             temp_c = None
@@ -89,7 +91,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     temp_c = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
                 except pynvml.NVMLError as e:
                     if self._is_monitoring:
-                        print(f"Warning: Could not read GPU temp: {e}. Disabling temp monitoring.")
+                        log.error(f"Could not read GPU temp: {e}. Disabling temp monitoring.")
                     self.temp_available = False
 
             memory_mb = None
@@ -99,7 +101,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     memory_mb = memory_info.used / (1024 * 1024)
                 except pynvml.NVMLError as e:
                     if self._is_monitoring:
-                        print(f"Warning: Could not read GPU memory: {e}. Disabling memory monitoring.")
+                        log.error(f"Could not read GPU memory: {e}. Disabling memory monitoring.")
                     self.memory_available = False
 
             util_percent = None
@@ -109,7 +111,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     util_percent = util_info.gpu
                 except pynvml.NVMLError as e:
                     if self._is_monitoring:
-                        print(f"Warning: Could not read GPU util: {e}. Disabling util monitoring.")
+                        log.error(f"Could not read GPU util: {e}. Disabling util monitoring.")
                     self.util_available = False
             
             timestamp = time.perf_counter() - self._start_time
@@ -206,6 +208,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         try:
             pynvml.nvmlShutdown()
         except pynvml.NVMLError as e:
-            print(f"Error during pynvml shutdown: {e}")
+            log.error(f"Error during pynvml shutdown: {e}")
         
         return metrics

@@ -2,6 +2,7 @@
 import torch
 import platform
 import os
+import logging
 from typing import Dict, List
 from .base import BaseDeviceProfiler
 from .cpu_profiler import LocalCpuProfiler
@@ -10,6 +11,7 @@ from .mac_profiler import MacProfiler
 from .jetson_profiler import JetsonProfiler
 from .pi_profiler import PiProfiler
 
+log = logging.getLogger(__name__)
 
 def is_jetson():
     """Check if we are running on an NVIDIA Jetson device."""
@@ -88,21 +90,22 @@ class ProfilerManager:
                 profiler_instance = profiler_class(self.config)
                 self.profilers.append(profiler_instance)
             except Exception as e:
-                print(f"Failed to initialize profiler {profiler_class.__name__}: {e}")
+                log.error(f"Failed to initialize profiler {profiler_class.__name__}: {e}", exc_info=True)
  
-    def print_hardware_info(self):
+    def get_hardware_info(self):
         """
-        Prints the hardware info from all initialized profilers.
-        (Implements Ideal Step 4)
+        Gets the hardware info from all initialized profilers. Returns a string for printing
         """
-        print("\n--- Hardware Info ---")
+        str = "\n--- Hardware Info ---"
         if not self.profilers:
-            print("  No profilers initialized.")
+            str += "  No profilers initialized."
             return
             
         for profiler in self.profilers:
-            print(f"  - {profiler.get_device_info()}")
-        print("---------------------\n")
+            str += f"  - {profiler.get_device_info()}"
+        str += "---------------------\n"
+
+        return str
 
     def start_all(self):
         """Start all profilers simultaneously."""
@@ -111,7 +114,7 @@ class ProfilerManager:
     
     def stop_all(self):
         """Stop all profilers and collect their metrics."""
-        print("Stopping profilers...")
+        log.info("Stopping profilers...")
         for profiler in self.profilers:
             profiler_name = profiler.__class__.__name__.lower().replace("profiler", "")
             self.all_metrics[profiler_name] = profiler.stop_monitoring()

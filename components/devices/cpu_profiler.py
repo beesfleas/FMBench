@@ -3,6 +3,9 @@ import psutil
 import platform
 from .base import BaseDeviceProfiler
 from collections import defaultdict
+import logging
+
+log = logging.getLogger(__name__)
 
 class LocalCpuProfiler(BaseDeviceProfiler):
     """
@@ -28,7 +31,6 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         # Initialize psutil for CPU percent.
         # Call once before starting to get a baseline.
         psutil.cpu_percent(interval=None)
-        print("Initialized CPU Profiler.")
 
     def get_device_info(self) -> str:
         """Return the device name set during initialization."""
@@ -41,11 +43,11 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         """
         self.power_monitoring_available = hasattr(psutil, 'sensors_power')
         if not self.power_monitoring_available:
-            print("Warning: 'psutil.sensors_power' not found in this psutil build. Disabling power monitoring.")
+            log.warning("'psutil.sensors_power' not found in this psutil build. Disabling power monitoring.")
             
         self.temp_monitoring_available = hasattr(psutil, 'sensors_temperatures')
         if not self.temp_monitoring_available:
-            print("Warning: 'psutil.sensors_temperatures' not found in this psutil build. Disabling temperature monitoring.")
+            log.warning("'psutil.sensors_temperatures' not found in this psutil build. Disabling temperature monitoring.")
 
     def _monitor_process(self):
         """
@@ -78,7 +80,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                         power_watts = power_info[0].current
                 except Exception as e:
                     if self._is_monitoring:
-                        print(f"Warning: Could not read CPU power: {e}. Disabling power monitoring.")
+                        log.error(f"Could not read CPU power: {e}. Disabling power monitoring.")
                     self.power_monitoring_available = False
             
             # 4. System-wide CPU Temperature (Celsius)
@@ -102,7 +104,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                         cpu_temp_c = list(temps.values())[0][0].current
                 except Exception as e:
                     if self._is_monitoring:
-                        print(f"Warning: Could not read CPU temperature: {e}. Disabling temperature monitoring.")
+                        log.error(f"Could not read CPU temperature: {e}. Disabling temperature monitoring.")
                     self.temp_monitoring_available = False
 
             # 5. Get timestamp relative to the start
