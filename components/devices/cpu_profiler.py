@@ -19,8 +19,14 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         # Store only raw samples
         self.samples = []
         self._start_time = None
-        self.power_monitoring_available = True  # Assume available until proven otherwise
-        self.temp_monitoring_available = True
+        
+        self.power_monitoring_available = hasattr(psutil, 'sensors_power')
+        if not self.power_monitoring_available:
+            print("Warning: 'psutil.sensors_power' not found in this psutil build. Disabling power monitoring.")
+            
+        self.temp_monitoring_available = hasattr(psutil, 'sensors_temperatures')
+        if not self.temp_monitoring_available:
+            print("Warning: 'psutil.sensors_temperatures' not found in this psutil build. Disabling temperature monitoring.")
 
         # Initialize psutil for CPU percent.
         # Call once before starting to get a baseline.
@@ -51,18 +57,19 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             power_watts = None
             if self.power_monitoring_available:
                 try:
-                    # 'psutil.sensors_power()' returns a list, we look for 'core'
                     power_info = psutil.sensors_power()
-                    if power_info and hasattr(power_info, 'core'):
+                    if not power_info:
+                        raise Exception("No power sensors found by psutil.")
+                        
+                    if hasattr(power_info, 'core') and power_info.core:
                          power_watts = power_info.core.current
-                    # Fallback for systems without named fields (e.g., some Windows)
                     elif power_info:
                         power_watts = power_info[0].current
                         
                 except Exception as e:
                     if self._is_monitoring: # Avoid printing error if stopping
                         print(f"Warning: Could not read CPU power: {e}. Disabling power monitoring.")
-                    self.power_monitoring_available = False
+                    self.power_monitoring_available = False # Stop trying
             
             # 4. System-wide CPU Temperature (Celsius)
             cpu_temp_c = None
@@ -108,7 +115,8 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             # Sleep to maintain the desired sampling interval
             elapsed = time.perf_counter() - monitor_start_time
             sleep_duration = self.sampling_interval - elapsed
-            time.sleep(sleep_duration)
+            if sleep_duration > 0:
+                time.sleep(sleep_duration)
 
     def get_metrics(self):
         """
@@ -121,7 +129,10 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         num_samples = len(self.samples)
         
         # Calculate precise monitoring duration from samples
-        monitoring_duration = self.samples[-1]['timestamp'] - self.samples[0]['timestamp']
+        if num_samples > 1:
+            monitoring_duration = self.samples[-1]['timestamp'] - self.samples[0]['timestamp']
+        else:
+            monitoring_duration = 0.0 # Not enough samples for a duration
         
         # Use defaultdict to simplify aggregation
         stats = defaultdict(list)
