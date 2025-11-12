@@ -35,7 +35,7 @@ class BaseDeviceProfiler(ABC):
 
     def _start_monitoring_thread(self):
         """Starts the monitoring thread."""
-        thread = threading.Thread(target=self._monitor_process, daemon=True)
+        thread = threading.Thread(target=self._monitor_process)
         thread.start()
         return thread
 

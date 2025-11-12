@@ -27,7 +27,7 @@ def resolve_device_type(device_cfg: DictConfig) -> str:
         if not has_cuda:
             raise RuntimeError("device=cuda requested but no CUDA device is available.")
         return "cuda"
-    return "cuda" if has_cuda else "cpu"
+    return "cuda" if has_cuda else "auto"
 
 def _setup_environment(cfg: DictConfig) -> ProfilerManager:
     """

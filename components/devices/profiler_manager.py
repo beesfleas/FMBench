@@ -10,6 +10,7 @@ from .nvidia_gpu_profiler import NvidiaGpuProfiler
 from .mac_profiler import MacProfiler
 from .jetson_profiler import JetsonProfiler
 from .pi_profiler import PiProfiler
+import pynvml
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ class ProfilerManager:
         self.config = config
         self.profilers: List[BaseDeviceProfiler] = []
         self.all_metrics: Dict[str, Dict] = {}
+        self._pynvml_initialized = False
         self._initialize_profilers()
     
     def _initialize_profilers(self):
@@ -85,10 +87,39 @@ class ProfilerManager:
         if self.config.get("device", {}).get("type", "auto") == "cpu":
             profiler_classes = [LocalCpuProfiler]
 
+        # Special handling for NVIDIA GPUs: Initialize pynvml ONCE
+        if NvidiaGpuProfiler in profiler_classes:
+            if pynvml is None:
+                log.error("NVIDIA GPU profiling requested, but 'pynvml' library is not installed. Skipping GPU profilers.")
+                profiler_classes.remove(NvidiaGpuProfiler)
+            else:
+                try:
+                    pynvml.nvmlInit()
+                    self._pynvml_initialized = True
+                    log.debug("pynvml initialized by ProfilerManager.")
+                except pynvml.NVMLError as e:
+                    log.error(f"Failed to initialize pynvml: {e}. NVIDIA GPU profiling disabled.")
+                    profiler_classes.remove(NvidiaGpuProfiler)
+
         for profiler_class in profiler_classes:
             try:
-                profiler_instance = profiler_class(self.config)
-                self.profilers.append(profiler_instance)
+                # Special case: Instantiate one profiler per GPU
+                if profiler_class == NvidiaGpuProfiler and self._pynvml_initialized:
+                    device_count = pynvml.nvmlDeviceGetCount()
+                    log.info(f"Detected {device_count} NVIDIA GPUs. Initializing profiler for each.")
+                    for i in range(device_count):
+                        try:
+                            # Pass device_index to constructor
+                            profiler_instance = profiler_class(self.config, device_index=i)
+                            self.profilers.append(profiler_instance)
+                        except Exception as e:
+                            log.error(f"Failed to initialize profiler for GPU {i}: {e}", exc_info=True)
+                
+                elif profiler_class != NvidiaGpuProfiler:
+                    # Standard instantiation for all other profilers
+                    profiler_instance = profiler_class(self.config)
+                    self.profilers.append(profiler_instance)
+                    
             except Exception as e:
                 log.error(f"Failed to initialize profiler {profiler_class.__name__}: {e}", exc_info=True)
  
@@ -96,16 +127,16 @@ class ProfilerManager:
         """
         Gets the hardware info from all initialized profilers. Returns a string for printing
         """
-        str = "\n--- Hardware Info ---"
+        info_str = "\n--- Hardware Info ---\n"
         if not self.profilers:
-            str += "  No profilers initialized."
-            return
+            info_str += "  No profilers initialized.\n"
+            return info_str
             
         for profiler in self.profilers:
-            str += f"  - {profiler.get_device_info()}"
-        str += "---------------------\n"
+            info_str += f"  - {profiler.get_device_info()}\n"
+        info_str += "---------------------\n"
 
-        return str
+        return info_str
 
     def start_all(self):
         """Start all profilers simultaneously."""
@@ -113,16 +144,38 @@ class ProfilerManager:
             profiler.start_monitoring()
     
     def stop_all(self):
-        """Stop all profilers and collect their metrics."""
-        log.info("Stopping profilers...")
+        """
+        Stop all profilers and *immediately* collect their metrics.
+        This is called by the __exit__ of the 'with' block.
+        """
+        log.info("Stopping profilers and collecting metrics...")
         for profiler in self.profilers:
-            profiler_name = profiler.__class__.__name__.lower().replace("profiler", "")
-            self.all_metrics[profiler_name] = profiler.stop_monitoring()
+            metrics = profiler.stop_monitoring()
+            profiler_name = profiler.__class__.__name__.lower()
+            
+            # Create unique key for multi-GPU
+            if isinstance(profiler, NvidiaGpuProfiler):
+                profiler_name = f"{profiler_name}_gpu{profiler.device_index}"
+            
+            if profiler_name in self.all_metrics:
+                log.warning(f"Duplicate profiler name '{profiler_name}' detected. Overwriting metrics.")
+            
+            self.all_metrics[profiler_name] = metrics
+        
+        # Shut down pynvml after all profilers are stopped
+        if self._pynvml_initialized:
+            try:
+                pynvml.nvmlShutdown()
+                log.debug("pynvml shutdown by ProfilerManager.")
+            except pynvml.NVMLError as e:
+                log.error(f"Failed to shut down pynvml: {e}")
     
     def get_all_metrics(self) -> Dict[str, Dict]:
         """
         Returns the collected metrics from all profilers.
         """
+        if not self.all_metrics:
+            log.warning("get_all_metrics() called before profilers were stopped. No data to return.")
         return self.all_metrics
 
     def __enter__(self):

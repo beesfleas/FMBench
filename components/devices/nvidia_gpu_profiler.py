@@ -9,18 +9,18 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
     """
     Profiler for NVIDIA GPUs using pynvml (nvidia-smi).
     """
-    def __init__(self, config):
+    def __init__(self, config, device_index: int):
         super().__init__(config)
         if pynvml is None:
             raise ImportError("pynvml library not installed.")
         try:
             pynvml.nvmlInit()
-            self.device_index = config.get("cuda_device", 0)
+            self.device_index = device_index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_index)
             device_name = pynvml.nvmlDeviceGetName(self.handle)
-            self.device_name = device_name
+            self.device_name = f"{device_name} (GPU {self.device_index})"
         except pynvml.NVMLError as e:
-            log.error(f"Failed to initialize pynvml: {e}")
+            log.error(f"Failed to initialize pynvml for GPU {device_index}: {e}")
             raise
         
         self.sampling_interval = config.get("gpu_sampling_interval", 
@@ -153,7 +153,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         
         metrics = {
             "device_name": self.device_name,
-            "raw_samples": self.samples,
+            # "raw_samples": self.samples,
             "num_samples": num_samples,
             "monitoring_duration_seconds": monitoring_duration,
             "sampling_interval": self.sampling_interval,
@@ -174,7 +174,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             
             metrics.update({
                 "total_energy_joules": total_energy_joules,
-                "total_energy_wh": total_energy_joules / 3600.0,
             })
 
         if temp_values:
