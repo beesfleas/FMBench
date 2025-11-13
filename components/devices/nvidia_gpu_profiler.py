@@ -14,7 +14,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         if pynvml is None:
             raise ImportError("pynvml library not installed.")
         try:
-            pynvml.nvmlInit()
+            # pynvml.nvmlInit() # should be initialized in manager
             self.device_index = device_index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_index)
             device_name = pynvml.nvmlDeviceGetName(self.handle)
