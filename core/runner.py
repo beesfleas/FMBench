@@ -2,44 +2,17 @@ import logging
 from components.models.model_factory import get_model_loader
 from omegaconf import DictConfig, OmegaConf
 import hydra
-import torch
 import json
-import os
-import copy
 from components.devices.profiler_manager import ProfilerManager
 from typing import Optional, Tuple
 
 log = logging.getLogger(__name__)
 
-def resolve_device_type(device_cfg: DictConfig) -> str:
+def _setup_profilers(cfg: DictConfig) -> ProfilerManager:
     """
-    Resolves the user's *intent* for device type.
-    - type == 'cpu'  -> force CPU
-    - type == 'cuda' -> *request* CUDA (if available)
-    - type == 'auto' -> use CUDA if available, else CPU
+    Initialize the ProfilerManager based on platform and config.
     """
-    dev_type = device_cfg.get("type", "auto").lower()
-    has_cuda = torch.cuda.is_available()
-
-    if dev_type == "cpu":
-        return "cpu"
-    if dev_type == "cuda":
-        if not has_cuda:
-            raise RuntimeError("device=cuda requested but no CUDA device is available.")
-        return "cuda"
-    return "cuda" if has_cuda else "auto"
-
-def _setup_environment(cfg: DictConfig) -> ProfilerManager:
-    """
-    Resolves device intent (from config).
-    Initializes the ProfilerManager based on the platform.
-    """
-    # Resolve Device Intent and update config
-    device_type = resolve_device_type(cfg.get("device", OmegaConf.create({"type": "auto"})))
-    cfg.device.type = device_type
-    log.debug(f"Resolved device type: {device_type}")
-    
-    # Setup Device Profilers
+    log.debug(f"Initializing profilers with device config: {cfg.get('device', {})}")
     profiler_manager = ProfilerManager(cfg)
     return profiler_manager
 
@@ -118,33 +91,31 @@ def _aggregate_metrics(all_metrics: dict):
 
 def run_benchmark(cfg: DictConfig):
     """
-    Main benchmark orchestration function, now following the ideal flow.
+    Main benchmark orchestration function.
     """
-    log.debug("Starting benchmark run...")
-    print("--- Received Configs ---\n" + OmegaConf.to_yaml(cfg) + "------------------------")
+    log.info("Starting FMBench...")
+    log.info("--- Received Configs ---\n" + OmegaConf.to_yaml(cfg) + "------------------------")
 
     loader, profiler_manager = None, None
     all_metrics = {}
 
     try:
-        # Setup device profilers
-        profiler_manager = _setup_environment(cfg)
-        # Print hardware info
-        log.info(profiler_manager.get_hardware_info())
-        # Load model
+        # Setup device profilers (handles device detection and profiler selection)
+        profiler_manager = _setup_profilers(cfg)
+        
+        # Load model and scenario
         loader, scenario = _setup_benchmark(cfg)
-        # Inference
+        
+        # Run inference with profiling
         all_metrics = _run_execution(loader, scenario, cfg.model, profiler_manager)
 
     except Exception as e:
         log.critical("\n--- FATAL BENCHMARK ERROR ---", exc_info=True)
         log.critical(f"{type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
         log.critical("-------------------------------")
     
     finally:
-        # Unload model and Aggregate results
+        # Unload model and aggregate results
         _teardown_and_aggregate(loader, all_metrics)
 
 def run_scenario(loader, scenario, model_category):

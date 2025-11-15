@@ -10,9 +10,21 @@ from .nvidia_gpu_profiler import NvidiaGpuProfiler
 from .mac_profiler import MacProfiler
 from .jetson_profiler import JetsonProfiler
 from .pi_profiler import PiProfiler
-import pynvml
+try:
+    import pynvml
+except ImportError:
+    pynvml = None
 
 log = logging.getLogger(__name__)
+
+def get_system_info() -> Dict[str, str]:
+    """
+    Returns: Dict with keys 'system' and 'processor_info'
+    """
+    return {
+        'system': platform.system(),
+        'processor_info': platform.processor().lower()
+    }
 
 def is_jetson():
     """Check if we are running on an NVIDIA Jetson device."""
@@ -29,13 +41,48 @@ def is_raspberry_pi():
         pass
     return False
 
-def get_platform_profiler_classes() -> List:
+def is_soc_device():
+    if is_jetson():
+        return True
+    if is_raspberry_pi():
+        return True
+    return False
+
+def get_platform_profiler_classes(device_override: str = None) -> List:
     """
-    Detects the current hardware platform and returns the
-    appropriate profiler classes to use.
+    Detects the current hardware platform and returns the appropriate profiler classes.
+    Returns:
+        List of profiler classes to instantiate.
     """
-    system = platform.system()
     
+    # Handle explicit device overrides
+    if device_override:
+        device_override = device_override.lower()
+        
+        if device_override == "jetson":
+            log.info(f"Device override: using Jetson profiler")
+            return [JetsonProfiler]
+        elif device_override == "pi":
+            log.info(f"Device override: using Raspberry Pi profiler")
+            return [PiProfiler]
+        elif device_override == "mac":
+            log.info(f"Device override: using Mac profiler")
+            return [MacProfiler]
+        elif device_override == "cuda":
+            log.info(f"Device override: using CUDA profiler (and CPU)")
+            profilers = [LocalCpuProfiler]
+            if torch.cuda.is_available():
+                profilers.append(NvidiaGpuProfiler)
+            return profilers
+        elif device_override == "cpu":
+            log.info(f"Device override: using CPU profiler only")
+            return [LocalCpuProfiler]
+        elif device_override != "auto":
+            log.warning(f"Unknown device override '{device_override}', falling back to auto-detection")
+    
+    system = platform.system()
+
+    # Auto-detection based on platform
     if system == "Darwin":
         # macOS (Apple Silicon or Intel)
         return [MacProfiler]
@@ -76,16 +123,18 @@ class ProfilerManager:
         self.profilers: List[BaseDeviceProfiler] = []
         self.all_metrics: Dict[str, Dict] = {}
         self._pynvml_initialized = False
+        self._system_info = get_system_info()
         self._initialize_profilers()
     
     def _initialize_profilers(self):
-        """Detect available devices and initialize appropriate profilers."""
+        """
+        Detect available devices and initialize appropriate profilers.
+        Uses device.type from config, or falls back to device_override for testing.
+        """
         
-        profiler_classes = get_platform_profiler_classes()
-        
-        # Override with config if "cpu_only" is forced
-        if self.config.get("device", {}).get("type", "auto") == "cpu":
-            profiler_classes = [LocalCpuProfiler]
+        # Get device type and override from config
+        device_type = self.config.get("device", {}).get("type", None)
+        profiler_classes = get_platform_profiler_classes(device_override=device_type)
 
         # Special handling for NVIDIA GPUs: Initialize pynvml ONCE
         if NvidiaGpuProfiler in profiler_classes:
@@ -110,33 +159,22 @@ class ProfilerManager:
                     for i in range(device_count):
                         try:
                             # Pass device_index to constructor
-                            profiler_instance = profiler_class(self.config, device_index=i)
+                            profiler_instance = profiler_class(self.config, device_index=i, profiler_manager=self)
                             self.profilers.append(profiler_instance)
                         except Exception as e:
                             log.error(f"Failed to initialize profiler for GPU {i}: {e}", exc_info=True)
                 
                 elif profiler_class != NvidiaGpuProfiler:
                     # Standard instantiation for all other profilers
-                    profiler_instance = profiler_class(self.config)
+                    profiler_instance = profiler_class(self.config, profiler_manager=self)
                     self.profilers.append(profiler_instance)
                     
             except Exception as e:
                 log.error(f"Failed to initialize profiler {profiler_class.__name__}: {e}", exc_info=True)
- 
-    def get_hardware_info(self):
-        """
-        Gets the hardware info from all initialized profilers. Returns a string for printing
-        """
-        info_str = "\n--- Hardware Info ---\n"
-        if not self.profilers:
-            info_str += "  No profilers initialized.\n"
-            return info_str
-            
-        for profiler in self.profilers:
-            info_str += f"  - {profiler.get_device_info()}\n"
-        info_str += "---------------------\n"
-
-        return info_str
+    
+    def get_system_info(self) -> Dict[str, str]:
+        """Return cached system info."""
+        return self._system_info
 
     def start_all(self):
         """Start all profilers simultaneously."""

@@ -15,7 +15,6 @@ class BaseDeviceProfiler(ABC):
         self._monitoring_thread = None
         self._is_monitoring = False
         self.device_name = "[Unknown Device]"
-        log.info(f"Initialized Profiler: {self.__class__.__name__}")
 
     @abstractmethod
     def get_device_info(self) -> str:
