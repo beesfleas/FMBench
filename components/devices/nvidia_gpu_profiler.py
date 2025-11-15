@@ -1,4 +1,7 @@
 import time
+import os
+import csv
+import tempfile
 from .base import BaseDeviceProfiler
 import pynvml
 import logging
@@ -8,13 +11,15 @@ log = logging.getLogger(__name__)
 class NvidiaGpuProfiler(BaseDeviceProfiler):
     """
     Profiler for NVIDIA GPUs using pynvml (nvidia-smi).
+    Writes samples to CSV and calculates metrics in real-time.
     """
-    def __init__(self, config, device_index: int):
+    def __init__(self, config, device_index: int, profiler_manager=None):
         super().__init__(config)
+        self.profiler_manager = profiler_manager
         if pynvml is None:
             raise ImportError("pynvml library not installed.")
         try:
-            pynvml.nvmlInit()
+            # pynvml.nvmlInit() # should be initialized in manager
             self.device_index = device_index
             self.handle = pynvml.nvmlDeviceGetHandleByIndex(self.device_index)
             device_name = pynvml.nvmlDeviceGetName(self.handle)
@@ -25,13 +30,22 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         
         self.sampling_interval = config.get("gpu_sampling_interval", 
                                             config.get("sampling_interval", 1.0))
-        self.samples = []
-        self._start_time = None
+        self.csv_filepath = None
+        
+        # Cached metrics
+        self.metrics = {
+            "device_name": self.device_name,
+            "num_samples": 0,
+            "csv_filepath": None,
+        }
+        
         self.power_available = False
         self.temp_available = False
         self.memory_available = False
         self.util_available = False
         
+        log.info(f"Initialized Nvidia GPU Profiler for {self.device_name}")
+
         self._check_metric_availability()
 
     def get_device_info(self) -> str:
@@ -68,136 +82,133 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
 
     def _monitor_process(self):
         """
-        Lightweight monitoring loop - just collect raw data.
+        Collect GPU metrics and write to CSV.
         """
-        if self._start_time is None:
-            self._start_time = time.perf_counter()
+        # Setup CSV file
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        temp_dir = tempfile.gettempdir()
+        self.csv_filepath = os.path.join(temp_dir, f"nvidia_gpu_profiler_gpu{self.device_index}_{timestamp}.csv")
+        self.metrics["csv_filepath"] = self.csv_filepath
         
-        while self._is_monitoring:
-            monitor_start_time = time.perf_counter()
-            
-            power_watts = None
-            if self.power_available:
-                try:
-                    power_watts = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000.0
-                except pynvml.NVMLError as e:
-                    if self._is_monitoring:
-                        log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
-                    self.power_available = False
+        log.info(f"Writing NVIDIA GPU {self.device_index} samples to: {self.csv_filepath}")
+        
+        start_time = time.perf_counter()
+        csv_file = None
+        csv_writer = None
+        
+        # Metric accumulators
+        power_values = []
+        temp_values = []
+        memory_values = []
+        util_values = []
+        
+        try:
+            while self._is_monitoring:
+                loop_start = time.perf_counter()
+                rel_timestamp = loop_start - start_time
+                
+                sample = {"timestamp": rel_timestamp}
+                
+                # Power
+                if self.power_available:
+                    try:
+                        power_watts = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000.0
+                        sample["power_watts"] = power_watts
+                    except pynvml.NVMLError as e:
+                        if self._is_monitoring:
+                            log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
+                        self.power_available = False
 
-            temp_c = None
-            if self.temp_available:
-                try:
-                    temp_c = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
-                except pynvml.NVMLError as e:
-                    if self._is_monitoring:
-                        log.error(f"Could not read GPU temp: {e}. Disabling temp monitoring.")
-                    self.temp_available = False
+                # Temperature
+                if self.temp_available:
+                    try:
+                        temp_c = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
+                        sample["temp_c"] = temp_c
+                    except pynvml.NVMLError as e:
+                        if self._is_monitoring:
+                            log.error(f"Could not read GPU temp: {e}. Disabling temp monitoring.")
+                        self.temp_available = False
 
-            memory_mb = None
-            if self.memory_available:
-                try:
-                    memory_info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
-                    memory_mb = memory_info.used / (1024 * 1024)
-                except pynvml.NVMLError as e:
-                    if self._is_monitoring:
-                        log.error(f"Could not read GPU memory: {e}. Disabling memory monitoring.")
-                    self.memory_available = False
+                # Memory
+                if self.memory_available:
+                    try:
+                        memory_info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
+                        memory_mb = memory_info.used / (1024 * 1024)
+                        sample["memory_mb"] = memory_mb
+                    except pynvml.NVMLError as e:
+                        if self._is_monitoring:
+                            log.error(f"Could not read GPU memory: {e}. Disabling memory monitoring.")
+                        self.memory_available = False
 
-            util_percent = None
-            if self.util_available:
-                try:
-                    util_info = pynvml.nvmlDeviceGetUtilizationRates(self.handle)
-                    util_percent = util_info.gpu
-                except pynvml.NVMLError as e:
-                    if self._is_monitoring:
-                        log.error(f"Could not read GPU util: {e}. Disabling util monitoring.")
-                    self.util_available = False
-            
-            timestamp = time.perf_counter() - self._start_time
-            
-            self.samples.append({
-                "timestamp": timestamp,
-                "power_watts": power_watts,
-                "temp_c": temp_c,
-                "memory_mb": memory_mb,
-                "utilization_percent": util_percent
-            })
-            
-            elapsed = time.perf_counter() - monitor_start_time
-            sleep_duration = self.sampling_interval - elapsed
-            if sleep_duration > 0:
-                time.sleep(sleep_duration)
+                # Utilization
+                if self.util_available:
+                    try:
+                        util_info = pynvml.nvmlDeviceGetUtilizationRates(self.handle)
+                        util_percent = util_info.gpu
+                        sample["utilization_percent"] = util_percent
+                    except pynvml.NVMLError as e:
+                        if self._is_monitoring:
+                            log.error(f"Could not read GPU util: {e}. Disabling util monitoring.")
+                        self.util_available = False
+                
+                # Write to CSV
+                if csv_file is None:
+                    csv_file = open(self.csv_filepath, 'w', newline='')
+                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                    csv_writer.writeheader()
+                
+                csv_writer.writerow(sample)
+                csv_file.flush()
+                
+                # Update accumulators
+                if "power_watts" in sample:
+                    power_values.append(sample["power_watts"])
+                if "temp_c" in sample:
+                    temp_values.append(sample["temp_c"])
+                if "memory_mb" in sample:
+                    memory_values.append(sample["memory_mb"])
+                if "utilization_percent" in sample:
+                    util_values.append(sample["utilization_percent"])
+                
+                # Update cached metrics
+                self.metrics["num_samples"] = len(power_values)
+                
+                if power_values:
+                    self.metrics["peak_power_watts"] = max(power_values)
+                    self.metrics["average_power_watts"] = sum(power_values) / len(power_values)
+                    self.metrics["min_power_watts"] = min(power_values)
+                
+                if temp_values:
+                    self.metrics["peak_temp_c"] = max(temp_values)
+                    self.metrics["average_temp_c"] = sum(temp_values) / len(temp_values)
+                    self.metrics["min_temp_c"] = min(temp_values)
+                
+                if memory_values:
+                    self.metrics["peak_memory_mb"] = max(memory_values)
+                    self.metrics["average_memory_mb"] = sum(memory_values) / len(memory_values)
+                    self.metrics["min_memory_mb"] = min(memory_values)
+                
+                if util_values:
+                    self.metrics["peak_utilization_percent"] = max(util_values)
+                    self.metrics["average_utilization_percent"] = sum(util_values) / len(util_values)
+                    self.metrics["min_utilization_percent"] = min(util_values)
+                
+                self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                
+                elapsed = time.perf_counter() - loop_start
+                sleep_duration = self.sampling_interval - elapsed
+                if sleep_duration > 0:
+                    time.sleep(sleep_duration)
+        
+        finally:
+            if csv_file:
+                csv_file.close()
 
     def get_metrics(self):
         """
-        Analyze raw samples after monitoring is complete.
+        Return cached metrics.
         """
-        if not self.samples:
-            return {
-                "device_name": self.device_name,
-                "raw_samples": [],
-                "error": "No samples collected"
-            }
-        
-        power_values = [s["power_watts"] for s in self.samples if s["power_watts"] is not None]
-        temp_values = [s["temp_c"] for s in self.samples if s["temp_c"] is not None]
-        memory_values = [s["memory_mb"] for s in self.samples if s["memory_mb"] is not None]
-        util_values = [s["utilization_percent"] for s in self.samples if s["utilization_percent"] is not None]
-        
-        num_samples = len(self.samples)
-        if num_samples > 1:
-            monitoring_duration = self.samples[-1]["timestamp"] - self.samples[0]["timestamp"]
-        else:
-            monitoring_duration = 0.0
-        
-        metrics = {
-            "device_name": self.device_name,
-            # "raw_samples": self.samples,
-            "num_samples": num_samples,
-            "monitoring_duration_seconds": monitoring_duration,
-            "sampling_interval": self.sampling_interval,
-        }
-        
-        if power_values:
-            metrics.update({
-                "peak_power_watts": max(power_values),
-                "average_power_watts": sum(power_values) / len(power_values),
-                "min_power_watts": min(power_values),
-            })
-            total_energy_joules = 0.0
-            for i in range(1, num_samples):
-                if self.samples[i]["power_watts"] is not None and self.samples[i-1]["power_watts"] is not None:
-                    time_delta = self.samples[i]["timestamp"] - self.samples[i-1]["timestamp"]
-                    avg_power = (self.samples[i]["power_watts"] + self.samples[i-1]["power_watts"]) / 2.0
-                    total_energy_joules += avg_power * time_delta
-            
-            metrics.update({
-                "total_energy_joules": total_energy_joules,
-            })
-
-        if temp_values:
-            metrics.update({
-                "peak_temp_c": max(temp_values),
-                "average_temp_c": sum(temp_values) / len(temp_values),
-                "min_temp_c": min(temp_values),
-            })
-            
-        if memory_values:
-            metrics.update({
-                "peak_memory_mb": max(memory_values),
-                "average_memory_mb": sum(memory_values) / len(memory_values),
-                "min_memory_mb": min(memory_values),
-            })
-            
-        if util_values:
-            metrics.update({
-                "peak_utilization_percent": max(util_values),
-                "average_utilization_percent": sum(util_values) / len(util_values),
-                "min_utilization_percent": min(util_values),
-            })
-        
-        return metrics
+        return self.metrics
 
     def stop_monitoring(self):
         """

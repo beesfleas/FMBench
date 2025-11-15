@@ -1,0 +1,3 @@
+# Jetson device profiling
+type: jetson
+name: jetson_profiler

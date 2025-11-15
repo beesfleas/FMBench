@@ -1,6 +1,10 @@
 .venv/
+.github
+.venv-wsl/
+.vscode/
 __pycache__/
 outputs/
 test_image.jpg
 *.DS_Store
 logs
+*.log

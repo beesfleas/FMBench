@@ -2,39 +2,71 @@ import time
 import psutil
 import platform
 import os
+import csv
 from .base import BaseDeviceProfiler
-from collections import defaultdict
 import logging
+import tempfile
 
 log = logging.getLogger(__name__)
 
 class LocalCpuProfiler(BaseDeviceProfiler):
     """
     Profiler for local CPU and RAM using psutil.
+    Writes samples to CSV and calculates metrics in real-time.
     """
-    def __init__(self, config):
+    def __init__(self, config, profiler_manager=None):
         super().__init__(config)
         
+        self.profiler_manager = profiler_manager
         self.sampling_interval = config.get("cpu_sampling_interval", 
                                             config.get("sampling_interval", 1.0))
         
-        self.samples = []
-        self._start_time = None
         self.device_name = f"{platform.processor()}"
-        
-        self.energy_counter_path = None # Generic path for Intel or AMD
-        
-        # Set availability flags
+        self.cpu_type = None
+        self.energy_counter_path = None
         self.power_monitoring_available = False
         self.temp_monitoring_available = False
+        
+        # CSV file path
+        self.csv_filepath = None
+        
+        # Cached metrics (updated during monitoring)
+        self.metrics = {
+            "device_name": self.device_name,
+            "num_samples": 0,
+            "csv_filepath": None,
+        }
+        
+        self._detect_cpu_type()
         self._check_metric_availability()
 
-        # Initialize psutil for CPU percent.
+        log.info(f"Initialized CPU Profiler for {self.device_name}")
         psutil.cpu_percent(interval=None)
 
     def get_device_info(self) -> str:
         """Return the device name set during initialization."""
         return self.device_name
+
+    def _detect_cpu_type(self) -> str:
+        """
+        Detects the CPU type and stores in self.cpu_type.
+        Returns one of: 'intel', 'amd', 'arm', 'unknown'
+        """
+        system_info = self.profiler_manager.get_system_info() if self.profiler_manager else {}
+        processor_info = system_info.get('processor_info', platform.processor().lower())
+        
+        # Detect CPU type
+        if "intel" in processor_info or "x86" in processor_info:
+            self.cpu_type = "intel"
+        elif "amd" in processor_info or "ryzen" in processor_info or "epyc" in processor_info:
+            self.cpu_type = "amd"
+        elif "arm" in processor_info or "aarch64" in processor_info:
+            self.cpu_type = "arm"
+        else:
+            self.cpu_type = "unknown"
+        
+        log.info(f"Detected CPU type: {self.cpu_type}")
+        return self.cpu_type
 
     def _find_intel_rapl_path(self) -> str | None:
         """
@@ -92,35 +124,52 @@ class LocalCpuProfiler(BaseDeviceProfiler):
 
     def _check_metric_availability(self):
         """
-        Performs a test-read for each metric to set availability flags.
-        Tries psutil, then Intel RAPL, then AMD Energy.
+        Checks available metrics for this CPU type and sets availability flags.
+        For all CPUs: checks psutil for utilization, temperature, memory (universal).
         """
-        # 1. Check for psutil.sensors_power()
-        self.power_monitoring_available = hasattr(psutil, 'sensors_power')
-        
-        if self.power_monitoring_available:
-            log.info("psutil.sensors_power() found. Using psutil for power monitoring.")
-        else:
-            log.warning("'psutil.sensors_power' not found. Trying kernel file fallbacks...")
-            
-            # 2. Try Intel RAPL
-            self.energy_counter_path = self._find_intel_rapl_path()
-            if self.energy_counter_path:
-                log.info(f"Intel RAPL fallback enabled. Found energy counter at: {self.energy_counter_path}")
-                self.power_monitoring_available = True
-            else:
-                # 3. Try AMD Energy
-                self.energy_counter_path = self._find_amd_energy_path()
-                if self.energy_counter_path:
-                    log.info(f"AMD Energy fallback enabled. Found energy counter at: {self.energy_counter_path}")
-                    self.power_monitoring_available = True
-                else:
-                    log.warning("All power fallbacks failed: No readable Intel RAPL or AMD Energy file found.")
-            
-        # 4. Check for psutil.sensors_temperatures()
+        self.utilization_available = True
         self.temp_monitoring_available = hasattr(psutil, 'sensors_temperatures')
         if not self.temp_monitoring_available:
             log.warning("'psutil.sensors_temperatures' not found. Disabling temperature monitoring.")
+        
+        # Check for power monitoring (CPU-type specific routing)
+        self._check_power_availability()
+
+    def _check_power_availability(self):
+        """
+        Routes power metric availability check based on detected CPU type.
+        Sets self.power_monitoring_available and self.energy_counter_path as needed.
+        
+        Only Intel and AMD (Linux/Windows PCs) are supported.
+        macOS is handled by MacProfiler using powermetrics.
+        """
+        # No universal power monitoring via psutil
+        self.power_monitoring_available = False
+        
+        # CPU-specific power metric collection via kernel interfaces
+        if self.cpu_type == "intel":
+            self.energy_counter_path = self._find_intel_rapl_path()
+            if self.energy_counter_path:
+                log.info(f"[Intel] Intel RAPL enabled at: {self.energy_counter_path}")
+                self.power_monitoring_available = True
+            else:
+                log.warning("[Intel] No Intel RAPL found. Power monitoring disabled.")
+        
+        elif self.cpu_type == "amd":
+            self.energy_counter_path = self._find_amd_energy_path()
+            if self.energy_counter_path:
+                log.info(f"[AMD] AMD Energy enabled at: {self.energy_counter_path}")
+                self.power_monitoring_available = True
+            else:
+                log.warning("[AMD] No AMD Energy file found. Power monitoring disabled.")
+        
+        elif self.cpu_type == "arm":
+            log.warning("[ARM] No power metric collection implemented for generic ARM CPUs.")
+            self.power_monitoring_available = False
+        
+        else:
+            log.warning(f"[{self.cpu_type}] Unknown CPU type. Power monitoring disabled.")
+            self.power_monitoring_available = False
 
     def _read_energy_uj(self) -> int | None:
         """
@@ -142,166 +191,121 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             return None
 
     def _monitor_process(self):
-        """
-        Lightweight monitoring loop - just collect raw data.
-        """
-        if self._start_time is None:
-            self._start_time = time.perf_counter()
-            
-        while self._is_monitoring:
-            monitor_start_time = time.perf_counter()
-            
-            # 1. System-wide CPU Utilization
-            cpu_percent = psutil.cpu_percent(interval=None, percpu=False)
-            
-            # 2. System-wide Physical (Hardware) RAM
-            vmem = psutil.virtual_memory()
-            memory_used_mb = vmem.used / (1024 * 1024)
-            memory_percent = vmem.percent
-            
-            # 3. System-wide CPU Power (Watts)
-            power_watts = None
-            energy_uj = None
-            
-            if self.power_monitoring_available:
-                if self.energy_counter_path:
-                    # Use Kernel File Fallback
-                    energy_uj = self._read_energy_uj()
-                    # power_watts remains None
-                else:
-                    # Use psutil (Collects Power)
-                    try:
-                        power_info = psutil.sensors_power()
-                        if not power_info:
-                            raise Exception("No power sensors found by psutil.")
-                        if hasattr(power_info, 'core') and power_info.core:
-                             power_watts = power_info.core.current
-                        elif power_info:
-                            power_watts = power_info[0].current
-                    except Exception as e:
-                        if self._is_monitoring:
-                            log.error(f"Could not read CPU power: {e}. Disabling power monitoring.")
-                        self.power_monitoring_available = False
-            
-            # 4. System-wide CPU Temperature (Celsius)
-            cpu_temp_c = None
-            if self.temp_monitoring_available:
-                try:
-                    temps = psutil.sensors_temperatures()
-                    if not temps:
-                        raise Exception("No temperature sensors found by psutil.")
-                    found_temp = False
-                    for sensor_group, readings in temps.items():
-                        for sensor in readings:
-                            label = sensor.label.lower()
-                            if 'package' in label or 'cpu' in label or 'tdie' in label:
-                                cpu_temp_c = sensor.current
-                                found_temp = True
-                                break
-                        if found_temp:
-                            break
-                    if not found_temp:
-                        cpu_temp_c = list(temps.values())[0][0].current
-                except Exception as e:
-                    if self._is_monitoring:
-                        log.error(f"Could not read CPU temperature: {e}. Disabling temperature monitoring.")
-                    self.temp_monitoring_available = False
-
-            # 5. Get timestamp relative to the start
-            timestamp = time.perf_counter() - self._start_time
-            
-            self.samples.append({
-                "timestamp": timestamp,
-                "cpu_utilization_percent": cpu_percent,
-                "memory_used_mb": memory_used_mb,
-                "memory_utilization_percent": memory_percent,
-                "power_watts": power_watts, # Will be None in RAPL/Energy mode
-                "energy_uj": energy_uj,     # Will be None in psutil mode
-                "cpu_temp_c": cpu_temp_c
-            })
-            
-            # Sleep to maintain the desired sampling interval
-            elapsed = time.perf_counter() - monitor_start_time
-            sleep_duration = self.sampling_interval - elapsed
-            if sleep_duration > 0:
-                time.sleep(sleep_duration)
-
-    def get_metrics(self):
-        """
-        Process all raw samples and return a structured dictionary.
-        """
-        if not self.samples:
-            return {"device_name": self.device_name, "error": "No metrics collected."}
-
-        num_samples = len(self.samples)
+        """Main monitoring loop - write to CSV and update metrics in real-time."""
+        # Setup CSV file
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        temp_dir = tempfile.gettempdir()
+        self.csv_filepath = os.path.join(temp_dir, f"cpu_profiler_{timestamp}.csv")
+        self.metrics["csv_filepath"] = self.csv_filepath
         
-        if num_samples > 1:
-            monitoring_duration = self.samples[-1]['timestamp'] - self.samples[0]['timestamp']
-        else:
-            monitoring_duration = 0.0
+        log.info(f"Writing CPU samples to: {self.csv_filepath}")
         
-        stats = defaultdict(list)
-        power_values = []
+        start_time = time.perf_counter()
+        csv_file = None
+        csv_writer = None
+        
+        # Initialize metric accumulators
+        cpu_values = []
+        mem_values = []
+        mem_pct_values = []
         temp_values = []
-        energy_uj_values = []
+        energy_values = []
         
-        for sample in self.samples:
-            stats["cpu_utilization_percent"].append(sample["cpu_utilization_percent"])
-            stats["memory_used_mb"].append(sample["memory_used_mb"])
-            stats["memory_utilization_percent"].append(sample["memory_utilization_percent"])
-            if sample["power_watts"] is not None:
-                power_values.append(sample["power_watts"])
-            if sample["energy_uj"] is not None:
-                energy_uj_values.append(sample["energy_uj"])
-            if sample["cpu_temp_c"] is not None:
-                temp_values.append(sample["cpu_temp_c"])
-
-        if not stats["cpu_utilization_percent"]:
-             return {"device_name": self.device_name, "error": "No valid samples collected."}
+        try:
+            while self._is_monitoring:
+                loop_start = time.perf_counter()
+                rel_timestamp = loop_start - start_time
+                
+                # Collect metrics
+                cpu_percent = psutil.cpu_percent(interval=None, percpu=False)
+                vmem = psutil.virtual_memory()
+                
+                sample = {
+                    "timestamp": rel_timestamp,
+                    "cpu_utilization_percent": cpu_percent,
+                    "memory_used_mb": vmem.used / (1024 * 1024),
+                    "memory_utilization_percent": vmem.percent,
+                }
+                
+                # Accumulate for real-time metrics
+                cpu_values.append(cpu_percent)
+                mem_values.append(sample["memory_used_mb"])
+                mem_pct_values.append(vmem.percent)
+                
+                # Power monitoring
+                if self.power_monitoring_available:
+                    energy_uj = self._read_energy_uj()
+                    if energy_uj is not None:
+                        sample["energy_uj"] = energy_uj
+                        energy_values.append(energy_uj)
+                
+                # Temperature monitoring
+                if self.temp_monitoring_available:
+                    try:
+                        temps = psutil.sensors_temperatures()
+                        if temps:
+                            cpu_temp = None
+                            for sensor_group, readings in temps.items():
+                                for sensor in readings:
+                                    label = sensor.label.lower()
+                                    if 'package' in label or 'cpu' in label or 'tdie' in label:
+                                        cpu_temp = sensor.current
+                                        break
+                                if cpu_temp is not None:
+                                    break
+                            
+                            if cpu_temp is not None:
+                                sample["cpu_temp_c"] = cpu_temp
+                                temp_values.append(cpu_temp)
+                    except Exception as e:
+                        log.debug(f"Temperature read failed: {e}")
+                        self.temp_monitoring_available = False
+                
+                # Write to CSV (open on first sample, close on last)
+                if csv_file is None:
+                    csv_file = open(self.csv_filepath, 'w', newline='')
+                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                    csv_writer.writeheader()
+                
+                csv_writer.writerow(sample)
+                csv_file.flush()
+                
+                # Update cached metrics in real-time
+                self.metrics["num_samples"] = len(cpu_values)
+                if len(cpu_values) > 0:
+                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
+                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
+                if len(mem_values) > 0:
+                    self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
+                    self.metrics["peak_memory_mb"] = max(mem_values)
+                if len(mem_pct_values) > 0:
+                    self.metrics["average_memory_utilization_percent"] = sum(mem_pct_values) / len(mem_pct_values)
+                    self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
+                if temp_values:
+                    self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
+                    self.metrics["peak_cpu_temp_c"] = max(temp_values)
+                    self.metrics["min_cpu_temp_c"] = min(temp_values)
+                
+                # Calculate energy metrics
+                if len(energy_values) >= 2:
+                    total_energy_joules = (energy_values[-1] - energy_values[0]) / 1_000_000.0
+                    self.metrics["total_energy_joules"] = total_energy_joules
+                    if rel_timestamp > 0:
+                        self.metrics["average_power_watts"] = total_energy_joules / rel_timestamp
+                
+                self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                self.metrics["sampling_interval"] = self.sampling_interval
+                
+                # Sleep to maintain sampling interval
+                elapsed = time.perf_counter() - loop_start
+                sleep_duration = self.sampling_interval - elapsed
+                if sleep_duration > 0:
+                    time.sleep(sleep_duration)
         
-        num_valid_samples = len(stats["cpu_utilization_percent"])
+        finally:
+            if csv_file:
+                csv_file.close()
 
-        metrics = {
-            "device_name": self.device_name,
-            # "raw_samples": self.samples,
-            "num_samples": num_samples,
-            "monitoring_duration_seconds": monitoring_duration,
-            "sampling_interval": self.sampling_interval,
-            "peak_cpu_utilization_percent": max(stats["cpu_utilization_percent"]),
-            "average_cpu_utilization_percent": sum(stats["cpu_utilization_percent"]) / num_valid_samples,
-            "peak_memory_mb": max(stats["memory_used_mb"]),
-            "average_memory_mb": sum(stats["memory_used_mb"]) / num_valid_samples,
-            "peak_memory_utilization_percent": max(stats["memory_utilization_percent"]),
-            "average_memory_utilization_percent": sum(stats["memory_utilization_percent"]) / num_valid_samples,
-        }
-        
-        if energy_uj_values:
-            # Use the raw energy counter
-            first_energy = energy_uj_values[0]
-            last_energy = energy_uj_values[-1]
-            total_energy_joules = (last_energy - first_energy) / 1_000_000.0
-            
-            metrics["total_energy_joules"] = total_energy_joules
-            if monitoring_duration > 0:
-                metrics["average_power_watts"] = total_energy_joules / monitoring_duration
-            
-        elif power_values:
-            # Fallback to trapezoidal integration of power (W)
-            metrics["peak_power_watts"] = max(power_values)
-            metrics["average_power_watts"] = sum(power_values) / len(power_values)
-            metrics["min_power_watts"] = min(power_values)
-            
-            total_energy_joules = 0.0
-            for i in range(1, len(self.samples)):
-                if self.samples[i]['power_watts'] is not None and self.samples[i-1]['power_watts'] is not None:
-                    dt = self.samples[i]['timestamp'] - self.samples[i-1]['timestamp']
-                    avg_power = (self.samples[i]['power_watts'] + self.samples[i-1]['power_watts']) / 2
-                    total_energy_joules += avg_power * dt    
-            metrics["total_energy_joules"] = total_energy_joules
-
-        if temp_values:
-            metrics["peak_temp_c"] = max(temp_values)
-            metrics["average_temp_c"] = sum(temp_values) / len(temp_values)
-            metrics["min_temp_c"] = min(temp_values)
-
-        return metrics
+    def get_metrics(self) -> dict:
+        """Return cached metrics collected during monitoring."""
+        return self.metrics

@@ -1,0 +1,3 @@
+# macOS device profiling (Apple Silicon and Intel)
+type: mac
+name: mac_profiler

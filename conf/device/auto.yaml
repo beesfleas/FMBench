@@ -1,4 +1,3 @@
-# device:
+# Automatic device detection
 type: auto
 name: auto_profiler
-# profiler_class is decided at runtime
