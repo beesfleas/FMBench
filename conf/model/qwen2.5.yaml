@@ -1,3 +1,4 @@
 model_id: Qwen/Qwen2.5-1.5B-Instruct
 model_category: LLM
 max_tokens: 64
+# quantization: 4 

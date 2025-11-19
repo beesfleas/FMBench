@@ -137,9 +137,9 @@ def run_basic_test(loader, model_config):
     else:
         # Basic LLM test
         prompt = "Tell me a joke."
-        log.debug("Running basic test with prompt: %s", prompt)
+        log.info("Running basic test with prompt: %s", prompt)
         try:
             result = loader.predict(prompt)
-            log.info("Test completed successfully (response length: %d)", len(result) if result else 0)
+            log.info("Test completed successfully. Response: %s", result)
         except Exception as e:
             log.error("Test prediction failed: %s", e, exc_info=True)
