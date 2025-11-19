@@ -75,7 +75,7 @@ class HuggingFaceVLMLoader(BaseModelLoader):
 
     def _get_model_inputs(self, prompt, image):
         """Try different VLM input formats and return processed inputs on correct device."""
-        device = self.device if self.device is not None else next(self.model.parameters()).device
+        device = self.device or next(self.model.parameters()).device
         
         methods = [
             lambda: self.processor(text=prompt, images=image, return_tensors="pt"),

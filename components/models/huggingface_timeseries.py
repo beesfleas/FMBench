@@ -38,7 +38,7 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
         if time_series_data is None:
             raise ValueError("time_series_data must be provided for Time Series model")
 
-        device = self.device if self.device is not None else next(self.model.parameters()).device
+        device = self.device or next(self.model.parameters()).device
         if isinstance(time_series_data, torch.Tensor):
             time_series_data = time_series_data.to(device)
 

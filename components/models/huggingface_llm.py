@@ -4,7 +4,6 @@ from .device_utils import (
     get_device_config, get_quantization_config, get_load_kwargs,
     check_mps_model_size, move_to_device, clear_device_cache
 )
-import torch
 import gc
 import logging
 
