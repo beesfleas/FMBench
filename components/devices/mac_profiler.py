@@ -5,7 +5,6 @@ import os
 import csv
 import logging
 import tempfile
-import threading
 import re
 from .base import BaseDeviceProfiler
 
@@ -32,7 +31,7 @@ class MacProfiler(BaseDeviceProfiler):
             "csv_filepath": None,
         }
         
-        self._powermetrics_process = None
+        self.powermetrics_process = None
         self._can_read_powermetrics = True
         self.last_known_metrics = {}
         
@@ -48,7 +47,7 @@ class MacProfiler(BaseDeviceProfiler):
                 if 'Model' in line or 'Processor' in line or 'Memory' in line:
                     system_info += line.strip() + " | "
         except Exception as e:
-            log.debug(f"Could not get detailed system info: {e}")
+            log.debug("Could not get detailed system info: %s", e)
         
         return f"{self.device_name} {system_info}".strip()
 
@@ -57,11 +56,14 @@ class MacProfiler(BaseDeviceProfiler):
         if not self._can_read_powermetrics:
             return
 
-        cmd = [
-            'sudo', 'powermetrics', 
+        # Check if we're already running as root (e.g., via sudo)
+        is_root = os.geteuid() == 0 if hasattr(os, 'geteuid') else False
+        cmd = ['powermetrics'] if is_root else ['sudo', 'powermetrics']
+        cmd.extend([
             '--samplers', 'cpu_power,gpu_power,thermal',
             '-i', f'{self.sampling_interval_ms}'
-        ]
+        ])
+        log.debug("Starting powermetrics: %s", ' '.join(cmd))
         
         try:
             self.powermetrics_process = subprocess.Popen(
@@ -71,19 +73,21 @@ class MacProfiler(BaseDeviceProfiler):
                 text=True, 
                 bufsize=1
             )
+            log.debug("powermetrics PID: %s", self.powermetrics_process.pid)
             
             time.sleep(0.1)
-            if self.powermetrics_process.poll() is not None:
+            poll_result = self.powermetrics_process.poll()
+            if poll_result is not None:
                 stderr_output = self.powermetrics_process.stderr.read()
                 if 'Operation not permitted' in stderr_output:
-                    log.warning("powermetrics requires sudo. Power metrics will be unavailable.")
+                    log.warning("powermetrics requires sudo, power metrics unavailable")
                 else:
-                    log.warning(f"powermetrics failed to start: {stderr_output}")
+                    log.warning("powermetrics failed to start: %s", stderr_output)
                 self._can_read_powermetrics = False
                 self.powermetrics_process = None
 
         except Exception as e:
-            log.warning(f"powermetrics command failed: {e}. Disabling power metrics.")
+            log.warning("powermetrics command failed: %s, disabling power metrics", e)
             self._can_read_powermetrics = False
             self.powermetrics_process = None
 
@@ -116,7 +120,7 @@ class MacProfiler(BaseDeviceProfiler):
                 metrics['cpu_temp_c'] = float(temp_match.group(1))
                 
         except Exception as e:
-            log.debug(f"Error parsing powermetrics: {e}")
+            log.debug("Error parsing powermetrics: %s", e)
             
         return metrics
 
@@ -128,7 +132,7 @@ class MacProfiler(BaseDeviceProfiler):
         self.csv_filepath = os.path.join(temp_dir, f"mac_profiler_{timestamp}.csv")
         self.metrics["csv_filepath"] = self.csv_filepath
         
-        log.info(f"Writing macOS samples to: {self.csv_filepath}")
+        log.info("Writing samples to: %s", self.csv_filepath)
         
         # Start powermetrics process
         self._start_powermetrics_process()
@@ -137,6 +141,7 @@ class MacProfiler(BaseDeviceProfiler):
         csv_file = None
         csv_writer = None
         current_block = ""
+        loop_count = 0
         
         # Metric accumulators
         cpu_util_values = []
@@ -150,6 +155,7 @@ class MacProfiler(BaseDeviceProfiler):
         
         try:
             while self._is_monitoring:
+                loop_count += 1
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -161,7 +167,7 @@ class MacProfiler(BaseDeviceProfiler):
                         line = self.powermetrics_process.stdout.readline()
                         if not line:
                             if self._is_monitoring:
-                                log.warning("powermetrics process closed unexpectedly.")
+                                log.warning("powermetrics process closed unexpectedly")
                             self._can_read_powermetrics = False
                             self.powermetrics_process = None
                         else:
@@ -172,7 +178,7 @@ class MacProfiler(BaseDeviceProfiler):
                                 current_block = ""
                     except Exception as e:
                         if self._is_monitoring:
-                            log.debug(f"Error reading powermetrics: {e}")
+                            log.debug("Error reading powermetrics: %s", e, exc_info=True)
                         self._can_read_powermetrics = False
                         self.powermetrics_process = None
                 
@@ -184,7 +190,7 @@ class MacProfiler(BaseDeviceProfiler):
                     sample["memory_used_mb"] = vmem.used / (1024 * 1024)
                     sample["memory_utilization_percent"] = vmem.percent
                 except Exception as e:
-                    log.debug(f"Failed to read CPU/memory: {e}")
+                    log.debug("Failed to read CPU/memory: %s", e, exc_info=True)
                 
                 # Add powermetrics data to sample
                 sample.update(self.last_known_metrics)
@@ -192,8 +198,16 @@ class MacProfiler(BaseDeviceProfiler):
                 # Write to CSV
                 if csv_file is None:
                     csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                    # Get all possible fieldnames from sample and known metrics
+                    all_fieldnames = set(sample.keys())
+                    # Add common powermetrics fields that might appear later
+                    all_fieldnames.update([
+                        'e_cluster_power_watts', 'p_cluster_power_watts', 
+                        'gpu_power_watts', 'gpu_utilization_percent', 'cpu_temp_c'
+                    ])
+                    csv_writer = csv.DictWriter(csv_file, fieldnames=sorted(all_fieldnames))
                     csv_writer.writeheader()
+                    log.debug("CSV header written (%d fields)", len(all_fieldnames))
                 
                 csv_writer.writerow(sample)
                 csv_file.flush()
@@ -252,6 +266,9 @@ class MacProfiler(BaseDeviceProfiler):
                 if sleep_duration > 0:
                     time.sleep(sleep_duration)
         
+        except Exception as e:
+            log.error("Exception in monitoring loop: %s", e, exc_info=True)
+            raise
         finally:
             if csv_file:
                 csv_file.close()
@@ -260,7 +277,7 @@ class MacProfiler(BaseDeviceProfiler):
                     self.powermetrics_process.terminate()
                     self.powermetrics_process.wait(timeout=1.0)
                 except Exception as e:
-                    log.debug(f"Error terminating powermetrics: {e}")
+                    log.debug("Error terminating powermetrics: %s", e, exc_info=True)
 
     def get_metrics(self) -> dict:
         """Return cached metrics."""

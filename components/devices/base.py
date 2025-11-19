@@ -43,9 +43,9 @@ class BaseDeviceProfiler(ABC):
         if self._monitoring_thread is None:
             self._is_monitoring = True
             self._monitoring_thread = self._start_monitoring_thread()
-            log.debug(f"{self.__class__.__name__} monitoring started...")
+            log.debug("%s monitoring started", self.__class__.__name__)
         else:
-            log.warning(f"{self.__class__.__name__} monitoring is already active.")
+            log.warning("%s monitoring already active", self.__class__.__name__)
 
     def stop_monitoring(self):
         """Stops the monitoring thread and collects final metrics."""
@@ -53,9 +53,9 @@ class BaseDeviceProfiler(ABC):
             self._is_monitoring = False
             self._monitoring_thread.join()
             self._monitoring_thread = None
-            log.debug(f"{self.__class__.__name__} monitoring stopped.")
+            log.debug("%s monitoring stopped", self.__class__.__name__)
         else:
-            log.warning("No monitoring to stop.")
+            log.warning("No active monitoring to stop")
         
         return self.get_metrics()
 
