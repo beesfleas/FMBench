@@ -67,7 +67,6 @@ def _teardown_and_aggregate(loader: Optional[object], all_metrics: dict):
     # Unload Model
     if loader:
         if hasattr(loader, 'unload_model') and callable(loader.unload_model):
-            log.debug("Unloading model")
             loader.unload_model()
         else:
             log.warning("Model loader does not support unloading")
