@@ -1,5 +1,6 @@
 # @package _global_
 log_level: INFO
+save_logs: false  # Set to true to save all logs to a file
 sampling_interval: 1 # Sample 1 time per 1 second
 
 defaults:
@@ -10,5 +11,3 @@ defaults:
 
 reporter:
   type: json
-
-

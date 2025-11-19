@@ -1,6 +1,8 @@
-# components/models/huggingface_vlm.py
 from transformers import AutoProcessor, AutoModelForImageTextToText
 from .base import BaseModelLoader
+from .device_utils import (
+    get_device_config, get_load_kwargs, move_to_device, clear_device_cache
+)
 from PIL import Image
 import os
 import torch
@@ -18,9 +20,24 @@ class HuggingFaceVLMLoader(BaseModelLoader):
     def load_model(self, config):
         model_id = config.get("model_id")
         self.config = config
+        
+        log.debug("Loading processor for %s", model_id)
         self.processor = AutoProcessor.from_pretrained(model_id)
-        self.model = AutoModelForImageTextToText.from_pretrained(model_id)
-        logging.info(f"Loaded VLM model: {model_id}")
+        
+        # Device configuration
+        use_cuda, use_mps, device_name = get_device_config(config)
+        log.debug("Device: %s", device_name)
+        
+        load_kwargs = get_load_kwargs(use_cuda, use_mps, None)
+        log.debug("Loading model: device_map=%s, dtype=%s",
+                  load_kwargs.get("device_map"), load_kwargs.get("dtype"))
+        
+        # Load model
+        self.model = AutoModelForImageTextToText.from_pretrained(model_id, **load_kwargs)
+        
+        # Move to device
+        self.device = move_to_device(self.model, use_mps, None)
+        log.info("Loaded VLM model: %s on %s", model_id, device_name)
 
     def predict(self, prompt, image=None, time_series_data=None):
         if image is None:
@@ -57,35 +74,35 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         return image
 
     def _get_model_inputs(self, prompt, image):
-        """Try different VLM input formats"""
-        # Method 1: Direct text and image (most common)
-        try:
-            return self.processor(text=prompt, images=image, return_tensors="pt")
-        except Exception as e1:
-            logging.debug(f"Method 1 failed: {e1}")
-            
-        # Method 2: With image placeholder
-        try:
-            return self.processor(text=f"<image>\n{prompt}", images=image, return_tensors="pt")
-        except Exception as e2:
-            logging.debug(f"Method 2 failed: {e2}")
-            
-        # Method 3: Conversation format (for chat models)
-        try:
-            conversation = [{"role": "user", "content": [{"type": "image"}, {"type": "text", "text": prompt}]}]
-            text = self.processor.apply_chat_template(conversation, tokenize=False, add_generation_prompt=True)
-            return self.processor(text=text, images=image, return_tensors="pt")
-        except Exception as e3:
-            logging.debug(f"Method 3 failed: {e3}")
-            
-        # Method 4: Just image (for captioning models)
-        try:
-            return self.processor(images=image, return_tensors="pt")
-        except Exception as e4:
-            logging.debug(f"Method 4 failed: {e4}")
-            
-        # If all methods fail, raise error
+        """Try different VLM input formats and return processed inputs on correct device."""
+        device = self.device or next(self.model.parameters()).device
+        
+        methods = [
+            lambda: self.processor(text=prompt, images=image, return_tensors="pt"),
+            lambda: self.processor(text=f"<image>\n{prompt}", images=image, return_tensors="pt"),
+            lambda: self._try_conversation_format(prompt, image),
+            lambda: self.processor(images=image, return_tensors="pt"),
+        ]
+        
+        for i, method in enumerate(methods, 1):
+            try:
+                inputs = method()
+                return {k: v.to(device) if isinstance(v, torch.Tensor) else v 
+                       for k, v in inputs.items()}
+            except Exception as e:
+                log.debug("Input method %d failed: %s", i, e)
+        
         raise RuntimeError("Could not process VLM inputs with any supported format")
+    
+    def _try_conversation_format(self, prompt, image):
+        """Try conversation format for chat models."""
+        conversation = [{"role": "user", "content": [
+            {"type": "image"}, {"type": "text", "text": prompt}
+        ]}]
+        text = self.processor.apply_chat_template(
+            conversation, tokenize=False, add_generation_prompt=True
+        )
+        return self.processor(text=text, images=image, return_tensors="pt")
 
     def _decode_response(self, output_ids, inputs):
         """Decode response based on input format"""
@@ -100,10 +117,10 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         return self.processor.decode(output_ids[0], skip_special_tokens=True).strip()
 
     def unload_model(self):
+        log.debug("Unloading model")
         self.model = None
-        self.tokenizer = None
-
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-            
+        self.processor = None
+        self.device = None
+        clear_device_cache()
         gc.collect()
+        log.debug("Model unloaded")

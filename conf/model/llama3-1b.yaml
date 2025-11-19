@@ -1,0 +1,3 @@
+model_id: meta-llama/Llama-3.2-1B-Instruct
+model_category: LLM
+max_tokens: 64
