@@ -30,7 +30,7 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         
         load_kwargs = get_load_kwargs(use_cuda, use_mps, None)
         log.debug("Loading model: device_map=%s, dtype=%s",
-                  load_kwargs.get("device_map"), load_kwargs.get("torch_dtype"))
+                  load_kwargs.get("device_map"), load_kwargs.get("dtype"))
         
         # Load model
         self.model = AutoModelForImageTextToText.from_pretrained(model_id, **load_kwargs)

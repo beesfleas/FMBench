@@ -97,7 +97,7 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
         device_map = None
     
     kwargs = {
-        "torch_dtype": dtype,
+        "dtype": dtype,
         "low_cpu_mem_usage": True
     }
     

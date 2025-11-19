@@ -33,7 +33,7 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         load_kwargs = get_load_kwargs(use_cuda, use_mps, quantization_config)
         
         log.debug("Loading model: device_map=%s, dtype=%s, quantization=%s",
-                  load_kwargs.get("device_map"), load_kwargs.get("torch_dtype"),
+                  load_kwargs.get("device_map"), load_kwargs.get("dtype"),
                   "enabled" if quantization_config else "disabled")
 
         # Load model
