@@ -288,9 +288,15 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 # Update cached metrics in real-time
                 self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if len(cpu_values) > 0:
-                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
-                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
-                    self.metrics["min_cpu_utilization_percent"] = min(cpu_values)
+                    cpu_nonzero = [v for v in cpu_values if v != 0]
+                    if cpu_nonzero:
+                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
+                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
+                        self.metrics["min_cpu_utilization_percent"] = min(cpu_nonzero)
+                    else:
+                        self.metrics["average_cpu_utilization_percent"] = 0
+                        self.metrics["peak_cpu_utilization_percent"] = 0
+                        self.metrics["min_cpu_utilization_percent"] = 0
                 if len(mem_values) > 0:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)

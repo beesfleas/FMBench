@@ -132,9 +132,15 @@ class JetsonProfiler(BaseDeviceProfiler):
                 # Use the most reliable accumulator (CPU) for sample count
                 self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if cpu_values:
-                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
-                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
-                    self.metrics["min_cpu_utilization_percent"] = min(cpu_values)
+                    cpu_nonzero = [v for v in cpu_values if v != 0]
+                    if cpu_nonzero:
+                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
+                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
+                        self.metrics["min_cpu_utilization_percent"] = min(cpu_nonzero)
+                    else:
+                        self.metrics["average_cpu_utilization_percent"] = 0
+                        self.metrics["peak_cpu_utilization_percent"] = 0
+                        self.metrics["min_cpu_utilization_percent"] = 0
                 if mem_values:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
@@ -144,9 +150,15 @@ class JetsonProfiler(BaseDeviceProfiler):
                     self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
                     self.metrics["min_memory_utilization_percent"] = min(mem_pct_values)
                 if gpu_util_values:
-                    self.metrics["average_gpu_utilization_percent"] = sum(gpu_util_values) / len(gpu_util_values)
-                    self.metrics["peak_gpu_utilization_percent"] = max(gpu_util_values)
-                    self.metrics["min_gpu_utilization_percent"] = min(gpu_util_values)
+                    gpu_util_nonzero = [v for v in gpu_util_values if v != 0]
+                    if gpu_util_nonzero:
+                        self.metrics["average_gpu_utilization_percent"] = sum(gpu_util_nonzero) / len(gpu_util_nonzero)
+                        self.metrics["peak_gpu_utilization_percent"] = max(gpu_util_nonzero)
+                        self.metrics["min_gpu_utilization_percent"] = min(gpu_util_nonzero)
+                    else:
+                        self.metrics["average_gpu_utilization_percent"] = 0
+                        self.metrics["peak_gpu_utilization_percent"] = 0
+                        self.metrics["min_gpu_utilization_percent"] = 0
                 if gpu_mem_values:
                     self.metrics["average_gpu_memory_mb"] = sum(gpu_mem_values) / len(gpu_mem_values)
                     self.metrics["peak_gpu_memory_mb"] = max(gpu_mem_values)

@@ -190,9 +190,15 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 )
                 
                 if power_values:
-                    self.metrics["peak_power_watts"] = max(power_values)
-                    self.metrics["average_power_watts"] = sum(power_values) / len(power_values)
-                    self.metrics["min_power_watts"] = min(power_values)
+                    power_nonzero = [v for v in power_values if v != 0]
+                    if power_nonzero:
+                        self.metrics["peak_power_watts"] = max(power_nonzero)
+                        self.metrics["average_power_watts"] = sum(power_nonzero) / len(power_nonzero)
+                        self.metrics["min_power_watts"] = min(power_nonzero)
+                    else:
+                        self.metrics["peak_power_watts"] = 0
+                        self.metrics["average_power_watts"] = 0
+                        self.metrics["min_power_watts"] = 0
                     self.metrics["total_energy_joules"] = total_energy_joules
                 
                 if temp_values:
@@ -206,9 +212,15 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     self.metrics["min_memory_mb"] = min(memory_values)
                 
                 if util_values:
-                    self.metrics["peak_utilization_percent"] = max(util_values)
-                    self.metrics["average_utilization_percent"] = sum(util_values) / len(util_values)
-                    self.metrics["min_utilization_percent"] = min(util_values)
+                    util_nonzero = [v for v in util_values if v != 0]
+                    if util_nonzero:
+                        self.metrics["peak_utilization_percent"] = max(util_nonzero)
+                        self.metrics["average_utilization_percent"] = sum(util_nonzero) / len(util_nonzero)
+                        self.metrics["min_utilization_percent"] = min(util_nonzero)
+                    else:
+                        self.metrics["peak_utilization_percent"] = 0
+                        self.metrics["average_utilization_percent"] = 0
+                        self.metrics["min_utilization_percent"] = 0
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval

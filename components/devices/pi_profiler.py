@@ -189,8 +189,13 @@ class PiProfiler(BaseDeviceProfiler):
                 # Update cached metrics
                 self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if cpu_values:
-                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
-                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
+                    cpu_nonzero = [v for v in cpu_values if v != 0]
+                    if cpu_nonzero:
+                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
+                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
+                    else:
+                        self.metrics["average_cpu_utilization_percent"] = 0
+                        self.metrics["peak_cpu_utilization_percent"] = 0
                 if mem_values:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
@@ -202,9 +207,15 @@ class PiProfiler(BaseDeviceProfiler):
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
                 if power_values:
-                    self.metrics["average_power_watts"] = sum(power_values) / len(power_values)
-                    self.metrics["peak_power_watts"] = max(power_values)
-                    self.metrics["min_power_watts"] = min(power_values)
+                    power_nonzero = [v for v in power_values if v != 0]
+                    if power_nonzero:
+                        self.metrics["average_power_watts"] = sum(power_nonzero) / len(power_nonzero)
+                        self.metrics["peak_power_watts"] = max(power_nonzero)
+                        self.metrics["min_power_watts"] = min(power_nonzero)
+                    else:
+                        self.metrics["average_power_watts"] = 0
+                        self.metrics["peak_power_watts"] = 0
+                        self.metrics["min_power_watts"] = 0
                     self.metrics["total_energy_joules"] = total_energy_joules
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp

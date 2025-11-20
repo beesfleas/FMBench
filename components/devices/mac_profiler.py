@@ -198,11 +198,11 @@ class MacProfiler(BaseDeviceProfiler):
                 
                 # Calculate total power and accumulate energy
                 total_power = 0.0
-                if "e_cluster_power_watts" in sample:
+                if "e_cluster_power_watts" in sample and sample["e_cluster_power_watts"] > 0:
                     total_power += sample["e_cluster_power_watts"]
-                if "p_cluster_power_watts" in sample:
+                if "p_cluster_power_watts" in sample and sample["p_cluster_power_watts"] > 0:
                     total_power += sample["p_cluster_power_watts"]
-                if "gpu_power_watts" in sample:
+                if "gpu_power_watts" in sample and sample["gpu_power_watts"] > 0:
                     total_power += sample["gpu_power_watts"]
                 if total_power > 0:
                     total_energy_joules += total_power * self.sampling_interval
@@ -254,9 +254,15 @@ class MacProfiler(BaseDeviceProfiler):
                 # Update cached metrics
                 self.metrics["num_samples"] = len(cpu_util_values) if cpu_util_values else 0
                 if cpu_util_values:
-                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_util_values) / len(cpu_util_values)
-                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_util_values)
-                    self.metrics["min_cpu_utilization_percent"] = min(cpu_util_values)
+                    cpu_nonzero = [v for v in cpu_util_values if v != 0]
+                    if cpu_nonzero:
+                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
+                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
+                        self.metrics["min_cpu_utilization_percent"] = min(cpu_nonzero)
+                    else:
+                        self.metrics["average_cpu_utilization_percent"] = 0
+                        self.metrics["peak_cpu_utilization_percent"] = 0
+                        self.metrics["min_cpu_utilization_percent"] = 0
                 if mem_values:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
@@ -266,21 +272,45 @@ class MacProfiler(BaseDeviceProfiler):
                     self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
                     self.metrics["min_memory_utilization_percent"] = min(mem_pct_values)
                 if e_power_values:
-                    self.metrics["average_e_cluster_power_watts"] = sum(e_power_values) / len(e_power_values)
-                    self.metrics["peak_e_cluster_power_watts"] = max(e_power_values)
-                    self.metrics["min_e_cluster_power_watts"] = min(e_power_values)
+                    e_power_nonzero = [v for v in e_power_values if v != 0]
+                    if e_power_nonzero:
+                        self.metrics["average_e_cluster_power_watts"] = sum(e_power_nonzero) / len(e_power_nonzero)
+                        self.metrics["peak_e_cluster_power_watts"] = max(e_power_nonzero)
+                        self.metrics["min_e_cluster_power_watts"] = min(e_power_nonzero)
+                    else:
+                        self.metrics["average_e_cluster_power_watts"] = 0
+                        self.metrics["peak_e_cluster_power_watts"] = 0
+                        self.metrics["min_e_cluster_power_watts"] = 0
                 if p_power_values:
-                    self.metrics["average_p_cluster_power_watts"] = sum(p_power_values) / len(p_power_values)
-                    self.metrics["peak_p_cluster_power_watts"] = max(p_power_values)
-                    self.metrics["min_p_cluster_power_watts"] = min(p_power_values)
+                    p_power_nonzero = [v for v in p_power_values if v != 0]
+                    if p_power_nonzero:
+                        self.metrics["average_p_cluster_power_watts"] = sum(p_power_nonzero) / len(p_power_nonzero)
+                        self.metrics["peak_p_cluster_power_watts"] = max(p_power_nonzero)
+                        self.metrics["min_p_cluster_power_watts"] = min(p_power_nonzero)
+                    else:
+                        self.metrics["average_p_cluster_power_watts"] = 0
+                        self.metrics["peak_p_cluster_power_watts"] = 0
+                        self.metrics["min_p_cluster_power_watts"] = 0
                 if gpu_power_values:
-                    self.metrics["average_gpu_power_watts"] = sum(gpu_power_values) / len(gpu_power_values)
-                    self.metrics["peak_gpu_power_watts"] = max(gpu_power_values)
-                    self.metrics["min_gpu_power_watts"] = min(gpu_power_values)
+                    gpu_power_nonzero = [v for v in gpu_power_values if v != 0]
+                    if gpu_power_nonzero:
+                        self.metrics["average_gpu_power_watts"] = sum(gpu_power_nonzero) / len(gpu_power_nonzero)
+                        self.metrics["peak_gpu_power_watts"] = max(gpu_power_nonzero)
+                        self.metrics["min_gpu_power_watts"] = min(gpu_power_nonzero)
+                    else:
+                        self.metrics["average_gpu_power_watts"] = 0
+                        self.metrics["peak_gpu_power_watts"] = 0
+                        self.metrics["min_gpu_power_watts"] = 0
                 if gpu_util_values:
-                    self.metrics["average_gpu_utilization_percent"] = sum(gpu_util_values) / len(gpu_util_values)
-                    self.metrics["peak_gpu_utilization_percent"] = max(gpu_util_values)
-                    self.metrics["min_gpu_utilization_percent"] = min(gpu_util_values)
+                    gpu_util_nonzero = [v for v in gpu_util_values if v != 0]
+                    if gpu_util_nonzero:
+                        self.metrics["average_gpu_utilization_percent"] = sum(gpu_util_nonzero) / len(gpu_util_nonzero)
+                        self.metrics["peak_gpu_utilization_percent"] = max(gpu_util_nonzero)
+                        self.metrics["min_gpu_utilization_percent"] = min(gpu_util_nonzero)
+                    else:
+                        self.metrics["average_gpu_utilization_percent"] = 0
+                        self.metrics["peak_gpu_utilization_percent"] = 0
+                        self.metrics["min_gpu_utilization_percent"] = 0
                 if temp_values:
                     self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
