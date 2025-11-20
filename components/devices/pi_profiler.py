@@ -82,7 +82,7 @@ class PiProfiler(BaseDeviceProfiler):
             log.debug(f"Error while searching for Pi power path: {e}")
         
         if not self.power_monitoring_available:
-            log.debug("[Pi] No power monitoring interface found")
+            log.warning("[Pi] No power monitoring interface found")
 
     def _read_temp(self) -> float | None:
         """Read CPU temperature from thermal zone (millidegrees Celsius)."""
@@ -94,7 +94,7 @@ class PiProfiler(BaseDeviceProfiler):
                 temp_m = int(f.read().strip())
             return temp_m / 1000.0  # Convert to Celsius
         except Exception as e:
-            log.debug(f"Failed to read temperature: {e}")
+            log.warning(f"Failed to read temperature: {e}")
             return None
 
     def _read_power_watts(self) -> float | None:
@@ -107,11 +107,11 @@ class PiProfiler(BaseDeviceProfiler):
                 power_uw = int(f.read().strip())
             return power_uw / 1_000_000.0  # Convert microwatts to watts
         except PermissionError:
-            log.debug(f"Permission denied reading power file: {self.power_path}")
+            log.warning(f"Permission denied reading power file: {self.power_path}")
             self.power_monitoring_available = False
             return None
         except Exception as e:
-            log.debug(f"Failed to read power: {e}")
+            log.warning(f"Failed to read power: {e}")
             return None
 
     def _monitor_process(self):

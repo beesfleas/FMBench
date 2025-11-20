@@ -108,7 +108,7 @@ class JetsonProfiler(BaseDeviceProfiler):
                             # Temperature reading failed, continue without it
                             pass
                     except Exception as e:
-                        log.debug(f"GPU read failed: {e}")
+                        log.warning(f"GPU read failed: {e}")
                 
                 # Write to CSV
                 if csv_file is None:
