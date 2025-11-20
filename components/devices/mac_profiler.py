@@ -155,7 +155,7 @@ class MacProfiler(BaseDeviceProfiler):
         total_energy_joules = 0.0
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_count += 1
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
@@ -167,7 +167,7 @@ class MacProfiler(BaseDeviceProfiler):
                     try:
                         line = self.powermetrics_process.stdout.readline()
                         if not line:
-                            if self._is_monitoring:
+                            if not self._stop_event.is_set():
                                 log.warning("powermetrics process closed unexpectedly")
                             self._can_read_powermetrics = False
                             self.powermetrics_process = None
@@ -178,7 +178,7 @@ class MacProfiler(BaseDeviceProfiler):
                                 self.last_known_metrics.update(power_metrics)
                                 current_block = ""
                     except Exception as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.warning("Error reading powermetrics: %s", e, exc_info=True)
                         self._can_read_powermetrics = False
                         self.powermetrics_process = None
@@ -296,7 +296,8 @@ class MacProfiler(BaseDeviceProfiler):
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         except Exception as e:
             log.error("Exception in monitoring loop: %s", e, exc_info=True)

@@ -134,7 +134,7 @@ class PiProfiler(BaseDeviceProfiler):
         total_energy_joules = 0.0
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -214,7 +214,8 @@ class PiProfiler(BaseDeviceProfiler):
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         finally:
             if csv_file:

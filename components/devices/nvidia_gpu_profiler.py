@@ -104,7 +104,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         total_energy_joules = 0.0
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -117,7 +117,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         sample["power_watts"] = power_watts
                         total_energy_joules += power_watts * self.sampling_interval
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
                         self.power_available = False
 
@@ -127,7 +127,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         temp_c = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
                         sample["temp_c"] = temp_c
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU temp: {e}. Disabling temp monitoring.")
                         self.temp_available = False
 
@@ -138,7 +138,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         memory_mb = memory_info.used / (1024 * 1024)
                         sample["memory_mb"] = memory_mb
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU memory: {e}. Disabling memory monitoring.")
                         self.memory_available = False
 
@@ -149,7 +149,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         util_percent = util_info.gpu
                         sample["utilization_percent"] = util_percent
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU util: {e}. Disabling util monitoring.")
                         self.util_available = False
                 
@@ -216,7 +216,8 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         finally:
             if csv_file:

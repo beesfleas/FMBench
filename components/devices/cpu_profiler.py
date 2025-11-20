@@ -213,7 +213,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         prev_energy_uj = None
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -317,7 +317,8 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         finally:
             if csv_file:
