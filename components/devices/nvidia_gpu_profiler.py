@@ -47,6 +47,12 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         log.info(f"Initialized Nvidia GPU Profiler for {self.device_name}")
 
         self._check_metric_availability()
+        
+        # Set initial availability flags
+        self.metrics["power_monitoring_available"] = self.power_available
+        self.metrics["temperature_monitoring_available"] = self.temp_available
+        self.metrics["memory_monitoring_available"] = self.memory_available
+        self.metrics["utilization_monitoring_available"] = self.util_available
 
     def get_device_info(self) -> str:
         """Return the device name set during initialization."""
@@ -153,12 +159,21 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 
                 # Write to CSV
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
-                    csv_writer.writeheader()
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                        csv_writer.writeheader()
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update accumulators
                 if "power_watts" in sample:
@@ -171,7 +186,12 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     util_values.append(sample["utilization_percent"])
                 
                 # Update cached metrics
-                self.metrics["num_samples"] = len(power_values)
+                # Use the most reliable accumulator for sample count
+                self.metrics["num_samples"] = len(power_values) if power_values else (
+                    len(util_values) if util_values else (
+                        len(memory_values) if memory_values else 0
+                    )
+                )
                 
                 if power_values:
                     self.metrics["peak_power_watts"] = max(power_values)
@@ -194,6 +214,12 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     self.metrics["min_utilization_percent"] = min(util_values)
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                self.metrics["sampling_interval"] = self.sampling_interval
+                # Update availability flags (may change during monitoring)
+                self.metrics["power_monitoring_available"] = self.power_available
+                self.metrics["temperature_monitoring_available"] = self.temp_available
+                self.metrics["memory_monitoring_available"] = self.memory_available
+                self.metrics["utilization_monitoring_available"] = self.util_available
                 
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
@@ -204,20 +230,9 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
             if csv_file:
                 csv_file.close()
 
-    def get_metrics(self):
-        """
-        Return cached metrics.
-        """
-        return self.metrics
-
     def stop_monitoring(self):
         """
         Stop the monitoring thread and clean up.
+        Note: pynvml shutdown is handled by ProfilerManager to avoid double shutdown.
         """
-        metrics = super().stop_monitoring()
-        try:
-            pynvml.nvmlShutdown()
-        except pynvml.NVMLError as e:
-            log.error(f"Error during pynvml shutdown: {e}")
-        
-        return metrics
+        return super().stop_monitoring()

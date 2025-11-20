@@ -137,6 +137,9 @@ class MacProfiler(BaseDeviceProfiler):
         # Start powermetrics process
         self._start_powermetrics_process()
         
+        # Set initial availability flag
+        self.metrics["powermetrics_available"] = self._can_read_powermetrics and self.powermetrics_process is not None
+        
         start_time = time.perf_counter()
         csv_file = None
         csv_writer = None
@@ -197,20 +200,29 @@ class MacProfiler(BaseDeviceProfiler):
                 
                 # Write to CSV
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    # Get all possible fieldnames from sample and known metrics
-                    all_fieldnames = set(sample.keys())
-                    # Add common powermetrics fields that might appear later
-                    all_fieldnames.update([
-                        'e_cluster_power_watts', 'p_cluster_power_watts', 
-                        'gpu_power_watts', 'gpu_utilization_percent', 'cpu_temp_c'
-                    ])
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sorted(all_fieldnames))
-                    csv_writer.writeheader()
-                    log.debug("CSV header written (%d fields)", len(all_fieldnames))
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        # Get all possible fieldnames from sample and known metrics
+                        all_fieldnames = set(sample.keys())
+                        # Add common powermetrics fields that might appear later
+                        all_fieldnames.update([
+                            'e_cluster_power_watts', 'p_cluster_power_watts', 
+                            'gpu_power_watts', 'gpu_utilization_percent', 'cpu_temp_c'
+                        ])
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sorted(all_fieldnames))
+                        csv_writer.writeheader()
+                        log.debug("CSV header written (%d fields)", len(all_fieldnames))
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update accumulators
                 if "cpu_utilization_percent" in sample:
@@ -231,34 +243,44 @@ class MacProfiler(BaseDeviceProfiler):
                     temp_values.append(sample["cpu_temp_c"])
                 
                 # Update cached metrics
-                self.metrics["num_samples"] = len(cpu_util_values)
+                self.metrics["num_samples"] = len(cpu_util_values) if cpu_util_values else 0
                 if cpu_util_values:
                     self.metrics["average_cpu_utilization_percent"] = sum(cpu_util_values) / len(cpu_util_values)
                     self.metrics["peak_cpu_utilization_percent"] = max(cpu_util_values)
+                    self.metrics["min_cpu_utilization_percent"] = min(cpu_util_values)
                 if mem_values:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
+                    self.metrics["min_memory_mb"] = min(mem_values)
                 if mem_pct_values:
                     self.metrics["average_memory_utilization_percent"] = sum(mem_pct_values) / len(mem_pct_values)
                     self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
+                    self.metrics["min_memory_utilization_percent"] = min(mem_pct_values)
                 if e_power_values:
                     self.metrics["average_e_cluster_power_watts"] = sum(e_power_values) / len(e_power_values)
                     self.metrics["peak_e_cluster_power_watts"] = max(e_power_values)
+                    self.metrics["min_e_cluster_power_watts"] = min(e_power_values)
                 if p_power_values:
                     self.metrics["average_p_cluster_power_watts"] = sum(p_power_values) / len(p_power_values)
                     self.metrics["peak_p_cluster_power_watts"] = max(p_power_values)
+                    self.metrics["min_p_cluster_power_watts"] = min(p_power_values)
                 if gpu_power_values:
                     self.metrics["average_gpu_power_watts"] = sum(gpu_power_values) / len(gpu_power_values)
                     self.metrics["peak_gpu_power_watts"] = max(gpu_power_values)
+                    self.metrics["min_gpu_power_watts"] = min(gpu_power_values)
                 if gpu_util_values:
                     self.metrics["average_gpu_utilization_percent"] = sum(gpu_util_values) / len(gpu_util_values)
                     self.metrics["peak_gpu_utilization_percent"] = max(gpu_util_values)
+                    self.metrics["min_gpu_utilization_percent"] = min(gpu_util_values)
                 if temp_values:
                     self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                self.metrics["sampling_interval"] = self.sampling_interval
+                # Update availability flag (may change during monitoring)
+                self.metrics["powermetrics_available"] = self._can_read_powermetrics and self.powermetrics_process is not None
                 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start
@@ -275,11 +297,14 @@ class MacProfiler(BaseDeviceProfiler):
             if self.powermetrics_process:
                 try:
                     self.powermetrics_process.terminate()
-                    self.powermetrics_process.wait(timeout=1.0)
+                    try:
+                        self.powermetrics_process.wait(timeout=2.0)
+                    except subprocess.TimeoutExpired:
+                        log.warning("powermetrics did not terminate, forcing kill")
+                        self.powermetrics_process.kill()
+                        self.powermetrics_process.wait()
                 except Exception as e:
                     log.debug("Error terminating powermetrics: %s", e, exc_info=True)
-
-    def get_metrics(self) -> dict:
-        """Return cached metrics."""
-        return self.metrics
+                finally:
+                    self.powermetrics_process = None
 

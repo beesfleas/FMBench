@@ -31,6 +31,9 @@ class PiProfiler(BaseDeviceProfiler):
         self.thermal_zone_path = "/sys/class/thermal/thermal_zone0/temp"
         self.temp_available = os.path.exists(self.thermal_zone_path)
         
+        # Set initial availability flag
+        self.metrics["temperature_monitoring_available"] = self.temp_available
+        
         psutil.cpu_percent(interval=None)
         log.info(f"Initialized Raspberry Pi Profiler")
 
@@ -99,15 +102,24 @@ class PiProfiler(BaseDeviceProfiler):
                 
                 # Write to CSV
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
-                    csv_writer.writeheader()
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                        csv_writer.writeheader()
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update cached metrics
-                self.metrics["num_samples"] = len(cpu_values)
+                self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if cpu_values:
                     self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
                     self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
@@ -123,6 +135,9 @@ class PiProfiler(BaseDeviceProfiler):
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                self.metrics["sampling_interval"] = self.sampling_interval
+                # Update availability flag (may change during monitoring)
+                self.metrics["temperature_monitoring_available"] = self.temp_available
                 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start
@@ -133,7 +148,3 @@ class PiProfiler(BaseDeviceProfiler):
         finally:
             if csv_file:
                 csv_file.close()
-
-    def get_metrics(self) -> dict:
-        """Return cached metrics."""
-        return self.metrics

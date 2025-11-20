@@ -39,6 +39,10 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         
         self._detect_cpu_type()
         self._check_metric_availability()
+        
+        # Set initial availability flags
+        self.metrics["power_monitoring_available"] = self.power_monitoring_available
+        self.metrics["temperature_monitoring_available"] = self.temp_monitoring_available
 
         log.info(f"Initialized CPU Profiler for {self.device_name}")
         psutil.cpu_percent(interval=None)
@@ -263,24 +267,37 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 
                 # Write to CSV (open on first sample, close on last)
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
-                    csv_writer.writeheader()
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                        csv_writer.writeheader()
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        # Continue monitoring but without CSV logging
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update cached metrics in real-time
-                self.metrics["num_samples"] = len(cpu_values)
+                self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if len(cpu_values) > 0:
                     self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
                     self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
+                    self.metrics["min_cpu_utilization_percent"] = min(cpu_values)
                 if len(mem_values) > 0:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
+                    self.metrics["min_memory_mb"] = min(mem_values)
                 if len(mem_pct_values) > 0:
                     self.metrics["average_memory_utilization_percent"] = sum(mem_pct_values) / len(mem_pct_values)
                     self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
+                    self.metrics["min_memory_utilization_percent"] = min(mem_pct_values)
                 if temp_values:
                     self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
@@ -295,6 +312,9 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
+                # Update availability flags (may change during monitoring)
+                self.metrics["power_monitoring_available"] = self.power_monitoring_available
+                self.metrics["temperature_monitoring_available"] = self.temp_monitoring_available
                 
                 # Sleep to maintain sampling interval
                 elapsed = time.perf_counter() - loop_start
@@ -305,7 +325,3 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         finally:
             if csv_file:
                 csv_file.close()
-
-    def get_metrics(self) -> dict:
-        """Return cached metrics collected during monitoring."""
-        return self.metrics
