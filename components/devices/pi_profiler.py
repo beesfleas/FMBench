@@ -4,6 +4,7 @@ import os
 import csv
 import logging
 import tempfile
+import subprocess
 from .base import BaseDeviceProfiler
 
 log = logging.getLogger(__name__)
@@ -31,9 +32,8 @@ class PiProfiler(BaseDeviceProfiler):
         self.thermal_zone_path = "/sys/class/thermal/thermal_zone0/temp"
         self.temp_available = os.path.exists(self.thermal_zone_path)
         
-        # Check for power monitoring
+        # Check for power monitoring (Pi 5 PMIC only)
         self.power_monitoring_available = False
-        self.power_path = None
         self._check_power_availability()
         
         psutil.cpu_percent(interval=None)
@@ -43,46 +43,21 @@ class PiProfiler(BaseDeviceProfiler):
         return self.device_name
 
     def _check_power_availability(self):
-        """
-        Check for power monitoring via hwmon interface.
-        Raspberry Pi may expose power through hwmon devices.
-        """
-        base_path = "/sys/class/hwmon/"
-        if not os.path.exists(base_path):
-            return
-        
+        """Check for Raspberry Pi 5 PMIC power monitoring."""
         try:
-            for dir_name in os.listdir(base_path):
-                if not dir_name.startswith("hwmon"):
-                    continue
-                
-                hwmon_dir = os.path.join(base_path, dir_name)
-                name_path = os.path.join(hwmon_dir, "name")
-                power_path = os.path.join(hwmon_dir, "power1_input")
-                
-                if os.path.exists(name_path) and os.path.exists(power_path):
-                    try:
-                        with open(name_path, 'r') as f:
-                            name = f.read().strip()
-                        # Check if readable
-                        with open(power_path, 'r') as f:
-                            f.read()
-                        
-                        # Accept common Pi power sensor names
-                        if any(keyword in name.lower() for keyword in ['rpi', 'ina219', 'ina260', 'power', 'volt']):
-                            self.power_path = power_path
-                            self.power_monitoring_available = True
-                            log.info(f"[Pi] Power monitoring enabled via {name} at: {power_path}")
-                            return
-                    except PermissionError:
-                        log.debug(f"Permission denied reading power file: {power_path}")
-                    except Exception as e:
-                        log.debug(f"Error checking power path: {e}")
+            result = subprocess.run(
+                ["vcgencmd", "pmic_read_adc"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0 and "VDD_CORE_A" in result.stdout and "VDD_CORE_V" in result.stdout:
+                self.power_monitoring_available = True
+                log.info("[Pi] Power monitoring enabled via Raspberry Pi 5 PMIC")
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+            log.debug("[Pi] Pi 5 PMIC not available")
         except Exception as e:
-            log.debug(f"Error while searching for Pi power path: {e}")
-        
-        if not self.power_monitoring_available:
-            log.debug("[Pi] No power monitoring interface found")
+            log.debug(f"[Pi] Error checking PMIC: {e}")
 
     def _read_temp(self) -> float | None:
         """Read CPU temperature from thermal zone (millidegrees Celsius)."""
@@ -98,21 +73,40 @@ class PiProfiler(BaseDeviceProfiler):
             return None
 
     def _read_power_watts(self) -> float | None:
-        """Read power consumption in watts from hwmon interface."""
-        if not self.power_monitoring_available or not self.power_path:
+        """Read CPU power consumption in watts using Raspberry Pi 5 PMIC."""
+        if not self.power_monitoring_available:
             return None
         
         try:
-            with open(self.power_path, 'r') as f:
-                power_uw = int(f.read().strip())
-            return power_uw / 1_000_000.0  # Convert microwatts to watts
-        except PermissionError:
-            log.debug(f"Permission denied reading power file: {self.power_path}")
-            self.power_monitoring_available = False
-            return None
+            result = subprocess.run(
+                ["vcgencmd", "pmic_read_adc"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode != 0:
+                return None
+            
+            current = None
+            voltage = None
+            
+            for line in result.stdout.splitlines():
+                if "VDD_CORE_A" in line:
+                    current_str = line.split("=")[1].replace("A", "").strip()
+                    current = float(current_str)
+                elif "VDD_CORE_V" in line:
+                    voltage_str = line.split("=")[1].replace("V", "").strip()
+                    voltage = float(voltage_str)
+            
+            if current is not None and voltage is not None:
+                return current * voltage  # Power (W) = Current (A) × Voltage (V)
+            
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, IndexError):
+            pass
         except Exception as e:
-            log.debug(f"Failed to read power: {e}")
-            return None
+            log.debug(f"Error reading power: {e}")
+        
+        return None
 
     def _monitor_process(self):
         """Collect CPU, memory, and thermal metrics from Raspberry Pi."""
