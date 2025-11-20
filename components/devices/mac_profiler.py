@@ -137,9 +137,6 @@ class MacProfiler(BaseDeviceProfiler):
         # Start powermetrics process
         self._start_powermetrics_process()
         
-        # Set initial availability flag
-        self.metrics["powermetrics_available"] = self._can_read_powermetrics and self.powermetrics_process is not None
-        
         start_time = time.perf_counter()
         csv_file = None
         csv_writer = None
@@ -279,8 +276,6 @@ class MacProfiler(BaseDeviceProfiler):
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
-                # Update availability flag (may change during monitoring)
-                self.metrics["powermetrics_available"] = self._can_read_powermetrics and self.powermetrics_process is not None
                 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start

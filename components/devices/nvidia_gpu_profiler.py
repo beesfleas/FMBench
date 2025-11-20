@@ -47,12 +47,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         log.info(f"Initialized Nvidia GPU Profiler for {self.device_name}")
 
         self._check_metric_availability()
-        
-        # Set initial availability flags
-        self.metrics["power_monitoring_available"] = self.power_available
-        self.metrics["temperature_monitoring_available"] = self.temp_available
-        self.metrics["memory_monitoring_available"] = self.memory_available
-        self.metrics["utilization_monitoring_available"] = self.util_available
 
     def get_device_info(self) -> str:
         """Return the device name set during initialization."""
@@ -215,11 +209,6 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
-                # Update availability flags (may change during monitoring)
-                self.metrics["power_monitoring_available"] = self.power_available
-                self.metrics["temperature_monitoring_available"] = self.temp_available
-                self.metrics["memory_monitoring_available"] = self.memory_available
-                self.metrics["utilization_monitoring_available"] = self.util_available
                 
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed

@@ -38,9 +38,6 @@ class JetsonProfiler(BaseDeviceProfiler):
             self.pynvml = None
             self.gpu_available = False
         
-        # Set initial availability flag
-        self.metrics["gpu_monitoring_available"] = self.gpu_available
-        
         psutil.cpu_percent(interval=None)
         log.info(f"Initialized Jetson Profiler")
 
@@ -161,8 +158,6 @@ class JetsonProfiler(BaseDeviceProfiler):
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
-                # Update availability flag (may change during monitoring)
-                self.metrics["gpu_monitoring_available"] = self.gpu_available
                 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start

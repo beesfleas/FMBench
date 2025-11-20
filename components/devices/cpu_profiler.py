@@ -39,10 +39,6 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         
         self._detect_cpu_type()
         self._check_metric_availability()
-        
-        # Set initial availability flags
-        self.metrics["power_monitoring_available"] = self.power_monitoring_available
-        self.metrics["temperature_monitoring_available"] = self.temp_monitoring_available
 
         log.info(f"Initialized CPU Profiler for {self.device_name}")
         psutil.cpu_percent(interval=None)
@@ -312,9 +308,6 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
-                # Update availability flags (may change during monitoring)
-                self.metrics["power_monitoring_available"] = self.power_monitoring_available
-                self.metrics["temperature_monitoring_available"] = self.temp_monitoring_available
                 
                 # Sleep to maintain sampling interval
                 elapsed = time.perf_counter() - loop_start

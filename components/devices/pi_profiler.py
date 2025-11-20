@@ -31,9 +31,6 @@ class PiProfiler(BaseDeviceProfiler):
         self.thermal_zone_path = "/sys/class/thermal/thermal_zone0/temp"
         self.temp_available = os.path.exists(self.thermal_zone_path)
         
-        # Set initial availability flag
-        self.metrics["temperature_monitoring_available"] = self.temp_available
-        
         psutil.cpu_percent(interval=None)
         log.info(f"Initialized Raspberry Pi Profiler")
 
@@ -136,8 +133,6 @@ class PiProfiler(BaseDeviceProfiler):
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
-                # Update availability flag (may change during monitoring)
-                self.metrics["temperature_monitoring_available"] = self.temp_available
                 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start
