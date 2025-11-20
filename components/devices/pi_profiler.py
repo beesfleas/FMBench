@@ -57,7 +57,10 @@ class PiProfiler(BaseDeviceProfiler):
         except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
             log.debug("[Pi] Pi 5 PMIC not available")
         except Exception as e:
-            log.debug(f"[Pi] Error checking PMIC: {e}")
+            log.debug(f"Error while searching for Pi power path: {e}")
+        
+        if not self.power_monitoring_available:
+            log.warning("[Pi] No power monitoring interface found")
 
     def _read_temp(self) -> float | None:
         """Read CPU temperature from thermal zone (millidegrees Celsius)."""
@@ -69,7 +72,7 @@ class PiProfiler(BaseDeviceProfiler):
                 temp_m = int(f.read().strip())
             return temp_m / 1000.0  # Convert to Celsius
         except Exception as e:
-            log.debug(f"Failed to read temperature: {e}")
+            log.warning(f"Failed to read temperature: {e}")
             return None
 
     def _read_power_watts(self) -> float | None:

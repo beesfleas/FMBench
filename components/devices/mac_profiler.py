@@ -120,7 +120,7 @@ class MacProfiler(BaseDeviceProfiler):
                 metrics['cpu_temp_c'] = float(temp_match.group(1))
                 
         except Exception as e:
-            log.debug("Error parsing powermetrics: %s", e)
+            log.warning("Error parsing powermetrics: %s", e)
             
         return metrics
 
@@ -178,7 +178,7 @@ class MacProfiler(BaseDeviceProfiler):
                                 current_block = ""
                     except Exception as e:
                         if self._is_monitoring:
-                            log.debug("Error reading powermetrics: %s", e, exc_info=True)
+                            log.warning("Error reading powermetrics: %s", e, exc_info=True)
                         self._can_read_powermetrics = False
                         self.powermetrics_process = None
                 

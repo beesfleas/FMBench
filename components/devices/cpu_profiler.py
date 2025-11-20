@@ -258,7 +258,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                                 sample["cpu_temp_c"] = cpu_temp
                                 temp_values.append(cpu_temp)
                     except Exception as e:
-                        log.debug(f"Temperature read failed: {e}")
+                        log.warning(f"Temperature read failed: {e}")
                         self.temp_monitoring_available = False
                 
                 # Write to CSV (open on first sample, close on last)
