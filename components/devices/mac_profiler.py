@@ -152,6 +152,7 @@ class MacProfiler(BaseDeviceProfiler):
         gpu_power_values = []
         gpu_util_values = []
         temp_values = []
+        total_energy_joules = 0.0
         
         try:
             while self._is_monitoring:
@@ -194,6 +195,17 @@ class MacProfiler(BaseDeviceProfiler):
                 
                 # Add powermetrics data to sample
                 sample.update(self.last_known_metrics)
+                
+                # Calculate total power and accumulate energy
+                total_power = 0.0
+                if "e_cluster_power_watts" in sample:
+                    total_power += sample["e_cluster_power_watts"]
+                if "p_cluster_power_watts" in sample:
+                    total_power += sample["p_cluster_power_watts"]
+                if "gpu_power_watts" in sample:
+                    total_power += sample["gpu_power_watts"]
+                if total_power > 0:
+                    total_energy_joules += total_power * self.sampling_interval
                 
                 # Write to CSV
                 if csv_file is None:
@@ -273,6 +285,9 @@ class MacProfiler(BaseDeviceProfiler):
                     self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
+                
+                if e_power_values or p_power_values or gpu_power_values:
+                    self.metrics["total_energy_joules"] = total_energy_joules
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval

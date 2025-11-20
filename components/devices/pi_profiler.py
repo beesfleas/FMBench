@@ -131,6 +131,7 @@ class PiProfiler(BaseDeviceProfiler):
         mem_pct_values = []
         temp_values = []
         power_values = []
+        total_energy_joules = 0.0
         
         try:
             while self._is_monitoring:
@@ -165,6 +166,7 @@ class PiProfiler(BaseDeviceProfiler):
                     if power is not None:
                         sample["power_watts"] = power
                         power_values.append(power)
+                        total_energy_joules += power * self.sampling_interval
                 
                 # Write to CSV
                 if csv_file is None:
@@ -203,6 +205,7 @@ class PiProfiler(BaseDeviceProfiler):
                     self.metrics["average_power_watts"] = sum(power_values) / len(power_values)
                     self.metrics["peak_power_watts"] = max(power_values)
                     self.metrics["min_power_watts"] = min(power_values)
+                    self.metrics["total_energy_joules"] = total_energy_joules
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval

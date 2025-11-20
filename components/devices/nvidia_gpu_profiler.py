@@ -101,6 +101,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         temp_values = []
         memory_values = []
         util_values = []
+        total_energy_joules = 0.0
         
         try:
             while self._is_monitoring:
@@ -114,6 +115,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     try:
                         power_watts = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000.0
                         sample["power_watts"] = power_watts
+                        total_energy_joules += power_watts * self.sampling_interval
                     except pynvml.NVMLError as e:
                         if self._is_monitoring:
                             log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
@@ -191,6 +193,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     self.metrics["peak_power_watts"] = max(power_values)
                     self.metrics["average_power_watts"] = sum(power_values) / len(power_values)
                     self.metrics["min_power_watts"] = min(power_values)
+                    self.metrics["total_energy_joules"] = total_energy_joules
                 
                 if temp_values:
                     self.metrics["peak_temp_c"] = max(temp_values)

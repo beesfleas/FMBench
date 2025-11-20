@@ -209,7 +209,8 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         mem_values = []
         mem_pct_values = []
         temp_values = []
-        energy_values = []
+        total_energy_joules = 0.0
+        prev_energy_uj = None
         
         try:
             while self._is_monitoring:
@@ -237,7 +238,11 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                     energy_uj = self._read_energy_uj()
                     if energy_uj is not None:
                         sample["energy_uj"] = energy_uj
-                        energy_values.append(energy_uj)
+                        if prev_energy_uj is not None:
+                            energy_delta_j = (energy_uj - prev_energy_uj) / 1_000_000.0
+                            if energy_delta_j > 0:
+                                total_energy_joules += energy_delta_j
+                        prev_energy_uj = energy_uj
                 
                 # Temperature monitoring
                 if self.temp_monitoring_available:
@@ -299,9 +304,8 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
                 
-                # Calculate energy metrics
-                if len(energy_values) >= 2:
-                    total_energy_joules = (energy_values[-1] - energy_values[0]) / 1_000_000.0
+                # Energy metrics
+                if self.power_monitoring_available and prev_energy_uj is not None:
                     self.metrics["total_energy_joules"] = total_energy_joules
                     if rel_timestamp > 0:
                         self.metrics["average_power_watts"] = total_energy_joules / rel_timestamp
