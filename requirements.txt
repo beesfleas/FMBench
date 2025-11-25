@@ -5,3 +5,5 @@ omegaconf
 Pillow
 accelerate
 nvidia-ml-py
+langchain
+langchain-community

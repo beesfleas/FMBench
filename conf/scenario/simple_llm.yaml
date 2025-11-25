@@ -1,2 +1,3 @@
 name: Simple LLM Debug
+_target_: components.scenarios.simple.simple_llm.SimpleLLMScenario
 description: Basic LLM tasks for debugging
