@@ -4,5 +4,5 @@ description: AI2 ARC (Abstraction and Reasoning Corpus) Challenge
 dataset_name: allenai/ai2_arc
 dataset_config: ARC-Challenge
 split: test
-num_samples: 10
+
 prompt_template: "{input}"

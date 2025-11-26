@@ -23,6 +23,15 @@ def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
     # Load Model
     model_id = cfg.model.get("model_id", "unknown")
     log.info("Loading model: %s", model_id)
+    
+    # Sync device preference from global device config if needed
+    device_type = cfg.get("device", {}).get("type", "auto")
+    if device_type in ["cuda", "cuda-only"]:
+        log.info(f"Global device type '{device_type}' implies CUDA preference for model.")
+        OmegaConf.set_struct(cfg.model, False) # Allow adding new keys
+        cfg.model.device_preference = "cuda"
+        OmegaConf.set_struct(cfg.model, True)
+
     loader = get_model_loader(cfg.model)
     log.debug("Model loader: %s", loader.__class__.__name__)
     loader.load_model(cfg.model)
@@ -48,117 +57,23 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
 
     with profiler_manager:
         if scenario:
-            run_scenario(loader, scenario, model_config.model_category)
+            results = run_scenario(loader, scenario, model_config.model_category)
+            # Aggregate scenario metrics
+            if results:
+                # Calculate average accuracy if available
+                accuracies = [r.get("accuracy", 0.0) for r in results if "accuracy" in r]
+                if accuracies:
+                    avg_accuracy = sum(accuracies) / len(accuracies)
+                    all_metrics["accuracy"] = avg_accuracy
+                
+                all_metrics["total_samples"] = len(results)
+                # Store full results if needed, or just summary
+                # all_metrics["scenario_results"] = results 
         else:
             run_basic_test(loader, model_config)
     
     all_metrics["device_metrics"] = profiler_manager.get_all_metrics()
     log.debug("Collected metrics from %d profiler(s)", len(all_metrics["device_metrics"]))
-    
-    # TODO: Add scenario metrics collection here
-    # all_metrics["scenario_metrics"] = scenario.get_results()
-    
-    return all_metrics
-
-def _teardown_and_aggregate(loader: Optional[object], all_metrics: dict):
-    """
-    Unload model and aggregate metrics.
-    """
-    # Unload Model
-    if loader:
-        if hasattr(loader, 'unload_model') and callable(loader.unload_model):
-            loader.unload_model()
-        else:
-            log.warning("Model loader does not support unloading")
-            
-    # Run Metric Aggregator
-    _aggregate_metrics(all_metrics)
-
-def _aggregate_metrics(all_metrics: dict):
-    """
-    Placeholder for the metric aggregator.
-    """
-    print("\n--- Benchmark Complete: Final Metrics ---")
-    if all_metrics:
-        try:
-            # Use json for a clean print of the collected metrics
-            print(json.dumps(all_metrics, indent=2, default=str))
-        except Exception:
-            # Fallback
-            print(all_metrics)
-    else:
-        print("No metrics collected.")
-    print("-----------------------------------------")
-
-def run_benchmark(cfg: DictConfig):
-    """
-    Main benchmark orchestration function.
-    """
-    log.info("Starting FMBench")
-    log.debug("Configuration:\n%s", OmegaConf.to_yaml(cfg))
-
-    loader, profiler_manager = None, None
-    all_metrics = {}
-
-import logging
-from components.models.model_factory import get_model_loader
-from omegaconf import DictConfig, OmegaConf
-import hydra
-import json
-from components.devices.profiler_manager import ProfilerManager
-from typing import Optional, Tuple
-
-log = logging.getLogger(__name__)
-
-def _setup_profilers(cfg: DictConfig) -> ProfilerManager:
-    """
-    Initialize the ProfilerManager based on platform and config.
-    """
-    log.debug("Initializing profilers with device config: %s", cfg.get('device', {}))
-    profiler_manager = ProfilerManager(cfg)
-    return profiler_manager
-
-def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
-    """
-    Loads the model and scenario.
-    """
-    # Load Model
-    model_id = cfg.model.get("model_id", "unknown")
-    log.info("Loading model: %s", model_id)
-    loader = get_model_loader(cfg.model)
-    log.debug("Model loader: %s", loader.__class__.__name__)
-    loader.load_model(cfg.model)
-
-    # Load Scenario
-    scenario = None
-    if "scenario" in cfg and cfg.scenario:
-        log.info("Loading scenario: %s", cfg.scenario._target_)
-        scenario = hydra.utils.instantiate(cfg.scenario)
-        scenario.load_tasks()
-        log.info("Scenario loaded: %s (%d tasks)", scenario.name, len(scenario.tasks))
-    else:
-        log.warning("No scenario specified, running basic sanity test")
-        
-    return loader, scenario
-
-def _run_execution(loader: object, scenario: Optional[object], model_config: DictConfig, profiler_manager: ProfilerManager):
-    """
-    Run inference with profiling.
-    """
-    log.info("Starting benchmark execution")
-    all_metrics = {}
-
-    with profiler_manager:
-        if scenario:
-            run_scenario(loader, scenario, model_config.model_category)
-        else:
-            run_basic_test(loader, model_config)
-    
-    all_metrics["device_metrics"] = profiler_manager.get_all_metrics()
-    log.debug("Collected metrics from %d profiler(s)", len(all_metrics["device_metrics"]))
-    
-    # TODO: Add scenario metrics collection here
-    # all_metrics["scenario_metrics"] = scenario.get_results()
     
     return all_metrics
 
@@ -227,7 +142,7 @@ def run_scenario(loader, scenario, model_category):
     results = []
     
     for i, task in enumerate(scenario.tasks):
-        log.info(f"Processing task {i+1}/{len(scenario.tasks)}")
+        log.debug(f"Processing task {i+1}/{len(scenario.tasks)}")
         
         prompt = task.get("prompt")
         if not prompt and "input" in task:
@@ -251,7 +166,12 @@ def run_scenario(loader, scenario, model_category):
                 output = loader.predict(prompt)
                 
             metrics = scenario.evaluate(task, output)
-            log.info(f"Task {i+1} Result: {metrics}")
+            
+            # Log progress every 10% or at least every 10 tasks
+            if (i + 1) % max(1, len(scenario.tasks) // 10) == 0:
+                log.info(f"Processed {i+1}/{len(scenario.tasks)} tasks")
+            
+            log.debug(f"Task {i+1} Result: {metrics}")
             results.append(metrics)
             
         except Exception as e:

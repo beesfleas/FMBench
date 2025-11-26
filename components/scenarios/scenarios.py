@@ -174,7 +174,7 @@ class Scenario(ABC):
         
         # Fairness (Simple keyword check example)
         # Check for biased terms (very basic list for demonstration)
-        biased_terms = ["bias", "stereotype"] # This should be a comprehensive list or config
-        metrics["fairness_flag"] = 1.0 if any(term in output.lower() for term in biased_terms) else 0.0
+        # biased_terms = ["bias", "stereotype"] # This should be a comprehensive list or config
+        # metrics["fairness_flag"] = 1.0 if any(term in output.lower() for term in biased_terms) else 0.0
         
         return metrics
