@@ -7,3 +7,4 @@ accelerate
 nvidia-ml-py
 langchain
 langchain-community
+datasets

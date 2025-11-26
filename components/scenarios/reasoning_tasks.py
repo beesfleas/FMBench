@@ -1,14 +1,12 @@
 from typing import List, Dict, Any
+from .dataset_scenario import DatasetScenario
 from .scenarios import Scenario
 
 class ReasoningScenario(Scenario):
     """
-    Scenario for reasoning tasks (e.g., Chain of Thought, Math, Logic).
+    Simple reasoning scenario for basic tests.
     """
-    
     def get_tasks(self) -> List[Dict[str, Any]]:
-        # In a real implementation, this would load from a dataset file.
-        # For now, we return a few sample tasks.
         return [
             {
                 "input": "If I have 3 apples and I eat one, how many do I have?",
@@ -22,12 +20,34 @@ class ReasoningScenario(Scenario):
             }
         ]
 
-    def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
-        metrics = super().compute_metrics(output, target, task)
-        
-        # Add reasoning-specific metrics
-        # e.g., check for "Therefore" or "step-by-step" if CoT is expected
-        if "step-by-step" in self.config.get("prompt_template", ""):
-            metrics["has_reasoning_steps"] = 1.0 if "\n" in output.strip() else 0.0
+class ARCScenario(DatasetScenario):
+    """
+    Scenario for AI2 ARC (Abstraction and Reasoning Corpus) tasks.
+    """
+    def process_dataset(self, dataset) -> List[Dict[str, Any]]:
+        tasks = []
+        for item in dataset:
+            # ARC has question, choices (text/label), answerKey
+            question = item['question']
+            choices = item['choices']
+            answer_key = item['answerKey']
             
-        return metrics
+            # Format choices
+            formatted_choices = []
+            target = ""
+            
+            for label, text in zip(choices['label'], choices['text']):
+                formatted_choices.append(f"{label}. {text}")
+                if label == answer_key:
+                    target = text # Or keep label if we want to evaluate label match
+            
+            choices_str = "\n".join(formatted_choices)
+            
+            tasks.append({
+                "input": f"Question: {question}\nChoices:\n{choices_str}\nAnswer:",
+                "target": answer_key, # Evaluating against the label (A, B, C, D) is usually standard for ARC
+                "type": "reasoning",
+                "choices": choices,
+                "answer_key": answer_key
+            })
+        return tasks

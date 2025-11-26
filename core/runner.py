@@ -230,6 +230,11 @@ def run_scenario(loader, scenario, model_category):
         log.info(f"Processing task {i+1}/{len(scenario.tasks)}")
         
         prompt = task.get("prompt")
+        if not prompt and "input" in task:
+            # If prompt is not pre-calculated, format it using the scenario's template
+            from langchain_core.prompts import PromptTemplate
+            tmpl = PromptTemplate.from_template(scenario.prompt_template)
+            prompt = tmpl.format(input=task["input"])
         image = task.get("image")
         time_series_data = task.get("time_series_data")
         
@@ -260,6 +265,8 @@ def run_basic_test(loader, model_config):
         log.warning("VLM model requires a scenario. Use +scenario=simple_vlm to test")
     elif model_config.model_category == "TIME_SERIES":
         log.warning("Time Series model requires a scenario. Use +scenario=simple_timeseries to test")
+    elif model_config.model_category == "LLM":
+        log.warning("LLM model requires a scenario. Use +scenario=simple_llm to test")
     else:
         # Basic LLM test
         prompt = "Tell me a joke."

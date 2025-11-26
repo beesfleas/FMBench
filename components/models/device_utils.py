@@ -88,7 +88,9 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
     """
     if use_cuda:
         dtype = torch.float16
-        device_map = "auto" if not quantization_config else None
+        # Disable device_map="auto" to allow manual .to("cuda") in move_to_device
+        # unless quantization is used (which requires it or handles it internally)
+        device_map = None
     elif use_mps:
         dtype = torch.float32
         device_map = "cpu" if not quantization_config else None
@@ -139,6 +141,14 @@ def move_to_device(model, use_mps, quantization_config):
     if use_mps and not quantization_config:
         device = torch.device("mps")
         log.debug("Moving model to MPS device")
+        model.to(device)
+        return device
+    elif torch.cuda.is_available() and not quantization_config:
+        # If we are not using quantization (which handles device placement via device_map),
+        # we should explicitly move to CUDA to ensure it's on the right device.
+        # This overrides 'device_map="auto"' behavior which might pick CPU for small models.
+        device = torch.device("cuda")
+        log.debug("Moving model to CUDA device")
         model.to(device)
         return device
     else:

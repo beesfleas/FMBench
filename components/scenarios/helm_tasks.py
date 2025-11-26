@@ -1,24 +1,26 @@
 from typing import List, Dict, Any
-from .scenarios import Scenario
+from .dataset_scenario import DatasetScenario
 
-class HELMScenario(Scenario):
+class HELMScenario(DatasetScenario):
     """
-    Scenario for HELM (Holistic Evaluation of Language Models) style tasks.
-    This is a simplified implementation to mimic HELM structure.
+    Scenario for HELM style tasks, using MMLU (cais/mmlu) as a proxy.
     """
     
-    def get_tasks(self) -> List[Dict[str, Any]]:
-        # Placeholder for HELM task loading logic
-        # In the future, this could interface with the actual HELM library or datasets
-        return [
-            {
-                "input": "The capital of France is",
-                "target": "Paris",
-                "type": "knowledge"
-            },
-            {
-                "input": "Translate to Spanish: Hello",
-                "target": "Hola",
-                "type": "translation"
-            }
-        ]
+    def process_dataset(self, dataset) -> List[Dict[str, Any]]:
+        tasks = []
+        for item in dataset:
+            # MMLU has question, choices, answer (index)
+            choices = item['choices']
+            answer_idx = item['answer']
+            target = choices[answer_idx]
+            
+            formatted_choices = "\n".join([f"{i}. {choice}" for i, choice in enumerate(choices)])
+            
+            tasks.append({
+                "input": f"{item['question']}\nChoices:\n{formatted_choices}\nAnswer:",
+                "target": target,
+                "type": "knowledge",
+                "choices": choices,
+                "answer_idx": answer_idx
+            })
+        return tasks
