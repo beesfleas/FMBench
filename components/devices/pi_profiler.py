@@ -4,6 +4,7 @@ import os
 import csv
 import logging
 import tempfile
+import subprocess
 from .base import BaseDeviceProfiler
 
 log = logging.getLogger(__name__)
@@ -31,11 +32,35 @@ class PiProfiler(BaseDeviceProfiler):
         self.thermal_zone_path = "/sys/class/thermal/thermal_zone0/temp"
         self.temp_available = os.path.exists(self.thermal_zone_path)
         
+        # Check for power monitoring (Pi 5 PMIC only)
+        self.power_monitoring_available = False
+        self._check_power_availability()
+        
         psutil.cpu_percent(interval=None)
         log.info(f"Initialized Raspberry Pi Profiler")
 
     def get_device_info(self) -> str:
         return self.device_name
+
+    def _check_power_availability(self):
+        """Check for Raspberry Pi 5 PMIC power monitoring."""
+        try:
+            result = subprocess.run(
+                ["vcgencmd", "pmic_read_adc"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0 and "VDD_CORE_A" in result.stdout and "VDD_CORE_V" in result.stdout:
+                self.power_monitoring_available = True
+                log.info("[Pi] Power monitoring enabled via Raspberry Pi 5 PMIC")
+        except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError):
+            log.debug("[Pi] Pi 5 PMIC not available")
+        except Exception as e:
+            log.debug(f"Error while searching for Pi power path: {e}")
+        
+        if not self.power_monitoring_available:
+            log.warning("[Pi] No power monitoring interface found")
 
     def _read_temp(self) -> float | None:
         """Read CPU temperature from thermal zone (millidegrees Celsius)."""
@@ -47,8 +72,44 @@ class PiProfiler(BaseDeviceProfiler):
                 temp_m = int(f.read().strip())
             return temp_m / 1000.0  # Convert to Celsius
         except Exception as e:
-            log.debug(f"Failed to read temperature: {e}")
+            log.warning(f"Failed to read temperature: {e}")
             return None
+
+    def _read_power_watts(self) -> float | None:
+        """Read CPU power consumption in watts using Raspberry Pi 5 PMIC."""
+        if not self.power_monitoring_available:
+            return None
+        
+        try:
+            result = subprocess.run(
+                ["vcgencmd", "pmic_read_adc"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode != 0:
+                return None
+            
+            current = None
+            voltage = None
+            
+            for line in result.stdout.splitlines():
+                if "VDD_CORE_A" in line:
+                    current_str = line.split("=")[1].replace("A", "").strip()
+                    current = float(current_str)
+                elif "VDD_CORE_V" in line:
+                    voltage_str = line.split("=")[1].replace("V", "").strip()
+                    voltage = float(voltage_str)
+            
+            if current is not None and voltage is not None:
+                return current * voltage  # Power (W) = Current (A) × Voltage (V)
+            
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, IndexError):
+            pass
+        except Exception as e:
+            log.debug(f"Error reading power: {e}")
+        
+        return None
 
     def _monitor_process(self):
         """Collect CPU, memory, and thermal metrics from Raspberry Pi."""
@@ -69,9 +130,11 @@ class PiProfiler(BaseDeviceProfiler):
         mem_values = []
         mem_pct_values = []
         temp_values = []
+        power_values = []
+        total_energy_joules = 0.0
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -97,20 +160,42 @@ class PiProfiler(BaseDeviceProfiler):
                     sample["cpu_temp_c"] = temp
                     temp_values.append(temp)
                 
+                # Power monitoring
+                if self.power_monitoring_available:
+                    power = self._read_power_watts()
+                    if power is not None:
+                        sample["power_watts"] = power
+                        power_values.append(power)
+                        total_energy_joules += power * self.sampling_interval
+                
                 # Write to CSV
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
-                    csv_writer.writeheader()
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                        csv_writer.writeheader()
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update cached metrics
-                self.metrics["num_samples"] = len(cpu_values)
+                self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if cpu_values:
-                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
-                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
+                    cpu_nonzero = [v for v in cpu_values if v != 0]
+                    if cpu_nonzero:
+                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
+                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
+                    else:
+                        self.metrics["average_cpu_utilization_percent"] = 0
+                        self.metrics["peak_cpu_utilization_percent"] = 0
                 if mem_values:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
@@ -121,19 +206,28 @@ class PiProfiler(BaseDeviceProfiler):
                     self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
+                if power_values:
+                    power_nonzero = [v for v in power_values if v != 0]
+                    if power_nonzero:
+                        self.metrics["average_power_watts"] = sum(power_nonzero) / len(power_nonzero)
+                        self.metrics["peak_power_watts"] = max(power_nonzero)
+                        self.metrics["min_power_watts"] = min(power_nonzero)
+                    else:
+                        self.metrics["average_power_watts"] = 0
+                        self.metrics["peak_power_watts"] = 0
+                        self.metrics["min_power_watts"] = 0
+                    self.metrics["total_energy_joules"] = total_energy_joules
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                self.metrics["sampling_interval"] = self.sampling_interval
                 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         finally:
             if csv_file:
                 csv_file.close()
-
-    def get_metrics(self) -> dict:
-        """Return cached metrics."""
-        return self.metrics

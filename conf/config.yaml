@@ -6,8 +6,8 @@ sampling_interval: 1 # Sample 1 time per 1 second
 defaults:
   - _self_
   - model: distilgpt2 # tiny model for debugging
-  - device: auto
-  # - scenario: mmlu_ethics
+  - device: gpu
+  - scenario: simple_llm
 
 reporter:
   type: json

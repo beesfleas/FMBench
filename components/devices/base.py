@@ -13,7 +13,7 @@ class BaseDeviceProfiler(ABC):
         self.config = config
         self.metrics = {}
         self._monitoring_thread = None
-        self._is_monitoring = False
+        self._stop_event = threading.Event()
         self.device_name = "[Unknown Device]"
 
     @abstractmethod
@@ -41,7 +41,7 @@ class BaseDeviceProfiler(ABC):
     def start_monitoring(self):
         """Starts the monitoring logic."""
         if self._monitoring_thread is None:
-            self._is_monitoring = True
+            self._stop_event.clear()
             self._monitoring_thread = self._start_monitoring_thread()
             log.debug("%s monitoring started", self.__class__.__name__)
         else:
@@ -50,22 +50,27 @@ class BaseDeviceProfiler(ABC):
     def stop_monitoring(self):
         """Stops the monitoring thread and collects final metrics."""
         if self._monitoring_thread:
-            self._is_monitoring = False
-            self._monitoring_thread.join()
-            self._monitoring_thread = None
+            self._stop_event.set()
+            try:
+                self._monitoring_thread.join(timeout=5.0)
+                if self._monitoring_thread.is_alive():
+                    log.warning("%s monitoring thread did not stop within timeout", self.__class__.__name__)
+            except Exception as e:
+                log.error(f"Error joining monitoring thread: {e}")
+            finally:
+                self._monitoring_thread = None
             log.debug("%s monitoring stopped", self.__class__.__name__)
         else:
             log.warning("No active monitoring to stop")
         
         return self.get_metrics()
 
-    @abstractmethod
     def get_metrics(self):
         """
         Returns the collected metrics in a structured dictionary.
         This is called after monitoring stops.
         """
-        raise NotImplementedError
+        return self.metrics
 
     def __enter__(self):
         """Start monitoring when entering a 'with' block."""

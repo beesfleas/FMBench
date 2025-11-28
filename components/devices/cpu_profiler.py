@@ -209,10 +209,11 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         mem_values = []
         mem_pct_values = []
         temp_values = []
-        energy_values = []
+        total_energy_joules = 0.0
+        prev_energy_uj = None
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -237,7 +238,11 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                     energy_uj = self._read_energy_uj()
                     if energy_uj is not None:
                         sample["energy_uj"] = energy_uj
-                        energy_values.append(energy_uj)
+                        if prev_energy_uj is not None:
+                            energy_delta_j = (energy_uj - prev_energy_uj) / 1_000_000.0
+                            if energy_delta_j > 0:
+                                total_energy_joules += energy_delta_j
+                        prev_energy_uj = energy_uj
                 
                 # Temperature monitoring
                 if self.temp_monitoring_available:
@@ -258,37 +263,55 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                                 sample["cpu_temp_c"] = cpu_temp
                                 temp_values.append(cpu_temp)
                     except Exception as e:
-                        log.debug(f"Temperature read failed: {e}")
+                        log.warning(f"Temperature read failed: {e}")
                         self.temp_monitoring_available = False
                 
                 # Write to CSV (open on first sample, close on last)
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
-                    csv_writer.writeheader()
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                        csv_writer.writeheader()
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        # Continue monitoring but without CSV logging
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update cached metrics in real-time
-                self.metrics["num_samples"] = len(cpu_values)
+                self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
                 if len(cpu_values) > 0:
-                    self.metrics["average_cpu_utilization_percent"] = sum(cpu_values) / len(cpu_values)
-                    self.metrics["peak_cpu_utilization_percent"] = max(cpu_values)
+                    cpu_nonzero = [v for v in cpu_values if v != 0]
+                    if cpu_nonzero:
+                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
+                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
+                        self.metrics["min_cpu_utilization_percent"] = min(cpu_nonzero)
+                    else:
+                        self.metrics["average_cpu_utilization_percent"] = 0
+                        self.metrics["peak_cpu_utilization_percent"] = 0
+                        self.metrics["min_cpu_utilization_percent"] = 0
                 if len(mem_values) > 0:
                     self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
                     self.metrics["peak_memory_mb"] = max(mem_values)
+                    self.metrics["min_memory_mb"] = min(mem_values)
                 if len(mem_pct_values) > 0:
                     self.metrics["average_memory_utilization_percent"] = sum(mem_pct_values) / len(mem_pct_values)
                     self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
+                    self.metrics["min_memory_utilization_percent"] = min(mem_pct_values)
                 if temp_values:
                     self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
                     self.metrics["peak_cpu_temp_c"] = max(temp_values)
                     self.metrics["min_cpu_temp_c"] = min(temp_values)
                 
-                # Calculate energy metrics
-                if len(energy_values) >= 2:
-                    total_energy_joules = (energy_values[-1] - energy_values[0]) / 1_000_000.0
+                # Energy metrics
+                if self.power_monitoring_available and prev_energy_uj is not None:
                     self.metrics["total_energy_joules"] = total_energy_joules
                     if rel_timestamp > 0:
                         self.metrics["average_power_watts"] = total_energy_joules / rel_timestamp
@@ -300,12 +323,9 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         finally:
             if csv_file:
                 csv_file.close()
-
-    def get_metrics(self) -> dict:
-        """Return cached metrics collected during monitoring."""
-        return self.metrics

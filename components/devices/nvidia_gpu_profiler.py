@@ -101,9 +101,10 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         temp_values = []
         memory_values = []
         util_values = []
+        total_energy_joules = 0.0
         
         try:
-            while self._is_monitoring:
+            while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
                 
@@ -114,8 +115,9 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     try:
                         power_watts = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000.0
                         sample["power_watts"] = power_watts
+                        total_energy_joules += power_watts * self.sampling_interval
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
                         self.power_available = False
 
@@ -125,7 +127,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         temp_c = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
                         sample["temp_c"] = temp_c
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU temp: {e}. Disabling temp monitoring.")
                         self.temp_available = False
 
@@ -136,7 +138,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         memory_mb = memory_info.used / (1024 * 1024)
                         sample["memory_mb"] = memory_mb
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU memory: {e}. Disabling memory monitoring.")
                         self.memory_available = False
 
@@ -147,18 +149,27 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         util_percent = util_info.gpu
                         sample["utilization_percent"] = util_percent
                     except pynvml.NVMLError as e:
-                        if self._is_monitoring:
+                        if not self._stop_event.is_set():
                             log.error(f"Could not read GPU util: {e}. Disabling util monitoring.")
                         self.util_available = False
                 
                 # Write to CSV
                 if csv_file is None:
-                    csv_file = open(self.csv_filepath, 'w', newline='')
-                    csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
-                    csv_writer.writeheader()
+                    try:
+                        csv_file = open(self.csv_filepath, 'w', newline='')
+                        csv_writer = csv.DictWriter(csv_file, fieldnames=sample.keys())
+                        csv_writer.writeheader()
+                    except Exception as e:
+                        log.error(f"Failed to create CSV file {self.csv_filepath}: {e}")
+                        csv_file = None
+                        csv_writer = None
                 
-                csv_writer.writerow(sample)
-                csv_file.flush()
+                if csv_writer is not None:
+                    try:
+                        csv_writer.writerow(sample)
+                        csv_file.flush()
+                    except Exception as e:
+                        log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update accumulators
                 if "power_watts" in sample:
@@ -171,12 +182,24 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     util_values.append(sample["utilization_percent"])
                 
                 # Update cached metrics
-                self.metrics["num_samples"] = len(power_values)
+                # Use the most reliable accumulator for sample count
+                self.metrics["num_samples"] = len(power_values) if power_values else (
+                    len(util_values) if util_values else (
+                        len(memory_values) if memory_values else 0
+                    )
+                )
                 
                 if power_values:
-                    self.metrics["peak_power_watts"] = max(power_values)
-                    self.metrics["average_power_watts"] = sum(power_values) / len(power_values)
-                    self.metrics["min_power_watts"] = min(power_values)
+                    power_nonzero = [v for v in power_values if v != 0]
+                    if power_nonzero:
+                        self.metrics["peak_power_watts"] = max(power_nonzero)
+                        self.metrics["average_power_watts"] = sum(power_nonzero) / len(power_nonzero)
+                        self.metrics["min_power_watts"] = min(power_nonzero)
+                    else:
+                        self.metrics["peak_power_watts"] = 0
+                        self.metrics["average_power_watts"] = 0
+                        self.metrics["min_power_watts"] = 0
+                    self.metrics["total_energy_joules"] = total_energy_joules
                 
                 if temp_values:
                     self.metrics["peak_temp_c"] = max(temp_values)
@@ -189,35 +212,32 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     self.metrics["min_memory_mb"] = min(memory_values)
                 
                 if util_values:
-                    self.metrics["peak_utilization_percent"] = max(util_values)
-                    self.metrics["average_utilization_percent"] = sum(util_values) / len(util_values)
-                    self.metrics["min_utilization_percent"] = min(util_values)
+                    util_nonzero = [v for v in util_values if v != 0]
+                    if util_nonzero:
+                        self.metrics["peak_utilization_percent"] = max(util_nonzero)
+                        self.metrics["average_utilization_percent"] = sum(util_nonzero) / len(util_nonzero)
+                        self.metrics["min_utilization_percent"] = min(util_nonzero)
+                    else:
+                        self.metrics["peak_utilization_percent"] = 0
+                        self.metrics["average_utilization_percent"] = 0
+                        self.metrics["min_utilization_percent"] = 0
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
+                self.metrics["sampling_interval"] = self.sampling_interval
                 
                 elapsed = time.perf_counter() - loop_start
                 sleep_duration = self.sampling_interval - elapsed
                 if sleep_duration > 0:
-                    time.sleep(sleep_duration)
+                    # Use event.wait() instead of time.sleep() to allow immediate interruption
+                    self._stop_event.wait(sleep_duration)
         
         finally:
             if csv_file:
                 csv_file.close()
 
-    def get_metrics(self):
-        """
-        Return cached metrics.
-        """
-        return self.metrics
-
     def stop_monitoring(self):
         """
         Stop the monitoring thread and clean up.
+        Note: pynvml shutdown is handled by ProfilerManager to avoid double shutdown.
         """
-        metrics = super().stop_monitoring()
-        try:
-            pynvml.nvmlShutdown()
-        except pynvml.NVMLError as e:
-            log.error(f"Error during pynvml shutdown: {e}")
-        
-        return metrics
+        return super().stop_monitoring()
