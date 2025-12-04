@@ -22,7 +22,6 @@ class MacProfiler(BaseDeviceProfiler):
         (r'Combined Power \(CPU \+ GPU \+ ANE\):\s*(\d+)\s*mW', 'combined_power_watts', 1000.0),
         (r'GPU HW active frequency:\s*(\d+)\s*MHz', 'gpu_active_frequency_mhz', 1.0),
         (r'GPU HW active residency:\s*([\d\.]+)%', 'gpu_utilization_percent', 1.0),
-        (r'CPU die temperature:\s*([\d\.]+)\s*C', 'cpu_temp_c', 1.0),
     ]
 
     def __init__(self, config, profiler_manager=None):
@@ -38,6 +37,7 @@ class MacProfiler(BaseDeviceProfiler):
         self.last_known_metrics = {}
         self.total_energy_joules = 0.0
         self.start_time = 0
+        self.last_sample_time = 0  # Track precise time of previous sample
         self.last_psutil_time = 0
         self.last_cpu_util = 0.0
         self.csv_file = None
@@ -46,7 +46,7 @@ class MacProfiler(BaseDeviceProfiler):
         # Initialize accumulators
         self.accumulators = {k: [] for k in [
             "cpu_util", "mem", "mem_pct", "cpu_power", "gpu_power", 
-            "ane_power", "combined_power", "gpu_freq", "gpu_util", "temp"
+            "ane_power", "combined_power", "gpu_freq", "gpu_util"
         ]}
 
         # Prime psutil to avoid initial 0.0
@@ -64,7 +64,7 @@ class MacProfiler(BaseDeviceProfiler):
     def _start_powermetrics_process(self):
         if not self._can_read_powermetrics: return
         cmd = ['powermetrics' if os.geteuid() == 0 else 'sudo', 'powermetrics']
-        cmd.extend(['--samplers', 'cpu_power,gpu_power,thermal', '-i', str(self.sampling_interval_ms)])
+        cmd.extend(['--samplers', 'cpu_power,gpu_power', '-i', str(self.sampling_interval_ms)])
         
         try:
             self.powermetrics_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
@@ -96,7 +96,7 @@ class MacProfiler(BaseDeviceProfiler):
             "cpu_util": "cpu_utilization_percent", "mem": "memory_mb", "mem_pct": "memory_utilization_percent",
             "cpu_power": "cpu_power_watts", "gpu_power": "gpu_power_watts", "ane_power": "ane_power_watts",
             "combined_power": "combined_power_watts", "gpu_freq": "gpu_active_frequency_mhz",
-            "gpu_util": "gpu_utilization_percent", "temp": "cpu_temp_c"
+            "gpu_util": "gpu_utilization_percent"
         }
         
         for acc_key, metric_name in mappings.items():
@@ -156,8 +156,18 @@ class MacProfiler(BaseDeviceProfiler):
                 sample.get("ane_power_watts", 0)
             ])
         
-        if total_power > 0:
-            self.total_energy_joules += total_power * self.sampling_interval
+        # Use actual time delta between samples for accurate energy integration
+        # powermetrics buffering means samples may not arrive at exactly self.sampling_interval
+        if self.last_sample_time > 0:
+            time_delta = now - self.last_sample_time
+        else:
+            # Fallback for first sample
+            time_delta = self.sampling_interval
+
+        if total_power > 0 and time_delta > 0:
+            self.total_energy_joules += total_power * time_delta
+        
+        self.last_sample_time = now
 
         # CSV Write
         if not self.csv_writer:
@@ -165,7 +175,7 @@ class MacProfiler(BaseDeviceProfiler):
                 self.csv_file = open(self.csv_filepath, 'w', newline='')
                 fields = sorted(set(sample.keys()) | {
                     'cpu_power_watts', 'ane_power_watts', 'combined_power_watts', 'gpu_power_watts',
-                    'gpu_utilization_percent', 'cpu_temp_c', 'gpu_active_frequency_mhz', 
+                    'gpu_utilization_percent', 'gpu_active_frequency_mhz', 
                     'cpu_utilization_percent', 'memory_used_mb', 'memory_utilization_percent'
                 })
                 self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=fields)
@@ -184,7 +194,7 @@ class MacProfiler(BaseDeviceProfiler):
             "cpu_util": "cpu_utilization_percent", "mem": "memory_used_mb", "mem_pct": "memory_utilization_percent",
             "cpu_power": "cpu_power_watts", "gpu_power": "gpu_power_watts", "ane_power": "ane_power_watts",
             "combined_power": "combined_power_watts", "gpu_freq": "gpu_active_frequency_mhz",
-            "gpu_util": "gpu_utilization_percent", "temp": "cpu_temp_c"
+            "gpu_util": "gpu_utilization_percent"
         }
         for acc_k, sample_k in acc_map.items():
             if sample_k in sample:
@@ -202,6 +212,7 @@ class MacProfiler(BaseDeviceProfiler):
         
         self._start_powermetrics_process()
         self.start_time = time.perf_counter()
+        self.last_sample_time = self.start_time # Initialize base time for delta calculation
         current_block = ""
 
         try:
