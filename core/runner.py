@@ -32,6 +32,12 @@ def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
         cfg.model.device_preference = "cuda"
         OmegaConf.set_struct(cfg.model, True)
 
+    # Inject allow_mps_fallback to model config
+    if cfg.get("allow_mps_fallback") is not None:
+        OmegaConf.set_struct(cfg.model, False)
+        cfg.model.allow_mps_fallback = cfg.allow_mps_fallback
+        OmegaConf.set_struct(cfg.model, True)
+
     loader = get_model_loader(cfg.model)
     log.debug("Model loader: %s", loader.__class__.__name__)
     loader.load_model(cfg.model)

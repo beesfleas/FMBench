@@ -40,7 +40,15 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         
         # Move to device and check MPS size limits
         if use_mps and not quantization_config:
-            check_mps_model_size(self.model, model_id)
+            try:
+                check_mps_model_size(self.model, model_id)
+            except RuntimeError as e:
+                if config.get("allow_mps_fallback", True):
+                    log.warning("Model too large for MPS: %s. Falling back to CPU.", e)
+                    use_mps = False
+                    device_name = "CPU"
+                else:
+                    raise e
         
         move_to_device(self.model, use_mps, quantization_config)
         log.info("Model loaded: %s on %s", model_id, device_name)

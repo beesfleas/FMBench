@@ -1,7 +1,8 @@
 from transformers import AutoProcessor, AutoModelForImageTextToText
 from .base import BaseModelLoader
 from .device_utils import (
-    get_device_config, get_load_kwargs, move_to_device, clear_device_cache
+    get_device_config, get_load_kwargs, move_to_device, clear_device_cache,
+    check_mps_model_size
 )
 from PIL import Image
 import os
@@ -35,6 +36,18 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         # Load model
         self.model = AutoModelForImageTextToText.from_pretrained(model_id, **load_kwargs)
         
+        # Move to device and check MPS size limits
+        if use_mps:
+            try:
+                check_mps_model_size(self.model, model_id)
+            except RuntimeError as e:
+                if config.get("allow_mps_fallback", True):
+                    log.warning("Model too large for MPS: %s. Falling back to CPU.", e)
+                    use_mps = False
+                    device_name = "CPU"
+                else:
+                    raise e
+
         # Move to device
         self.device = move_to_device(self.model, use_mps, None)
         log.info("Loaded VLM model: %s on %s", model_id, device_name)

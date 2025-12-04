@@ -1,7 +1,8 @@
 from transformers import AutoModel
 from .base import BaseModelLoader
 from .device_utils import (
-    get_device_config, get_load_kwargs, move_to_device, clear_device_cache
+    get_device_config, get_load_kwargs, move_to_device, clear_device_cache,
+    check_mps_model_size
 )
 import torch
 import gc
@@ -29,6 +30,19 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
         
         try:
             self.model = AutoModel.from_pretrained(model_id, **load_kwargs)
+            
+            # Move to device and check MPS size limits
+            if use_mps:
+                try:
+                    check_mps_model_size(self.model, model_id)
+                except RuntimeError as e:
+                    if config.get("allow_mps_fallback", True):
+                        log.warning("Model too large for MPS: %s. Falling back to CPU.", e)
+                        use_mps = False
+                        device_name = "CPU"
+                    else:
+                        raise e
+
             self.device = move_to_device(self.model, use_mps, None)
             log.info("Loaded Time Series model: %s on %s", model_id, device_name)
         except Exception as e:
