@@ -5,3 +5,4 @@ omegaconf
 Pillow
 accelerate
 nvidia-ml-py
+jetson-stats
