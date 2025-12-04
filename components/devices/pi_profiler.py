@@ -5,6 +5,7 @@ import csv
 import logging
 import tempfile
 import subprocess
+from typing import Optional
 from .base import BaseDeviceProfiler
 
 log = logging.getLogger(__name__)
@@ -62,7 +63,7 @@ class PiProfiler(BaseDeviceProfiler):
         if not self.power_monitoring_available:
             log.warning("[Pi] No power monitoring interface found")
 
-    def _read_temp(self) -> float | None:
+    def _read_temp(self) -> Optional[float]:
         """Read CPU temperature from thermal zone (millidegrees Celsius)."""
         if not self.temp_available:
             return None
@@ -75,7 +76,7 @@ class PiProfiler(BaseDeviceProfiler):
             log.warning(f"Failed to read temperature: {e}")
             return None
 
-    def _read_power_watts(self) -> float | None:
+    def _read_power_watts(self) -> Optional[float]:
         """Read CPU power consumption in watts using Raspberry Pi 5 PMIC."""
         if not self.power_monitoring_available:
             return None

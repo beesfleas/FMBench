@@ -171,6 +171,26 @@ You can override device selection:
   ```
 - **Sampling Behavior**: The `MacProfiler` relies on the system's `powermetrics` tool, which buffers output. This means that for very short benchmarks, you may see fewer samples than expected (e.g., 2 samples instead of 4 for a 2-second run with 0.5s interval) because samples are only recorded when `powermetrics` flushes its buffer. This is normal behavior and ensures data accuracy over longer runs.
 
+### NVIDIA Jetson Setup
+
+Running FMBench on NVIDIA Jetson (Orin, Xavier, Nano) requires specific setup:
+
+1.  **System Monitoring**: Install `jetson-stats` to enable detailed power, GPU, and thermal monitoring:
+    ```bash
+    sudo -H pip install -U jetson-stats
+    ```
+    (You may need to restart your shell or reboot after installation)
+
+2.  **PyTorch & Python**:
+    - Python 3.8+ is supported (standard on JetPack 5.x/6.x).
+    - FMBench automatically handles missing `torch.distributed` modules often found in Jetson PyTorch builds.
+
+3.  **Running**:
+    - Use `device=jetson` to force Jetson-specific profiling if auto-detection fails.
+    ```bash
+    python run.py device=jetson
+    ```
+
 ## Model Quantization
 
 Quantization reduces model memory usage, enabling larger models to run on limited hardware.
