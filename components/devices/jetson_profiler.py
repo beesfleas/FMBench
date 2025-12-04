@@ -39,6 +39,7 @@ class JetsonProfiler(BaseDeviceProfiler):
             "num_samples": 0,
             "csv_filepath": None,
         }
+        self.total_energy_joules = 0.0
 
     def get_device_info(self) -> str:
         if self.has_jtop:
@@ -54,6 +55,7 @@ class JetsonProfiler(BaseDeviceProfiler):
         
         log.info(f"Writing Jetson samples to: {self.csv_filepath}")
         
+        self.total_energy_joules = 0.0
         start_time = time.perf_counter()
         
         # Metric accumulators
@@ -61,6 +63,7 @@ class JetsonProfiler(BaseDeviceProfiler):
         mem_values = []
         gpu_util_values = []
         gpu_power_values = []
+        system_power_values = []
         gpu_temp_values = []
         cpu_freq_values = []
         gpu_freq_values = []
@@ -79,6 +82,7 @@ class JetsonProfiler(BaseDeviceProfiler):
                             mem_values=mem_values,
                             gpu_util_values=gpu_util_values,
                             gpu_power_values=gpu_power_values,
+                            system_power_values=system_power_values,
                             gpu_temp_values=gpu_temp_values,
                             cpu_freq_values=cpu_freq_values,
                             gpu_freq_values=gpu_freq_values
@@ -92,6 +96,7 @@ class JetsonProfiler(BaseDeviceProfiler):
                             mem_values=mem_values, 
                             gpu_util_values=gpu_util_values, 
                             gpu_power_values=gpu_power_values, 
+                            system_power_values=system_power_values,
                             gpu_temp_values=gpu_temp_values,
                             cpu_freq_values=cpu_freq_values,
                             gpu_freq_values=gpu_freq_values
@@ -105,6 +110,7 @@ class JetsonProfiler(BaseDeviceProfiler):
                     mem_values=mem_values, 
                     gpu_util_values=gpu_util_values, 
                     gpu_power_values=gpu_power_values, 
+                    system_power_values=system_power_values,
                     gpu_temp_values=gpu_temp_values,
                     cpu_freq_values=cpu_freq_values,
                     gpu_freq_values=gpu_freq_values
@@ -117,12 +123,13 @@ class JetsonProfiler(BaseDeviceProfiler):
                 mem_values=mem_values, 
                 gpu_util_values=gpu_util_values, 
                 gpu_power_values=gpu_power_values, 
+                system_power_values=system_power_values,
                 gpu_temp_values=gpu_temp_values,
                 cpu_freq_values=cpu_freq_values,
                 gpu_freq_values=gpu_freq_values
             )
 
-    def _collection_loop(self, start_time, jetson, cpu_values, mem_values, gpu_util_values, gpu_power_values, gpu_temp_values, cpu_freq_values, gpu_freq_values):
+    def _collection_loop(self, start_time, jetson, cpu_values, mem_values, gpu_util_values, gpu_power_values, system_power_values, gpu_temp_values, cpu_freq_values, gpu_freq_values):
         """
         Core collection loop. 
         Args:
@@ -132,11 +139,17 @@ class JetsonProfiler(BaseDeviceProfiler):
         """
         csv_file = None
         csv_writer = None
+        last_sample_time = start_time
         
         try:
             while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
+                
+                # Calculate time delta for energy integration
+                time_delta = loop_start - last_sample_time
+                last_sample_time = loop_start
+
                 sample = {"timestamp": rel_timestamp}
 
                 # --- CPU & Memory (Always available via psutil) ---
@@ -210,7 +223,9 @@ class JetsonProfiler(BaseDeviceProfiler):
                                 gpu_power_mw = rails['VDD_GPU_SOC'].get('power', 0)
                             
                         if total_power_mw:
-                            sample["system_power_watts"] = total_power_mw / 1000.0
+                            watts = total_power_mw / 1000.0
+                            sample["system_power_watts"] = watts
+                            system_power_values.append(watts)
                             
                         if gpu_power_mw:
                              watts = gpu_power_mw / 1000.0
@@ -222,6 +237,12 @@ class JetsonProfiler(BaseDeviceProfiler):
                              # If not, we might leave gpu_power_watts empty or use a fraction?
                              # For now, let's only report if we found the specific rail to be accurate.
                              pass
+
+                        # Energy Integration
+                        # Prefer system power, fallback to GPU power
+                        power_for_energy = sample.get("system_power_watts", sample.get("gpu_power_watts", 0))
+                        if power_for_energy > 0 and time_delta > 0:
+                            self.total_energy_joules += power_for_energy * time_delta
 
                         # Temp
                         # jetson.stats['Temp'] -> {'GPU': 34.5, ...}
@@ -251,7 +272,7 @@ class JetsonProfiler(BaseDeviceProfiler):
                         log.error(f"Failed to write row: {e}")
 
                 # --- Update Aggregates ---
-                self._update_metrics(cpu_values, mem_values, gpu_util_values, gpu_power_values, gpu_temp_values, cpu_freq_values, gpu_freq_values, rel_timestamp)
+                self._update_metrics(cpu_values, mem_values, gpu_util_values, gpu_power_values, system_power_values, gpu_temp_values, cpu_freq_values, gpu_freq_values, rel_timestamp)
 
                 # Sleep
                 elapsed = time.perf_counter() - loop_start
@@ -263,7 +284,7 @@ class JetsonProfiler(BaseDeviceProfiler):
             if csv_file:
                 csv_file.close()
 
-    def _update_metrics(self, cpu, mem, gpu, power, temp, cpu_freq, gpu_freq, duration):
+    def _update_metrics(self, cpu, mem, gpu, gpu_power, system_power, temp, cpu_freq, gpu_freq, duration):
         """Update self.metrics dictionary with aggregated stats."""
         self.metrics["num_samples"] = len(cpu)
         self.metrics["monitoring_duration_seconds"] = duration
@@ -280,12 +301,18 @@ class JetsonProfiler(BaseDeviceProfiler):
             self.metrics["average_gpu_utilization_percent"] = sum(gpu) / len(gpu)
             self.metrics["peak_gpu_utilization_percent"] = max(gpu)
             
-        if power:
-            avg_power = sum(power) / len(power)
+        if gpu_power:
+            avg_power = sum(gpu_power) / len(gpu_power)
             self.metrics["average_gpu_power_watts"] = avg_power
-            self.metrics["peak_gpu_power_watts"] = max(power)
-            # Energy = Avg Power (W) * Duration (s)
-            self.metrics["total_energy_joules"] = avg_power * duration
+            self.metrics["peak_gpu_power_watts"] = max(gpu_power)
+
+        if system_power:
+            avg_sys_power = sum(system_power) / len(system_power)
+            self.metrics["average_system_power_watts"] = avg_sys_power
+            self.metrics["peak_system_power_watts"] = max(system_power)
+
+        # Use the integrated energy value
+        self.metrics["total_energy_joules"] = self.total_energy_joules
 
         if temp:
             self.metrics["average_gpu_temp_c"] = sum(temp) / len(temp)
