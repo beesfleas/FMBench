@@ -3,6 +3,7 @@ import psutil
 import platform
 import os
 import csv
+from typing import Optional
 from .base import BaseDeviceProfiler
 import logging
 import tempfile
@@ -68,7 +69,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         log.info(f"Detected CPU type: {self.cpu_type}")
         return self.cpu_type
 
-    def _find_intel_rapl_path(self) -> str | None:
+    def _find_intel_rapl_path(self) -> Optional[str]:
         """
         Find the path to the Intel RAPL package-0 energy counter.
         """
@@ -91,7 +92,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             log.error(f"Error while searching for Intel RAPL path: {e}")
         return None
 
-    def _find_amd_energy_path(self) -> str | None:
+    def _find_amd_energy_path(self) -> Optional[str]:
         """
         Find the path to the AMD energy counter via hwmon.
         """
@@ -171,7 +172,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             log.warning(f"[{self.cpu_type}] Unknown CPU type. Power monitoring disabled.")
             self.power_monitoring_available = False
 
-    def _read_energy_uj(self) -> int | None:
+    def _read_energy_uj(self) -> Optional[int]:
         """
         Reads the raw energy counter from the determined path.
         This is stateLESS and just returns the current microjoule value.
