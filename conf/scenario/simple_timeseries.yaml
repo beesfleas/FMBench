@@ -1,2 +1,3 @@
 name: Simple Time Series Debug
 description: Basic time series tasks for debugging
+_target_: components.scenarios.simple.simple_timeseries.SimpleTimeSeriesScenario

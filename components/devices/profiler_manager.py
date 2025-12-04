@@ -74,6 +74,13 @@ def get_platform_profiler_classes(device_override: str = None) -> List:
             if torch.cuda.is_available():
                 profilers.append(NvidiaGpuProfiler)
             return profilers
+        elif device_override == "cuda-only":
+            log.info("Device override: using CUDA profiler ONLY")
+            if torch.cuda.is_available():
+                return [NvidiaGpuProfiler]
+            else:
+                log.warning("CUDA requested but not available. Falling back to CPU.")
+                return [LocalCpuProfiler]
         elif device_override == "cpu":
             log.info("Device override: using CPU profiler only")
             return [LocalCpuProfiler]

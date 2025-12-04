@@ -1,3 +1,4 @@
 name: Simple VLM Debug
 description: Basic VLM tasks for debugging
+_target_: components.scenarios.simple.simple_vlm.SimpleVLMScenario
 test_image_dir: test_images
