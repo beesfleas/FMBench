@@ -2,6 +2,7 @@
 log_level: INFO
 save_logs: false  # Set to true to save all logs to a file
 sampling_interval: 1 # Sample 1 time per 1 second
+allow_mps_fallback: true # Allow fallback to CPU if model is too large for MPS (if on Mac)
 
 defaults:
   - _self_
