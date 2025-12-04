@@ -19,6 +19,7 @@ class JetsonProfiler(BaseDeviceProfiler):
         self.sampling_interval = config.get("sampling_interval", 1.0)
         self.device_name = "NVIDIA Jetson"
         self.csv_filepath = None
+        self.power_monitoring_available = False
         
         # Cached metrics
         self.metrics = {
@@ -33,6 +34,14 @@ class JetsonProfiler(BaseDeviceProfiler):
             self.pynvml = pynvml
             self.gpu_available = True
             log.info("Jetson GPU (NVIDIA) initialized via pynvml")
+            
+            try:
+                handle = self.pynvml.nvmlDeviceGetHandleByIndex(0)
+                self.pynvml.nvmlDeviceGetPowerUsage(handle)
+                self.power_monitoring_available = True
+                log.info("Jetson power monitoring enabled via NVML")
+            except Exception as power_err:
+                log.warning(f"Jetson power monitoring unavailable: {power_err}")
         except Exception as e:
             log.warning(f"Jetson GPU not available: {e}")
             self.pynvml = None
@@ -65,6 +74,8 @@ class JetsonProfiler(BaseDeviceProfiler):
         gpu_util_values = []
         gpu_mem_values = []
         gpu_temp_values = []
+        gpu_power_values = []
+        total_energy_joules = 0.0
         
         try:
             while not self._stop_event.is_set():
@@ -107,6 +118,18 @@ class JetsonProfiler(BaseDeviceProfiler):
                         except Exception:
                             # Temperature reading failed, continue without it
                             pass
+                        
+                        if self.power_monitoring_available:
+                            try:
+                                power_mw = self.pynvml.nvmlDeviceGetPowerUsage(handle)
+                                power_watts = power_mw / 1000.0
+                                sample["gpu_power_watts"] = power_watts
+                                gpu_power_values.append(power_watts)
+                                total_energy_joules += power_watts * self.sampling_interval
+                            except Exception as power_err:
+                                # Disable power monitoring to avoid repeated errors
+                                self.power_monitoring_available = False
+                                log.warning(f"GPU power read failed, disabling power monitoring: {power_err}")
                     except Exception as e:
                         log.warning(f"GPU read failed: {e}")
                 
@@ -167,6 +190,17 @@ class JetsonProfiler(BaseDeviceProfiler):
                     self.metrics["average_gpu_temp_c"] = sum(gpu_temp_values) / len(gpu_temp_values)
                     self.metrics["peak_gpu_temp_c"] = max(gpu_temp_values)
                     self.metrics["min_gpu_temp_c"] = min(gpu_temp_values)
+                if gpu_power_values:
+                    gpu_power_nonzero = [v for v in gpu_power_values if v != 0]
+                    if gpu_power_nonzero:
+                        self.metrics["average_gpu_power_watts"] = sum(gpu_power_nonzero) / len(gpu_power_nonzero)
+                        self.metrics["peak_gpu_power_watts"] = max(gpu_power_nonzero)
+                        self.metrics["min_gpu_power_watts"] = min(gpu_power_nonzero)
+                    else:
+                        self.metrics["average_gpu_power_watts"] = 0
+                        self.metrics["peak_gpu_power_watts"] = 0
+                        self.metrics["min_gpu_power_watts"] = 0
+                    self.metrics["total_energy_joules"] = total_energy_joules
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval

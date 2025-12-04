@@ -169,6 +169,7 @@ You can override device selection:
   # Or use CPU
   python run.py model=qwen2.5 model.device_preference=cpu
   ```
+- **Sampling Behavior**: The `MacProfiler` relies on the system's `powermetrics` tool, which buffers output. This means that for very short benchmarks, you may see fewer samples than expected (e.g., 2 samples instead of 4 for a 2-second run with 0.5s interval) because samples are only recorded when `powermetrics` flushes its buffer. This is normal behavior and ensures data accuracy over longer runs.
 
 ## Model Quantization
 
