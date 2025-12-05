@@ -1,5 +1,6 @@
 from transformers import AutoProcessor, AutoModelForImageTextToText
 from .base import BaseModelLoader
+from .streamers import TTFTStreamer
 from .device_utils import (
     get_device_config, get_load_kwargs, move_to_device, clear_device_cache
 )
@@ -50,13 +51,16 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         inputs = self._get_model_inputs(prompt, image)
         
         # Generate response
+        streamer = TTFTStreamer()
         output_ids = self.model.generate(
             **inputs,
-            max_new_tokens=self.config.get("max_tokens", 64)
+            max_new_tokens=self.config.get("max_tokens", 64),
+            streamer=streamer
         )
         
         # Decode response
-        return self._decode_response(output_ids, inputs)
+        result = self._decode_response(output_ids, inputs)
+        return {"output": result, "ttft": streamer.ttft}
 
     def _process_image(self, image):
         """Process and validate image input"""
