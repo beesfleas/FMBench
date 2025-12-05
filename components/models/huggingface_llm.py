@@ -1,5 +1,7 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import time
 from .base import BaseModelLoader
+from .streamers import TTFTStreamer
 from .device_utils import (
     get_device_config, get_quantization_config, get_load_kwargs,
     check_mps_model_size, move_to_device, clear_device_cache
@@ -69,12 +71,17 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         max_tokens = self.config.get("max_tokens", 64)
         log.debug("Generating (max_new_tokens: %d)", max_tokens)
         
+        streamer = TTFTStreamer()
+        start_time = time.time()
         output_ids = self.model.generate(
             input_ids=inputs['input_ids'],
             attention_mask=inputs['attention_mask'],
             max_new_tokens=max_tokens,
-            pad_token_id=self.tokenizer.pad_token_id
+            pad_token_id=self.tokenizer.pad_token_id,
+            streamer=streamer
         )
+        end_time = time.time()
+        latency = end_time - start_time
         
         log.debug("Generation completed, output shape: %s", output_ids.shape)
         # Decode only the new tokens
@@ -82,7 +89,7 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         new_token_ids = output_ids[0][input_length:]
         result = self.tokenizer.decode(new_token_ids, skip_special_tokens=True).strip()
         log.debug("Decoded result (length: %d)", len(result))
-        return result
+        return {"output": result, "ttft": streamer.ttft, "latency": latency}
 
     def unload_model(self):
         log.debug("Unloading model")

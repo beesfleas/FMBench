@@ -72,6 +72,19 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     avg_accuracy = sum(accuracies) / len(accuracies)
                     all_metrics["accuracy"] = avg_accuracy
                 
+                # Report TTFT for the first query only
+                if results and results[0].get("ttft") is not None:
+                    first_token_ttft = results[0]["ttft"]
+                    all_metrics["first_token_ttft"] = first_token_ttft
+                    log.info(f"First Token TTFT: {first_token_ttft:.4f}s")
+
+                # Calculate Average Latency from 5th question onwards (warm-up)
+                latencies = [r.get("latency") for r in results[4:] if r.get("latency") is not None]
+                if latencies:
+                    avg_latency = sum(latencies) / len(latencies)
+                    all_metrics["avg_latency"] = avg_latency
+                    log.info(f"Average Latency (samples {min(5, len(results))}-{len(results)}): {avg_latency:.4f}s")
+
                 all_metrics["total_samples"] = len(results)
                 # Store full results if needed, or just summary
                 # all_metrics["scenario_results"] = results 
@@ -160,24 +173,35 @@ def run_scenario(loader, scenario, model_category):
         time_series_data = task.get("time_series_data")
         
         try:
+            additional_metrics = {}
             # Dispatch based on model category to avoid passing unsupported arguments
             if model_category == "LLM":
-                output = loader.predict(prompt)
+                raw_output = loader.predict(prompt)
             elif model_category == "VLM":
-                output = loader.predict(prompt, image=image)
+                raw_output = loader.predict(prompt, image=image)
             elif model_category == "TIME_SERIES":
-                output = loader.predict(prompt=prompt, time_series_data=time_series_data)
+                raw_output = loader.predict(prompt=prompt, time_series_data=time_series_data)
             else:
                 # Fallback for unknown categories
-                output = loader.predict(prompt)
+                raw_output = loader.predict(prompt)
+            
+            if isinstance(raw_output, dict) and "output" in raw_output:
+                output = raw_output["output"]
+                additional_metrics = {k: v for k, v in raw_output.items() if k != "output"}
+            else:
+                output = raw_output
+                additional_metrics = {}
                 
             metrics = scenario.evaluate(task, output)
+            metrics.update({k: v for k, v in additional_metrics.items() if v is not None})
             
             # Log progress every 10% or at least every 10 tasks
             if (i + 1) % max(1, len(scenario.tasks) // 10) == 0:
                 log.info(f"Processed {i+1}/{len(scenario.tasks)} tasks")
             
             log.debug(f"Task {i+1} Result: {metrics}")
+            if "latency" in additional_metrics:
+                log.info(f"Task {i+1} Latency: {additional_metrics['latency']:.4f}s, Output: {output[:50]}...")
             results.append(metrics)
             
         except Exception as e:
@@ -199,6 +223,10 @@ def run_basic_test(loader, model_config):
         log.info("Running basic test with prompt: %s", prompt)
         try:
             result = loader.predict(prompt)
-            log.info("Test completed successfully. Response: %s", result)
+            if isinstance(result, dict):
+                log.info("Test completed successfully. Response: %s (TTFT: %s)", 
+                         result.get("output"), result.get("ttft"))
+            else:
+                log.info("Test completed successfully. Response: %s", result)
         except Exception as e:
             log.error("Test prediction failed: %s", e, exc_info=True)
