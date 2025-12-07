@@ -158,6 +158,14 @@ def run_scenario(loader, scenario, model_category):
     """
     log.info("Running scenario: %s", scenario.name)
     
+    # Handle idle/baseline scenarios (no tasks, just sleep)
+    if not scenario.tasks:
+        import time
+        idle_duration = getattr(scenario, 'idle_duration', 60)
+        log.info(f"Idle scenario: sleeping for {idle_duration}s (baseline measurement)")
+        time.sleep(idle_duration)
+        return []
+    
     results = []
     
     for i, task in enumerate(scenario.tasks):
@@ -218,6 +226,7 @@ def run_basic_test(loader, model_config):
     elif model_config.model_category == "LLM":
         log.warning("LLM model requires a scenario. Use +scenario=simple_llm to test")
     else:
+        log.warning("Reached Unreachable Code")
         # Basic LLM test
         prompt = "Tell me a joke."
         log.info("Running basic test with prompt: %s", prompt)
