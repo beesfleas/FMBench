@@ -1,0 +1,10 @@
+name: docvqa
+_target_: components.scenarios.common_vlm_scenarios.OCRScenario
+dataset_name: lmms-lab/DocVQA
+dataset_config: DocVQA
+split: validation
+image_key: image
+question_key: question
+target_key: answers
+prompt_template: "Question: {question}\nAnswer:"
+num_samples: 50

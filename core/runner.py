@@ -336,6 +336,11 @@ def run_scenario(loader, scenario, model_category):
             metrics = scenario.evaluate(task, output)
             metrics.update({k: v for k, v in additional_metrics.items() if v is not None})
             
+            # Debug: show output vs target for VLM/OCR tasks
+            if task.get("type") in ["vqa", "docvqa"]:
+                log.debug(f"Task {i+1} Output: '{output[:100] if isinstance(output, str) else output}...'")
+                log.debug(f"Task {i+1} Target: {task.get('target')}")
+            
             # Log progress every 10% or at least every 10 tasks
             if (i + 1) % max(1, len(scenario.tasks) // 10) == 0:
                 log.info("Processed %d/%d tasks", i + 1, len(scenario.tasks))

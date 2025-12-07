@@ -1,0 +1,11 @@
+name: CountBenchQA
+description: Visual counting QA benchmark
+_target_: components.scenarios.common_vlm_scenarios.CountBenchQAScenario
+dataset_name: vikhyatk/CountBenchQA
+split: test
+num_samples: 10
+image_key: image
+question_key: question
+target_key: number
+prompt_template: "Question: {question}\nAnswer with just the number:"
+trust_remote_code: True
