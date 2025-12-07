@@ -80,18 +80,36 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     log.info(f"First Token TTFT: {first_token_ttft:.4f}s")
 
                 # Generic metric aggregation
-                # Collect all keys from first result that are floats and not in ignore list
+                # Collect all keys from ALL results that are floats and not in ignore list
                 ignore_keys = {"ttft", "latency", "num_tokens", "accuracy", "perplexity", "input", "target", "source", "output"}
                 if results:
-                    sample = results[0]
-                    for key in sample.keys():
-                        if key not in ignore_keys and isinstance(sample[key], (int, float)):
-                            # Calculate average
-                            values = [r.get(key) for r in results if r.get(key) is not None]
-                            if values:
-                                avg_val = sum(values) / len(values)
-                                all_metrics[f"avg_{key}"] = avg_val
-                                log.info(f"Average {key}: {avg_val:.4f}")
+                    # Identify all potential metric keys across all results
+                    all_keys = set()
+                    for res in results:
+                        for k, v in res.items():
+                            if k not in ignore_keys:
+                                # Try to treat as number
+                                try:
+                                    float(v)
+                                    all_keys.add(k)
+                                except (ValueError, TypeError):
+                                    pass
+                    
+                    for key in sorted(all_keys):
+                        # Calculate average
+                        values = []
+                        for r in results:
+                             val = r.get(key)
+                             if val is not None:
+                                 try:
+                                     values.append(float(val))
+                                 except (ValueError, TypeError):
+                                     pass
+
+                        if values:
+                            avg_val = sum(values) / len(values)
+                            all_metrics[f"avg_{key}"] = avg_val
+                            log.info(f"Average {key}: {avg_val:.4f}")
 
                 # Calculate Average Latency from 5th question onwards (warm-up)
                 latencies = [r.get("latency") for r in results[4:] if r.get("latency") is not None]

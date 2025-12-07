@@ -9,3 +9,5 @@ langchain-core
 datasets
 sacrebleu
 unbabel-comet
+bert-score
+nltk
