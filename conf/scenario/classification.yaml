@@ -1,0 +1,14 @@
+name: classification
+_target_: components.scenarios.common_nlp_scenarios.TextClassificationScenario
+dataset_name: ag_news
+dataset_config: null
+split: test
+input_key: text
+target_key: label
+label_map:
+  0: "World"
+  1: "Sports"
+  2: "Business"
+  3: "Sci/Tech"
+num_samples: 5
+prompt_template: "Classify the news article into one of the following categories: World, Sports, Business, Sci/Tech.\n\nArticle: {input}\n\nCategory:"

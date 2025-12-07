@@ -7,3 +7,5 @@ accelerate
 nvidia-ml-py
 langchain-core
 datasets
+sacrebleu
+unbabel-comet

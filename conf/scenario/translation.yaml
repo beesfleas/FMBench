@@ -1,0 +1,10 @@
+name: translation
+_target_: components.scenarios.common_nlp_scenarios.TranslationScenario
+dataset_name: wmt16
+dataset_config: de-en
+split: test
+input_key: translation
+source_language: de
+target_language: en
+num_samples: 5
+prompt_template: "Translate the following German text to English.\n\nGerman: {input}\n\nEnglish:"

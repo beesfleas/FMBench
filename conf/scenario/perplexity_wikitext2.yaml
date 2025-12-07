@@ -1,0 +1,9 @@
+_target_: components.scenarios.perplexity_scenario.PerplexityScenario
+name: perplexity_wikitext2
+dataset_name: wikitext
+dataset_config: wikitext-2-raw-v1
+split: test
+streaming: true
+text_column: text
+num_samples: 100
+prompt_template: "{input}"

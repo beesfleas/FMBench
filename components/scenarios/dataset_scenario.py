@@ -42,9 +42,20 @@ class DatasetScenario(Scenario):
 
         logger.info(f"Loading dataset: {self.dataset_name} (config: {self.dataset_config}, split: {self.split})")
         try:
-            self.dataset = datasets.load_dataset(self.dataset_name, self.dataset_config, split=self.split)
+            streaming = self.config.get("streaming", False)
+            self.dataset = datasets.load_dataset(
+                self.dataset_name, 
+                self.dataset_config, 
+                split=self.split,
+                trust_remote_code=self.config.get("trust_remote_code", True),
+                streaming=streaming
+            )
+            
             if self.num_samples:
-                self.dataset = self.dataset.select(range(min(len(self.dataset), self.num_samples)))
+                if streaming:
+                    self.dataset = self.dataset.take(self.num_samples)
+                else:
+                    self.dataset = self.dataset.select(range(min(len(self.dataset), self.num_samples)))
             
             self.tasks = self.process_dataset(self.dataset)
             logger.info(f"Loaded {len(self.tasks)} tasks from {self.dataset_name}")
