@@ -5,6 +5,7 @@ from omegaconf import DictConfig, OmegaConf
 import hydra
 import json
 from components.devices.profiler_manager import ProfilerManager
+from components.scenarios.perplexity_scenario import PerplexityScenario
 from typing import Optional, Tuple
 
 log = logging.getLogger(__name__)
@@ -97,6 +98,38 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     all_metrics["first_token_ttft"] = first_token_ttft
                     log.info(f"First Token TTFT: {first_token_ttft:.4f}s")
 
+                # Generic metric aggregation
+                # Collect all keys from ALL results that are floats and not in ignore list
+                ignore_keys = {"ttft", "latency", "num_tokens", "accuracy", "perplexity", "input", "target", "source", "output"}
+                if results:
+                    # Identify all potential metric keys across all results
+                    all_keys = set()
+                    for res in results:
+                        for k, v in res.items():
+                            if k not in ignore_keys:
+                                # Try to treat as number
+                                try:
+                                    float(v)
+                                    all_keys.add(k)
+                                except (ValueError, TypeError):
+                                    pass
+                    
+                    for key in sorted(all_keys):
+                        # Calculate average
+                        values = []
+                        for r in results:
+                             val = r.get(key)
+                             if val is not None:
+                                 try:
+                                     values.append(float(val))
+                                 except (ValueError, TypeError):
+                                     pass
+
+                        if values:
+                            avg_val = sum(values) / len(values)
+                            all_metrics[f"avg_{key}"] = avg_val
+                            log.info(f"Average {key}: {avg_val:.4f}")
+
                 # Calculate Average Latency from 5th question onwards (warm-up)
                 latencies = [r.get("latency") for r in results[4:] if r.get("latency") is not None]
                 if latencies:
@@ -111,9 +144,16 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     all_metrics["avg_tokens_per_output"] = avg_tokens
                     log.info(f"Average Tokens per Output: {avg_tokens:.2f}")
 
+                # Calculate Average Perplexity
+                ppls = [r.get("perplexity") for r in results if r.get("perplexity") is not None]
+                if ppls:
+                    avg_ppl = sum(ppls) / len(ppls)
+                    all_metrics["average_perplexity"] = avg_ppl
+                    log.info(f"Average Perplexity: {avg_ppl:.4f}")
+
                 all_metrics["total_samples"] = len(results)
                 # Store full results if needed, or just summary
-                # all_metrics["scenario_results"] = results 
+                # all_metrics["scenario_results"] = results  
     
     all_metrics["device_metrics"] = profiler_manager.get_all_metrics()
     log.debug("Collected metrics from %d profiler(s)", len(all_metrics["device_metrics"]))
@@ -207,6 +247,8 @@ def run_scenario(loader, scenario, model_category):
     
     results = []
     
+    is_perplexity = isinstance(scenario, PerplexityScenario)
+    
     for i, task in enumerate(scenario.tasks):
         log.debug(f"Processing task {i+1}/{len(scenario.tasks)}")
         
@@ -222,7 +264,23 @@ def run_scenario(loader, scenario, model_category):
         try:
             additional_metrics = {}
             # Dispatch based on model category to avoid passing unsupported arguments
-            if model_category == "LLM":
+            additional_metrics = {}
+            # Dispatch based on model category to avoid passing unsupported arguments
+            if is_perplexity:
+                # Special handling for perplexity
+                # input is the full text
+                prompt = task["input"]
+                # We expect the loader to have compute_perplexity
+                if hasattr(loader, 'compute_perplexity'):
+                    ppl = loader.compute_perplexity(prompt)
+                    raw_output = ppl # Pass float directly
+                    output = ppl
+                else:
+                    log.error("Model loader %s does not support compute_perplexity", loader.__class__.__name__)
+                    raw_output = float("nan")
+                    output = raw_output
+
+            elif model_category == "LLM":
                 raw_output = loader.predict(prompt)
             elif model_category == "VLM":
                 raw_output = loader.predict(prompt, image=image)
@@ -235,9 +293,12 @@ def run_scenario(loader, scenario, model_category):
             if isinstance(raw_output, dict) and "output" in raw_output:
                 output = raw_output["output"]
                 additional_metrics = {k: v for k, v in raw_output.items() if k != "output"}
-            else:
+            elif not is_perplexity:
                 output = raw_output
                 additional_metrics = {}
+            else:
+                 # Perplexity case, raw_output is float, no additional metrics usually from predict
+                 additional_metrics = {}
                 
             metrics = scenario.evaluate(task, output)
             metrics.update({k: v for k, v in additional_metrics.items() if v is not None})
@@ -248,7 +309,11 @@ def run_scenario(loader, scenario, model_category):
             
             log.debug(f"Task {i+1} Result: {metrics}")
             if "latency" in additional_metrics:
-                log.info(f"Task {i+1} Latency: {additional_metrics['latency']:.4f}s, Output: {output[:50]}...")
+                log.info(f"Task {i+1} Latency: {additional_metrics['latency']:.4f}s, Output: {output[:50] if isinstance(output, str) else output}...")
+            
+            if is_perplexity:
+                 log.info(f"Task {i+1} Perplexity: {metrics.get('perplexity')}")
+
             results.append(metrics)
             
         except Exception as e:

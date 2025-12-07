@@ -1,0 +1,10 @@
+name: summarization
+_target_: components.scenarios.common_nlp_scenarios.SummarizationScenario
+dataset_name: cnn_dailymail
+dataset_config: "3.0.0"
+split: test
+input_key: article
+target_key: highlights
+num_samples: 5
+prompt_template: "Summarize the following article.\n\nArticle: {input}\n\nSummary:"
+use_expensive_metrics: false

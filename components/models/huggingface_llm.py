@@ -1,4 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import torch
 import time
 import threading
 from .base import BaseModelLoader
@@ -119,3 +120,50 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         clear_device_cache()
         gc.collect()
         log.debug("Model unloaded")
+
+    def compute_perplexity(self, text: str) -> float:
+        """
+        Compute perplexity using a sliding window approach for long text.
+        """
+        import torch
+        from torch.nn import CrossEntropyLoss
+
+        log.debug("Computing perplexity for text length: %d", len(text))
+        
+        encodings = self.tokenizer(text, return_tensors="pt")
+        
+        # Put tensors on the same device as the model
+        device = next(self.model.parameters()).device
+        inputs = encodings.input_ids.to(device)
+        
+        max_length = self.config.get("max_length", self.model.config.max_position_embeddings)
+        stride = self.config.get("stride", 512)
+        seq_len = inputs.size(1)
+
+        nlls = []
+        prev_end_loc = 0
+        for begin_loc in range(0, seq_len, stride):
+            end_loc = min(begin_loc + max_length, seq_len)
+            trg_len = end_loc - prev_end_loc  # may be different from stride on last loop
+            
+            input_ids = inputs[:, begin_loc:end_loc].to(device)
+            target_ids = input_ids.clone()
+            target_ids[:, :-trg_len] = -100
+
+            with torch.no_grad():
+                outputs = self.model(input_ids, labels=target_ids)
+                
+                # loss is calculated using CrossEntropyLoss which averages over valid labels
+                # N.B. the model only calculates loss over trg_len - 1 labels, because it internally shifts the labels
+                # to the left by 1.
+                neg_log_likelihood = outputs.loss
+
+            nlls.append(neg_log_likelihood)
+
+            prev_end_loc = end_loc
+            if end_loc == seq_len:
+                break
+
+        ppl = torch.exp(torch.stack(nlls).mean())
+        log.debug(f"Computed perplexity: {ppl.item()}")
+        return ppl.item()

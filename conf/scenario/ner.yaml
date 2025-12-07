@@ -1,0 +1,17 @@
+name: ner
+_target_: components.scenarios.common_nlp_scenarios.NERScenario
+dataset_name: wikiann
+dataset_config: en
+split: test
+input_key: tokens
+target_key: ner_tags
+tag_map:
+  0: "O" 
+  1: "B-PER" 
+  2: "I-PER" 
+  3: "B-ORG" 
+  4: "I-ORG" 
+  5: "B-LOC" 
+  6: "I-LOC"
+num_samples: 5
+prompt_template: "Perform Named Entity Recognition on the following text. List entities as 'Entity (Type)'.\n\nText: {input}\n\nEntities:"

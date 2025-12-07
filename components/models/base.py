@@ -22,3 +22,15 @@ class BaseModelLoader:
     def unload_model(self):
         """Release all model-related resources from VRAM and RAM."""
         pass
+
+    def compute_perplexity(self, text: str) -> float:
+        """
+        Compute perplexity for a given text.
+        
+        Args:
+            text: The input text to compute perplexity for.
+            
+        Returns:
+            Perplexity score as a float.
+        """
+        raise NotImplementedError
