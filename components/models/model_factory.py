@@ -1,25 +1,30 @@
+from typing import Any, Dict, Type, Union
+
+from omegaconf import DictConfig
+
+from .base import BaseModelLoader
 from .huggingface_llm import HuggingFaceLLMLoader
 from .huggingface_vlm import HuggingFaceVLMLoader
 from .huggingface_timeseries import HuggingFaceTimeSeriesLoader
-from .base import BaseModelLoader
 
 # Model category to loader class mapping
-_MODEL_LOADERS = {
+_MODEL_LOADERS: Dict[str, Type[BaseModelLoader]] = {
     "LLM": HuggingFaceLLMLoader,
     "VLM": HuggingFaceVLMLoader,
     "TIME_SERIES": HuggingFaceTimeSeriesLoader,
 }
 
-def get_model_loader(model_config) -> BaseModelLoader:
+
+def get_model_loader(model_config: Union[Dict[str, Any], DictConfig]) -> BaseModelLoader:
     """
     Factory function to instantiate the correct model loader based on configuration.
     
     Args:
-        model_config (dict): Configuration dictionary containing at least 
-                             "model_category".
+        model_config: Configuration dictionary or DictConfig containing at least 
+                      "model_category".
     
     Returns:
-        BaseModelLoader: An instantiated concrete model loader object.
+        An instantiated concrete model loader object.
     
     Raises:
         ValueError: If an unknown model category is specified.

@@ -3,13 +3,16 @@ import torch
 import platform
 import os
 import logging
-from typing import Dict, List
+from pathlib import Path
+from typing import Dict, List, Optional
 from .base import BaseDeviceProfiler
 from .cpu_profiler import LocalCpuProfiler
 from .nvidia_gpu_profiler import NvidiaGpuProfiler
 from .mac_profiler import MacProfiler
 from .jetson_profiler import JetsonProfiler
 from .pi_profiler import PiProfiler
+from .profiler_utils import get_results_directory
+
 try:
     import pynvml
 except ImportError:
@@ -60,29 +63,29 @@ def get_platform_profiler_classes(device_override: str = None) -> List:
         device_override = device_override.lower()
         
         if device_override == "jetson":
-            log.info("Device override: using Jetson profiler")
+            log.debug("Device override: Jetson profiler")
             return [JetsonProfiler]
         elif device_override == "pi":
-            log.info("Device override: using Raspberry Pi profiler")
+            log.debug("Device override: Raspberry Pi profiler")
             return [PiProfiler]
         elif device_override == "mac":
-            log.info("Device override: using Mac profiler")
+            log.debug("Device override: Mac profiler")
             return [MacProfiler]
         elif device_override == "cuda":
-            log.info("Device override: using CUDA profiler (and CPU)")
+            log.debug("Device override: CUDA profiler (and CPU)")
             profilers = [LocalCpuProfiler]
             if torch.cuda.is_available():
                 profilers.append(NvidiaGpuProfiler)
             return profilers
         elif device_override == "cuda-only":
-            log.info("Device override: using CUDA profiler ONLY")
+            log.debug("Device override: CUDA profiler only")
             if torch.cuda.is_available():
                 return [NvidiaGpuProfiler]
             else:
-                log.warning("CUDA requested but not available. Falling back to CPU.")
+                log.warning("CUDA requested but not available, falling back to CPU")
                 return [LocalCpuProfiler]
         elif device_override == "cpu":
-            log.info("Device override: using CPU profiler only")
+            log.debug("Device override: CPU profiler only")
             return [LocalCpuProfiler]
         elif device_override != "auto":
             log.warning("Unknown device override '%s', falling back to auto-detection", device_override)
@@ -125,12 +128,23 @@ class ProfilerManager:
     Coordinates multiple profilers based on device configuration.
     Manages lifecycle and ensures synchronized metrics collection.
     """
-    def __init__(self, config: Dict):
+    
+    def __init__(self, config: Dict, run_name: Optional[str] = None):
+        """
+        Args:
+            config: Configuration dictionary or DictConfig.
+            run_name: Optional name for this benchmark run. Used for results directory.
+        """
         self.config = config
         self.profilers: List[BaseDeviceProfiler] = []
         self.all_metrics: Dict[str, Dict] = {}
         self._pynvml_initialized = False
         self._system_info = get_system_info()
+        
+        # Create results directory for this run
+        self.results_dir = get_results_directory(run_name)
+        log.info("Results will be saved to: %s", self.results_dir)
+        
         log.debug("System: %s (%s)", self._system_info['system'], self._system_info['processor_info'])
         self._initialize_profilers()
         log.info("Initialized %d profiler(s)", len(self.profilers))
@@ -167,7 +181,12 @@ class ProfilerManager:
                     log.info("Detected %d NVIDIA GPU(s)", device_count)
                     for i in range(device_count):
                         try:
-                            profiler_instance = profiler_class(self.config, device_index=i, profiler_manager=self)
+                            profiler_instance = profiler_class(
+                                self.config, 
+                                device_index=i, 
+                                profiler_manager=self,
+                                results_dir=self.results_dir
+                            )
                             self.profilers.append(profiler_instance)
                             log.debug("GPU %d profiler initialized", i)
                         except Exception as e:
@@ -175,7 +194,11 @@ class ProfilerManager:
                 
                 elif profiler_class != NvidiaGpuProfiler:
                     # Standard instantiation for all other profilers
-                    profiler_instance = profiler_class(self.config, profiler_manager=self)
+                    profiler_instance = profiler_class(
+                        self.config, 
+                        profiler_manager=self,
+                        results_dir=self.results_dir
+                    )
                     self.profilers.append(profiler_instance)
                     log.debug("%s profiler initialized", profiler_class.__name__)
                     
@@ -197,7 +220,7 @@ class ProfilerManager:
         Stop all profilers and *immediately* collect their metrics.
         This is called by the __exit__ of the 'with' block.
         """
-        log.info("Stopping profilers and collecting metrics")
+        log.debug("Stopping profilers and collecting metrics")
         for profiler in self.profilers:
             metrics = profiler.stop_monitoring()
             profiler_name = profiler.__class__.__name__.lower()

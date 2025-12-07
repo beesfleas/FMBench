@@ -1,10 +1,43 @@
 from typing import List, Dict, Any
-from .dataset_scenario import DatasetScenario
 import logging
 import re
-import torch
 
-logger = logging.getLogger(__name__)
+import torch
+from .dataset_scenario import DatasetScenario
+
+# Optional dependencies for metrics computation
+try:
+    import sacrebleu
+    SACREBLEU_AVAILABLE = True
+except ImportError:
+    sacrebleu = None
+    SACREBLEU_AVAILABLE = False
+
+try:
+    import nltk
+    from nltk.translate.meteor_score import meteor_score
+    NLTK_AVAILABLE = True
+except ImportError:
+    nltk = None
+    meteor_score = None
+    NLTK_AVAILABLE = False
+
+try:
+    import bert_score
+    BERT_SCORE_AVAILABLE = True
+except ImportError:
+    bert_score = None
+    BERT_SCORE_AVAILABLE = False
+
+try:
+    from comet import download_model, load_from_checkpoint
+    COMET_AVAILABLE = True
+except ImportError:
+    download_model = None
+    load_from_checkpoint = None
+    COMET_AVAILABLE = False
+
+log = logging.getLogger(__name__)
 
 class SentimentScenario(DatasetScenario):
     """
@@ -71,58 +104,56 @@ class SummarizationScenario(DatasetScenario):
         return tasks
 
     def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Compute metrics for Summarization.
-        Calculates:
-        - BLEU (sacrebleu)
-        - METEOR (nltk)
-        - BERT Score (bert_score)
-        """
+        """Compute BLEU, METEOR, and BERTScore for summarization."""
         metrics = {"accuracy": 0.0}
+        skipped_metrics = []
+        
         if not isinstance(target, str):
             return metrics
 
         # 1. BLEU Score
-        try:
-            import sacrebleu
-            bleu = sacrebleu.sentence_bleu(output, [target])
-            metrics["bleu"] = bleu.score
-        except ImportError:
-            pass
-        except Exception as e:
-            logger.error(f"Error calculating BLEU: {e}")
+        if SACREBLEU_AVAILABLE:
+            try:
+                bleu = sacrebleu.sentence_bleu(output, [target])
+                metrics["bleu"] = bleu.score
+            except Exception as e:
+                log.error("Error calculating BLEU: %s", e)
+        else:
+            skipped_metrics.append("bleu")
 
         # 2. METEOR Score
-        try:
-            import nltk
-            from nltk.translate.meteor_score import meteor_score
-            # Ensure wordnet is downloaded
+        if NLTK_AVAILABLE:
             try:
-                 nltk.data.find('corpora/wordnet')
-            except LookupError:
-                 logger.info("Downloading nltk wordnet...")
-                 nltk.download('wordnet', quiet=True)
-            
-            # METEOR expects tokenized list
-            reference = target.split()
-            hypothesis = output.split()
-            metrics["meteor"] = meteor_score([reference], hypothesis)
-        except ImportError as e:
-            logger.warning(f"NLTK not installed or import failed: {e}")
-        except Exception as e:
-            logger.error(f"Error calculating METEOR: {e}")
+                # Ensure wordnet is downloaded
+                try:
+                    nltk.data.find('corpora/wordnet')
+                except LookupError:
+                    log.debug("Downloading nltk wordnet...")
+                    nltk.download('wordnet', quiet=True)
+                
+                # METEOR expects tokenized list
+                reference = target.split()
+                hypothesis = output.split()
+                metrics["meteor"] = meteor_score([reference], hypothesis)
+            except Exception as e:
+                log.error("Error calculating METEOR: %s", e)
+        else:
+            skipped_metrics.append("meteor")
 
         # 3. BERT Score
         if self.config.get("use_expensive_metrics", True):
-            try:
-                import bert_score
-                # BERTScore calculation
-                P, R, F1 = bert_score.score([output], [target], lang="en", verbose=False)
-                metrics["bert_score"] = F1.mean().item()
-            except ImportError as e:
-                logger.warning(f"bert_score not installed or import failed: {e}")
-            except Exception as e:
-                logger.error(f"Error calculating BERT Score: {e}")
+            if BERT_SCORE_AVAILABLE:
+                try:
+                    # BERTScore calculation
+                    P, R, F1 = bert_score.score([output], [target], lang="en", verbose=False)
+                    metrics["bert_score"] = F1.mean().item()
+                except Exception as e:
+                    log.error("Error calculating BERT Score: %s", e)
+            else:
+                skipped_metrics.append("bert_score")
+        
+        if skipped_metrics:
+            metrics["_skipped_metrics"] = skipped_metrics
             
         return metrics
 
@@ -135,8 +166,7 @@ class NERScenario(DatasetScenario):
         input_key = self.config.get("input_key", "tokens")
         target_key = self.config.get("target_key", "ner_tags")
         
-        # Tags for CoNLL2003 (Example map, can be config driven)
-        # 0: O, 1: B-PER, 2: I-PER, 3: B-ORG, 4: I-ORG, 5: B-LOC, 6: I-LOC, 7: B-MISC, 8: I-MISC
+        # CoNLL2003 tag mapping (override via config "tag_map")
         default_idx_to_tag = {
             0: "O", 1: "B-PER", 2: "I-PER", 3: "B-ORG", 4: "I-ORG", 
             5: "B-LOC", 6: "I-LOC", 7: "B-MISC", 8: "I-MISC"
@@ -150,11 +180,9 @@ class NERScenario(DatasetScenario):
             if tokens is None or tags is None:
                 continue
 
-            # Join tokens for input
             sentence = " ".join(tokens)
             
-            # Format expected output as list of (Entity, Type)
-            # This is a simplified representation for generation measurement
+            # Extract entities in "Name (Type)" format
             entities = []
             current_entity = []
             current_type = None
@@ -198,33 +226,22 @@ class NERScenario(DatasetScenario):
         return tasks
 
     def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Compute metrics for NER.
-        Extracts entities from target and checks if they are in the output.
-        """
+        """Compute recall-based accuracy for NER."""
         if not isinstance(target, str):
-            logger.warning(f"Target is not string: {target}")
+            log.debug("Target is not string: %s", target)
             return {"accuracy": 0.0}
 
-        # Target is "Entity (Type), Entity (Type)"
-        # We split by comma to get individual entities
         expected_entities = [e.strip() for e in target.split(",")]
         
-        # If no entities expected, and output is "None" or similar
         if target == "None":
             return {"accuracy": 1.0 if "none" in output.lower() or not output.strip() else 0.0}
 
-        # Check recall-like accuracy: fraction of expected entities found in output
+        # Check recall: fraction of expected entities found in output
         found_count = 0
         output_lower = output.lower()
         
         for entity_str in expected_entities:
-            # entity_str is "India (LOC)" -> we check if "India" is in output 
-            # (or strict check "India (LOC)" depending on requirement)
-            # Relaxing to just Entity name might be safer if model doesn't output type perfectly
-            
-            # Let's try to parse the entity name out of "Name (Type)"
-            # Assumes format "Name (Type)"
+            # Parse entity name from "Name (Type)" format
             if "(" in entity_str and entity_str.endswith(")"):
                 entity_name = entity_str.rsplit("(", 1)[0].strip()
             else:
@@ -272,10 +289,7 @@ class TextClassificationScenario(DatasetScenario):
         return tasks
 
     def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Compute metrics for Text Classification.
-        Robust to prompt repetition, verbose output, and markdown formatting.
-        """
+        """Compute classification accuracy with flexible label matching."""
         if not isinstance(target, str):
             return {"accuracy": 0.0}
             
@@ -283,8 +297,7 @@ class TextClassificationScenario(DatasetScenario):
         output_lower = output.lower()
         target_lower = target.lower().strip()
         
-        # 2. Define aliases for common labels (AG News mostly)
-        # We can map standard long forms to the dataset labels
+        # Label aliases for flexible matching
         aliases = {
             "science/technology": "sci/tech",
             "science & technology": "sci/tech",
@@ -300,71 +313,41 @@ class TextClassificationScenario(DatasetScenario):
         # Resolve target to an alias if possible, or keep as is
         target_norm = aliases.get(target_lower, target_lower)
         
-        # 3. Clean output of Markdown (bold/italic) roughly
-        # Remove chars like * and _
+        # Remove markdown formatting
         cleaned_output = re.sub(r"[\*\_]", " ", output_lower)
 
-        logger.info(f"Classification Grading - Target: '{target}' (Norm: '{target_norm}') | Output Preview: '{cleaned_output[:50]}...'")
+        log.debug("Classification Grading - Target: '%s' (Norm: '%s') | Output: '%s...'",
+                  target, target_norm, cleaned_output[:50])
 
-        
-        # 4. Check for target existence
-        # We prefer the label to be at the START of the response, or closely following "Category:"
-        # But sometimes models assume they are continuing text.
-        
-        # Heuristic A: Check if strict target is present as a standalone word/phrase
-        # escaping regex specials in target
-        target_regex = re.escape(target_norm)
-        
-        # Look for target as a whole word
-        # We search in the first 200 chars (generous header) OR the last 100 chars (summary) to avoid finding it in a long prompt repetition?
-        # Actually user logs show prompt is at the END sometimes? No, user logs show:
-        # "Output: Business\n\nThe article..." -> Start
-        # "Output: ... Category: World" -> End
-        
-        # Let's search entire string but check bounds? No, simple containment for classification is usually fine 
-        # UNLESS the prompt contains the label.
-        # But here valid labels are single words like "Business". "Business" is a common word.
-        # So we MUST be careful.
-        
-        # Strategy:
-        # - If output starts with target (ignoring non-alnum), it's a match.
-        # - If output contains "Category: <target>", match.
-        # - If output is short (< 50 chars), and contains target, match.
-        
-        # Strip leading non-alphanum
+        # Match strategies: start of output, "Category:" prefix, or exact line match
         start_clean = re.sub(r"^[^a-z0-9]+", "", cleaned_output).strip()
         
         if start_clean.startswith(target_norm):
-            logger.info("Match found at start.")
+            log.debug("Match found at start")
             return {"accuracy": 1.0}
             
         if f"category: {target_norm}" in cleaned_output:
-            logger.info("Match found via 'Category:' prefix.")
+            log.debug("Match found via 'Category:' prefix")
             return {"accuracy": 1.0}
             
-        # Check aliases at start
         for alias, mapped in aliases.items():
             if mapped == target_norm and start_clean.startswith(alias):
-                logger.info(f"Match found via alias '{alias}' at start.")
+                log.debug("Match found via alias '%s' at start", alias)
                 return {"accuracy": 1.0}
 
-        # Last resort: If the output contains the label and is not super long (likely just the answer)
-        # OR if we can find the label on a line by itself
+        # Check first 3 lines for exact match
         lines = [l.strip() for l in cleaned_output.split('\n') if l.strip()]
-        for line in lines[:3]: # Check first 3 lines
-            # If line is exactly the target (plus maybe punctuation)
+        for line in lines[:3]:
             line_clean = re.sub(r"[^a-z0-9\s]", "", line).strip()
             if line_clean == target_norm:
                 return {"accuracy": 1.0}
-            # Check aliases
             for alias, mapped in aliases.items():
                 if mapped == target_norm and line_clean == alias:
-                    logger.info("Match found via alias on line.")
+                    log.debug("Match found via alias on line")
                     return {"accuracy": 1.0}
 
-        logger.info("No match found.")
+        log.debug("No match found")
         return {"accuracy": 0.0}
-
 
 
 class TranslationScenario(DatasetScenario):
@@ -404,14 +387,10 @@ class TranslationScenario(DatasetScenario):
         return tasks
 
     def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
-        """
-        Compute metrics for Translation.
-        Calculates:
-        - BLEU (sacrebleu)
-        - COMET (unbabel-comet) - lazy loaded
-        - Accuracy (basic containment)
-        """
+        """Compute BLEU, COMET, and containment accuracy for translation."""
         metrics = {"accuracy": 0.0}
+        skipped_metrics = []
+        
         if not isinstance(target, str):
             return metrics
             
@@ -423,45 +402,39 @@ class TranslationScenario(DatasetScenario):
         if target_norm in output_norm:
             metrics["accuracy"] = 1.0
             
-        # 2. BLEU Score
-        try:
-            import sacrebleu
-            # sacrebleu expects list of references for each hypothesis
-            # output is single hypothesis, target is single reference
-            # For robustness, we treat output as a single sentence for now.
-            bleu = sacrebleu.sentence_bleu(output, [target])
-            metrics["bleu"] = bleu.score
-        except ImportError:
-            logger.warning("sacrebleu not installed, skipping BLEU")
-        except Exception as e:
-            logger.error(f"Error calculating BLEU: {e}")
+        # BLEU Score
+        if SACREBLEU_AVAILABLE:
+            try:
+                bleu = sacrebleu.sentence_bleu(output, [target])
+                metrics["bleu"] = bleu.score
+            except Exception as e:
+                log.error("Error calculating BLEU: %s", e)
+        else:
+            skipped_metrics.append("bleu")
 
-        # 3. COMET Score
-        # COMET requires the source sentence as well
+        # COMET Score (requires source sentence)
         source = task.get("source")
         if source and self.config.get("use_expensive_metrics", True):
-            try:
-                # Lazy import and model loading
-                if not hasattr(self, "_comet_model"):
-                    from comet import download_model, load_from_checkpoint
-                    
-                    # Use a lightweight or standard COMET model
-                    model_path = download_model("Unbabel/wmt22-comet-da")
-                    self._comet_model = load_from_checkpoint(model_path)
-                    
-                    # Move to GPU if available
-                    if torch.cuda.is_available():
-                        self._comet_model = self._comet_model.cuda()
+            if COMET_AVAILABLE:
+                try:
+                    # Lazy model loading
+                    if not hasattr(self, "_comet_model"):
+                        model_path = download_model("Unbabel/wmt22-comet-da")
+                        self._comet_model = load_from_checkpoint(model_path)
                         
-                # Prepare data for COMET
-                data = [{"src": source, "mt": output, "ref": target}]
-                # Predict
-                model_output = self._comet_model.predict(data, batch_size=1, gpus=1 if torch.cuda.is_available() else 0)
-                metrics["comet"] = model_output.scores[0]
-                
-            except ImportError:
-                logger.warning("unbabel-comet not installed or torch missing, skipping COMET")
-            except Exception as e:
-                logger.error(f"Error calculating COMET: {e}")
+                        if torch.cuda.is_available():
+                            self._comet_model = self._comet_model.cuda()
+                            
+                    data = [{"src": source, "mt": output, "ref": target}]
+                    model_output = self._comet_model.predict(data, batch_size=1, gpus=1 if torch.cuda.is_available() else 0)
+                    metrics["comet"] = model_output.scores[0]
+                    
+                except Exception as e:
+                    log.error("Error calculating COMET: %s", e)
+            else:
+                skipped_metrics.append("comet")
+        
+        if skipped_metrics:
+            metrics["_skipped_metrics"] = skipped_metrics
                 
         return metrics

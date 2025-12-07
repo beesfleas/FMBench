@@ -122,12 +122,7 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         log.debug("Model unloaded")
 
     def compute_perplexity(self, text: str) -> float:
-        """
-        Compute perplexity using a sliding window approach for long text.
-        """
-        import torch
-        from torch.nn import CrossEntropyLoss
-
+        """Compute perplexity using a sliding window approach for long text."""
         log.debug("Computing perplexity for text length: %d", len(text))
         
         encodings = self.tokenizer(text, return_tensors="pt")
@@ -165,5 +160,5 @@ class HuggingFaceLLMLoader(BaseModelLoader):
                 break
 
         ppl = torch.exp(torch.stack(nlls).mean())
-        log.debug(f"Computed perplexity: {ppl.item()}")
+        log.debug("Computed perplexity: %s", ppl.item())
         return ppl.item()
