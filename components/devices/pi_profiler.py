@@ -126,12 +126,14 @@ class PiProfiler(BaseDeviceProfiler):
         csv_file = None
         csv_writer = None
         
-        # Metric accumulators
-        cpu_values = []
-        mem_values = []
-        mem_pct_values = []
-        temp_values = []
-        power_values = []
+        # Initialize stats
+        stats = {
+            "cpu": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf'), "nonzero_count": 0, "nonzero_sum": 0.0, "nonzero_min": float('inf'), "nonzero_max": 0.0},
+            "mem": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf')},
+            "mem_pct": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf')},
+            "temp": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf')},
+            "power": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf'), "nonzero_count": 0, "nonzero_sum": 0.0, "nonzero_min": float('inf'), "nonzero_max": 0.0}
+        }
         total_energy_joules = 0.0
         
         try:
@@ -149,9 +151,29 @@ class PiProfiler(BaseDeviceProfiler):
                     sample["memory_used_mb"] = vmem.used / (1024 * 1024)
                     sample["memory_utilization_percent"] = vmem.percent
                     
-                    cpu_values.append(cpu_util)
-                    mem_values.append(sample["memory_used_mb"])
-                    mem_pct_values.append(vmem.percent)
+                    s = stats["cpu"]
+                    s["count"] += 1
+                    s["sum"] += cpu_util
+                    s["max"] = max(s["max"], cpu_util)
+                    s["min"] = min(s["min"], cpu_util)
+                    if cpu_util != 0:
+                        s["nonzero_count"] += 1
+                        s["nonzero_sum"] += cpu_util
+                        s["nonzero_max"] = max(s["nonzero_max"], cpu_util)
+                        s["nonzero_min"] = min(s["nonzero_min"], cpu_util)
+
+                    s = stats["mem"]
+                    s["count"] += 1
+                    s["sum"] += sample["memory_used_mb"]
+                    s["max"] = max(s["max"], sample["memory_used_mb"])
+                    s["min"] = min(s["min"], sample["memory_used_mb"])
+
+                    s = stats["mem_pct"]
+                    s["count"] += 1
+                    s["sum"] += vmem.percent
+                    s["max"] = max(s["max"], vmem.percent)
+                    s["min"] = min(s["min"], vmem.percent)
+                    
                 except Exception as e:
                     log.warning(f"Failed to read CPU/memory: {e}")
                 
@@ -159,15 +181,29 @@ class PiProfiler(BaseDeviceProfiler):
                 temp = self._read_temp()
                 if temp is not None:
                     sample["cpu_temp_c"] = temp
-                    temp_values.append(temp)
+                    s = stats["temp"]
+                    s["count"] += 1
+                    s["sum"] += temp
+                    s["max"] = max(s["max"], temp)
+                    s["min"] = min(s["min"], temp)
                 
                 # Power monitoring
                 if self.power_monitoring_available:
                     power = self._read_power_watts()
                     if power is not None:
                         sample["power_watts"] = power
-                        power_values.append(power)
                         total_energy_joules += power * self.sampling_interval
+                        
+                        s = stats["power"]
+                        s["count"] += 1
+                        s["sum"] += power
+                        s["max"] = max(s["max"], power)
+                        s["min"] = min(s["min"], power)
+                        if power != 0:
+                            s["nonzero_count"] += 1
+                            s["nonzero_sum"] += power
+                            s["nonzero_max"] = max(s["nonzero_max"], power)
+                            s["nonzero_min"] = min(s["nonzero_min"], power)
                 
                 # Write to CSV
                 if csv_file is None:
@@ -188,36 +224,42 @@ class PiProfiler(BaseDeviceProfiler):
                         log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update cached metrics
-                self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
-                if cpu_values:
-                    cpu_nonzero = [v for v in cpu_values if v != 0]
-                    if cpu_nonzero:
-                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
-                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
-                    else:
-                        self.metrics["average_cpu_utilization_percent"] = 0
-                        self.metrics["peak_cpu_utilization_percent"] = 0
-                if mem_values:
-                    self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
-                    self.metrics["peak_memory_mb"] = max(mem_values)
-                if mem_pct_values:
-                    self.metrics["average_memory_utilization_percent"] = sum(mem_pct_values) / len(mem_pct_values)
-                    self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
-                if temp_values:
-                    self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
-                    self.metrics["peak_cpu_temp_c"] = max(temp_values)
-                    self.metrics["min_cpu_temp_c"] = min(temp_values)
-                if power_values:
-                    power_nonzero = [v for v in power_values if v != 0]
-                    if power_nonzero:
-                        self.metrics["average_power_watts"] = sum(power_nonzero) / len(power_nonzero)
-                        self.metrics["peak_power_watts"] = max(power_nonzero)
-                        self.metrics["min_power_watts"] = min(power_nonzero)
-                    else:
-                        self.metrics["average_power_watts"] = 0
-                        self.metrics["peak_power_watts"] = 0
-                        self.metrics["min_power_watts"] = 0
-                    self.metrics["total_energy_joules"] = total_energy_joules
+                self.metrics["num_samples"] = stats["cpu"]["count"]
+                
+                s = stats["cpu"]
+                if s["nonzero_count"] > 0:
+                    self.metrics["average_cpu_utilization_percent"] = s["nonzero_sum"] / s["nonzero_count"]
+                    self.metrics["peak_cpu_utilization_percent"] = s["nonzero_max"]
+                else:
+                    self.metrics["average_cpu_utilization_percent"] = 0
+                    self.metrics["peak_cpu_utilization_percent"] = 0
+                
+                s = stats["mem"]
+                if s["count"] > 0:
+                    self.metrics["average_memory_mb"] = s["sum"] / s["count"]
+                    self.metrics["peak_memory_mb"] = s["max"]
+                
+                s = stats["mem_pct"]
+                if s["count"] > 0:
+                    self.metrics["average_memory_utilization_percent"] = s["sum"] / s["count"]
+                    self.metrics["peak_memory_utilization_percent"] = s["max"]
+                
+                s = stats["temp"]
+                if s["count"] > 0:
+                    self.metrics["average_cpu_temp_c"] = s["sum"] / s["count"]
+                    self.metrics["peak_cpu_temp_c"] = s["max"]
+                    self.metrics["min_cpu_temp_c"] = s["min"]
+                
+                s = stats["power"]
+                if s["nonzero_count"] > 0:
+                    self.metrics["average_power_watts"] = s["nonzero_sum"] / s["nonzero_count"]
+                    self.metrics["peak_power_watts"] = s["nonzero_max"]
+                    self.metrics["min_power_watts"] = s["nonzero_min"]
+                else:
+                    self.metrics["average_power_watts"] = 0
+                    self.metrics["peak_power_watts"] = 0
+                    self.metrics["min_power_watts"] = 0
+                self.metrics["total_energy_joules"] = total_energy_joules
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval

@@ -44,10 +44,11 @@ class MacProfiler(BaseDeviceProfiler):
         self.csv_writer = None
         
         # Initialize accumulators
-        self.accumulators = {k: [] for k in [
+        keys = [
             "cpu_util", "mem", "mem_pct", "cpu_power", "gpu_power", 
             "ane_power", "combined_power", "gpu_freq", "gpu_util"
-        ]}
+        ]
+        self.stats = {k: {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf'), "nonzero_count": 0, "nonzero_sum": 0.0, "nonzero_min": float('inf'), "nonzero_max": 0.0} for k in keys}
 
         # Prime psutil to avoid initial 0.0
         psutil.cpu_percent(interval=None)
@@ -100,22 +101,13 @@ class MacProfiler(BaseDeviceProfiler):
         }
         
         for acc_key, metric_name in mappings.items():
-            vals = self.accumulators.get(acc_key, [])
-            if not vals:
-                self.metrics[f"average_{metric_name}"] = 0
-                self.metrics[f"peak_{metric_name}"] = 0
-                self.metrics[f"min_{metric_name}"] = 0
-                continue
-                
-            nonzero = [v for v in vals if v != 0] or [0] # Avoid empty sequence for min/max
-            real_vals = [v for v in vals if v != 0] 
+            s = self.stats[acc_key]
             
-            # Average is typically over all samples or just nonzero? 
-            # Previous logic: sum(nonzero)/len(nonzero). Keeping that behavior.
-            if real_vals:
-                self.metrics[f"average_{metric_name}"] = sum(real_vals) / len(real_vals)
-                self.metrics[f"peak_{metric_name}"] = max(real_vals)
-                self.metrics[f"min_{metric_name}"] = min(real_vals)
+            # If we have nonzero samples, use them for stats (matching previous behavior)
+            if s["nonzero_count"] > 0:
+                self.metrics[f"average_{metric_name}"] = s["nonzero_sum"] / s["nonzero_count"]
+                self.metrics[f"peak_{metric_name}"] = s["nonzero_max"]
+                self.metrics[f"min_{metric_name}"] = s["nonzero_min"]
             else:
                 self.metrics[f"average_{metric_name}"] = 0
                 self.metrics[f"peak_{metric_name}"] = 0
@@ -196,11 +188,22 @@ class MacProfiler(BaseDeviceProfiler):
             "combined_power": "combined_power_watts", "gpu_freq": "gpu_active_frequency_mhz",
             "gpu_util": "gpu_utilization_percent"
         }
-        for acc_k, sample_k in acc_map.items():
+        for acc_key, sample_k in acc_map.items():
             if sample_k in sample:
-                self.accumulators[acc_k].append(sample[sample_k])
+                val = sample[sample_k]
+                s = self.stats[acc_key]
+                s["count"] += 1
+                s["sum"] += val
+                s["max"] = max(s["max"], val)
+                s["min"] = min(s["min"], val)
+                
+                if val != 0:
+                    s["nonzero_count"] += 1
+                    s["nonzero_sum"] += val
+                    s["nonzero_max"] = max(s["nonzero_max"], val)
+                    s["nonzero_min"] = min(s["nonzero_min"], val)
 
-        self.metrics["num_samples"] = len(self.accumulators["cpu_util"])
+        self.metrics["num_samples"] = self.stats["cpu_util"]["count"]
         self.metrics["monitoring_duration_seconds"] = sample["timestamp"]
         self._update_stats()
 
@@ -234,7 +237,7 @@ class MacProfiler(BaseDeviceProfiler):
             log.error(f"Monitor loop error: {e}")
         finally:
             # Graceful Shutdown & Flush
-            if not self.accumulators["cpu_power"] and self.powermetrics_process:
+            if self.stats["cpu_power"]["count"] == 0 and self.powermetrics_process:
                 if self.powermetrics_process.poll() is None:
                     log.debug("Waiting for powermetrics flush...")
                     # Wait for at least one sample interval, or max 2.0s

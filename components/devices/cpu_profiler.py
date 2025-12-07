@@ -206,10 +206,30 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         csv_writer = None
         
         # Initialize metric accumulators
-        cpu_values = []
-        mem_values = []
-        mem_pct_values = []
-        temp_values = []
+        cpu_sum = 0.0
+        cpu_max = 0.0
+        cpu_min = float('inf')
+        cpu_count = 0
+        cpu_nonzero_sum = 0.0
+        cpu_nonzero_max = 0.0
+        cpu_nonzero_min = float('inf')
+        cpu_nonzero_count = 0
+
+        mem_sum = 0.0
+        mem_max = 0.0
+        mem_min = float('inf')
+        mem_count = 0
+        
+        mem_pct_sum = 0.0
+        mem_pct_max = 0.0
+        mem_pct_min = float('inf')
+        mem_pct_count = 0
+
+        temp_sum = 0.0
+        temp_max = 0.0
+        temp_min = float('inf')
+        temp_count = 0
+
         total_energy_joules = 0.0
         prev_energy_uj = None
         
@@ -230,9 +250,28 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                 }
                 
                 # Accumulate for real-time metrics
-                cpu_values.append(cpu_percent)
-                mem_values.append(sample["memory_used_mb"])
-                mem_pct_values.append(vmem.percent)
+                cpu_count += 1
+                cpu_sum += cpu_percent
+                cpu_max = max(cpu_max, cpu_percent)
+                cpu_min = min(cpu_min, cpu_percent)
+                
+                if cpu_percent != 0:
+                    cpu_nonzero_count += 1
+                    cpu_nonzero_sum += cpu_percent
+                    cpu_nonzero_max = max(cpu_nonzero_max, cpu_percent)
+                    cpu_nonzero_min = min(cpu_nonzero_min, cpu_percent)
+                
+                mem_count += 1
+                mem_val = sample["memory_used_mb"]
+                mem_sum += mem_val
+                mem_max = max(mem_max, mem_val)
+                mem_min = min(mem_min, mem_val)
+                
+                mem_pct_count += 1
+                mem_pct_val = vmem.percent
+                mem_pct_sum += mem_pct_val
+                mem_pct_max = max(mem_pct_max, mem_pct_val)
+                mem_pct_min = min(mem_pct_min, mem_pct_val)
                 
                 # Power monitoring
                 if self.power_monitoring_available:
@@ -262,7 +301,10 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                             
                             if cpu_temp is not None:
                                 sample["cpu_temp_c"] = cpu_temp
-                                temp_values.append(cpu_temp)
+                                temp_count += 1
+                                temp_sum += cpu_temp
+                                temp_max = max(temp_max, cpu_temp)
+                                temp_min = min(temp_min, cpu_temp)
                     except Exception as e:
                         log.warning(f"Temperature read failed: {e}")
                         self.temp_monitoring_available = False
@@ -287,29 +329,31 @@ class LocalCpuProfiler(BaseDeviceProfiler):
                         log.warning(f"Failed to write CSV sample: {e}")
                 
                 # Update cached metrics in real-time
-                self.metrics["num_samples"] = len(cpu_values) if cpu_values else 0
-                if len(cpu_values) > 0:
-                    cpu_nonzero = [v for v in cpu_values if v != 0]
-                    if cpu_nonzero:
-                        self.metrics["average_cpu_utilization_percent"] = sum(cpu_nonzero) / len(cpu_nonzero)
-                        self.metrics["peak_cpu_utilization_percent"] = max(cpu_nonzero)
-                        self.metrics["min_cpu_utilization_percent"] = min(cpu_nonzero)
-                    else:
-                        self.metrics["average_cpu_utilization_percent"] = 0
-                        self.metrics["peak_cpu_utilization_percent"] = 0
-                        self.metrics["min_cpu_utilization_percent"] = 0
-                if len(mem_values) > 0:
-                    self.metrics["average_memory_mb"] = sum(mem_values) / len(mem_values)
-                    self.metrics["peak_memory_mb"] = max(mem_values)
-                    self.metrics["min_memory_mb"] = min(mem_values)
-                if len(mem_pct_values) > 0:
-                    self.metrics["average_memory_utilization_percent"] = sum(mem_pct_values) / len(mem_pct_values)
-                    self.metrics["peak_memory_utilization_percent"] = max(mem_pct_values)
-                    self.metrics["min_memory_utilization_percent"] = min(mem_pct_values)
-                if temp_values:
-                    self.metrics["average_cpu_temp_c"] = sum(temp_values) / len(temp_values)
-                    self.metrics["peak_cpu_temp_c"] = max(temp_values)
-                    self.metrics["min_cpu_temp_c"] = min(temp_values)
+                self.metrics["num_samples"] = cpu_count
+                
+                if cpu_nonzero_count > 0:
+                    self.metrics["average_cpu_utilization_percent"] = cpu_nonzero_sum / cpu_nonzero_count
+                    self.metrics["peak_cpu_utilization_percent"] = cpu_nonzero_max
+                    self.metrics["min_cpu_utilization_percent"] = cpu_nonzero_min
+                else:
+                    self.metrics["average_cpu_utilization_percent"] = 0
+                    self.metrics["peak_cpu_utilization_percent"] = 0
+                    self.metrics["min_cpu_utilization_percent"] = 0
+                    
+                if mem_count > 0:
+                    self.metrics["average_memory_mb"] = mem_sum / mem_count
+                    self.metrics["peak_memory_mb"] = mem_max
+                    self.metrics["min_memory_mb"] = mem_min
+                
+                if mem_pct_count > 0:
+                    self.metrics["average_memory_utilization_percent"] = mem_pct_sum / mem_pct_count
+                    self.metrics["peak_memory_utilization_percent"] = mem_pct_max
+                    self.metrics["min_memory_utilization_percent"] = mem_pct_min
+
+                if temp_count > 0:
+                    self.metrics["average_cpu_temp_c"] = temp_sum / temp_count
+                    self.metrics["peak_cpu_temp_c"] = temp_max
+                    self.metrics["min_cpu_temp_c"] = temp_min
                 
                 # Energy metrics
                 if self.power_monitoring_available and prev_energy_uj is not None:

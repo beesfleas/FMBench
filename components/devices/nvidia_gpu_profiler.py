@@ -96,11 +96,13 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         csv_file = None
         csv_writer = None
         
-        # Metric accumulators
-        power_values = []
-        temp_values = []
-        memory_values = []
-        util_values = []
+        # Initialize stats
+        stats = {
+            "power": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf'), "nonzero_count": 0, "nonzero_sum": 0.0, "nonzero_min": float('inf'), "nonzero_max": 0.0},
+            "temp": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf')},
+            "memory": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf')},
+            "util": {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf'), "nonzero_count": 0, "nonzero_sum": 0.0, "nonzero_min": float('inf'), "nonzero_max": 0.0}
+        }
         total_energy_joules = 0.0
         
         try:
@@ -116,6 +118,18 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         power_watts = pynvml.nvmlDeviceGetPowerUsage(self.handle) / 1000.0
                         sample["power_watts"] = power_watts
                         total_energy_joules += power_watts * self.sampling_interval
+                        
+                        s = stats["power"]
+                        s["count"] += 1
+                        s["sum"] += power_watts
+                        s["max"] = max(s["max"], power_watts)
+                        s["min"] = min(s["min"], power_watts)
+                        if power_watts != 0:
+                            s["nonzero_count"] += 1
+                            s["nonzero_sum"] += power_watts
+                            s["nonzero_max"] = max(s["nonzero_max"], power_watts)
+                            s["nonzero_min"] = min(s["nonzero_min"], power_watts)
+                            
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
                             log.error(f"Could not read GPU power: {e}. Disabling power monitoring.")
@@ -126,6 +140,13 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     try:
                         temp_c = pynvml.nvmlDeviceGetTemperature(self.handle, pynvml.NVML_TEMPERATURE_GPU)
                         sample["temp_c"] = temp_c
+                        
+                        s = stats["temp"]
+                        s["count"] += 1
+                        s["sum"] += temp_c
+                        s["max"] = max(s["max"], temp_c)
+                        s["min"] = min(s["min"], temp_c)
+                        
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
                             log.error(f"Could not read GPU temp: {e}. Disabling temp monitoring.")
@@ -137,6 +158,13 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         memory_info = pynvml.nvmlDeviceGetMemoryInfo(self.handle)
                         memory_mb = memory_info.used / (1024 * 1024)
                         sample["memory_mb"] = memory_mb
+                        
+                        s = stats["memory"]
+                        s["count"] += 1
+                        s["sum"] += memory_mb
+                        s["max"] = max(s["max"], memory_mb)
+                        s["min"] = min(s["min"], memory_mb)
+                        
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
                             log.error(f"Could not read GPU memory: {e}. Disabling memory monitoring.")
@@ -148,6 +176,18 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         util_info = pynvml.nvmlDeviceGetUtilizationRates(self.handle)
                         util_percent = util_info.gpu
                         sample["utilization_percent"] = util_percent
+                        
+                        s = stats["util"]
+                        s["count"] += 1
+                        s["sum"] += util_percent
+                        s["max"] = max(s["max"], util_percent)
+                        s["min"] = min(s["min"], util_percent)
+                        if util_percent != 0:
+                            s["nonzero_count"] += 1
+                            s["nonzero_sum"] += util_percent
+                            s["nonzero_max"] = max(s["nonzero_max"], util_percent)
+                            s["nonzero_min"] = min(s["nonzero_min"], util_percent)
+                        
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
                             log.error(f"Could not read GPU util: {e}. Disabling util monitoring.")
@@ -171,56 +211,41 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                     except Exception as e:
                         log.warning(f"Failed to write CSV sample: {e}")
                 
-                # Update accumulators
-                if "power_watts" in sample:
-                    power_values.append(sample["power_watts"])
-                if "temp_c" in sample:
-                    temp_values.append(sample["temp_c"])
-                if "memory_mb" in sample:
-                    memory_values.append(sample["memory_mb"])
-                if "utilization_percent" in sample:
-                    util_values.append(sample["utilization_percent"])
-                
                 # Update cached metrics
-                # Use the most reliable accumulator for sample count
-                self.metrics["num_samples"] = len(power_values) if power_values else (
-                    len(util_values) if util_values else (
-                        len(memory_values) if memory_values else 0
-                    )
-                )
+                self.metrics["num_samples"] = max(stats["power"]["count"], stats["util"]["count"], stats["memory"]["count"])
                 
-                if power_values:
-                    power_nonzero = [v for v in power_values if v != 0]
-                    if power_nonzero:
-                        self.metrics["peak_power_watts"] = max(power_nonzero)
-                        self.metrics["average_power_watts"] = sum(power_nonzero) / len(power_nonzero)
-                        self.metrics["min_power_watts"] = min(power_nonzero)
-                    else:
-                        self.metrics["peak_power_watts"] = 0
-                        self.metrics["average_power_watts"] = 0
-                        self.metrics["min_power_watts"] = 0
-                    self.metrics["total_energy_joules"] = total_energy_joules
+                s = stats["power"]
+                if s["nonzero_count"] > 0:
+                    self.metrics["peak_power_watts"] = s["nonzero_max"]
+                    self.metrics["average_power_watts"] = s["nonzero_sum"] / s["nonzero_count"]
+                    self.metrics["min_power_watts"] = s["nonzero_min"]
+                else:
+                    self.metrics["peak_power_watts"] = 0
+                    self.metrics["average_power_watts"] = 0
+                    self.metrics["min_power_watts"] = 0
+                self.metrics["total_energy_joules"] = total_energy_joules
                 
-                if temp_values:
-                    self.metrics["peak_temp_c"] = max(temp_values)
-                    self.metrics["average_temp_c"] = sum(temp_values) / len(temp_values)
-                    self.metrics["min_temp_c"] = min(temp_values)
+                s = stats["temp"]
+                if s["count"] > 0:
+                    self.metrics["peak_temp_c"] = s["max"]
+                    self.metrics["average_temp_c"] = s["sum"] / s["count"]
+                    self.metrics["min_temp_c"] = s["min"]
                 
-                if memory_values:
-                    self.metrics["peak_memory_mb"] = max(memory_values)
-                    self.metrics["average_memory_mb"] = sum(memory_values) / len(memory_values)
-                    self.metrics["min_memory_mb"] = min(memory_values)
+                s = stats["memory"]
+                if s["count"] > 0:
+                    self.metrics["peak_memory_mb"] = s["max"]
+                    self.metrics["average_memory_mb"] = s["sum"] / s["count"]
+                    self.metrics["min_memory_mb"] = s["min"]
                 
-                if util_values:
-                    util_nonzero = [v for v in util_values if v != 0]
-                    if util_nonzero:
-                        self.metrics["peak_utilization_percent"] = max(util_nonzero)
-                        self.metrics["average_utilization_percent"] = sum(util_nonzero) / len(util_nonzero)
-                        self.metrics["min_utilization_percent"] = min(util_nonzero)
-                    else:
-                        self.metrics["peak_utilization_percent"] = 0
-                        self.metrics["average_utilization_percent"] = 0
-                        self.metrics["min_utilization_percent"] = 0
+                s = stats["util"]
+                if s["nonzero_count"] > 0:
+                    self.metrics["peak_utilization_percent"] = s["nonzero_max"]
+                    self.metrics["average_utilization_percent"] = s["nonzero_sum"] / s["nonzero_count"]
+                    self.metrics["min_utilization_percent"] = s["nonzero_min"]
+                else:
+                    self.metrics["peak_utilization_percent"] = 0
+                    self.metrics["average_utilization_percent"] = 0
+                    self.metrics["min_utilization_percent"] = 0
                 
                 self.metrics["monitoring_duration_seconds"] = rel_timestamp
                 self.metrics["sampling_interval"] = self.sampling_interval
