@@ -95,21 +95,33 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         device = self.device or next(self.model.parameters()).device
         
         methods = [
+            lambda: self._try_conversation_format(prompt, image),
+            lambda: self._try_llava_format(prompt, image),
             lambda: self.processor(text=prompt, images=image, return_tensors="pt"),
             lambda: self.processor(text=f"<image>\n{prompt}", images=image, return_tensors="pt"),
-            lambda: self._try_conversation_format(prompt, image),
             lambda: self.processor(images=image, return_tensors="pt"),
         ]
         
         for i, method in enumerate(methods, 1):
             try:
                 inputs = method()
+                # Validate that image features will match tokens for LLaVA-style models
+                if "input_ids" in inputs and hasattr(self.processor, "image_token_id"):
+                    num_image_tokens = (inputs["input_ids"] == self.processor.image_token_id).sum().item()
+                    if num_image_tokens == 0:
+                        log.debug("Input method %d produced 0 image tokens, skipping", i)
+                        continue
                 return {k: v.to(device) if isinstance(v, torch.Tensor) else v 
                        for k, v in inputs.items()}
             except Exception as e:
                 log.debug("Input method %d failed: %s", i, e)
         
         raise RuntimeError("Could not process VLM inputs with any supported format")
+    
+    def _try_llava_format(self, prompt, image):
+        """Try LLaVA-specific format with USER/ASSISTANT template."""
+        llava_prompt = f"USER: <image>\n{prompt}\nASSISTANT:"
+        return self.processor(text=llava_prompt, images=image, return_tensors="pt")
     
     def _try_conversation_format(self, prompt, image):
         """Try conversation format for chat models."""
@@ -124,14 +136,28 @@ class HuggingFaceVLMLoader(BaseModelLoader):
     def _decode_response(self, output_ids, inputs):
         """Decode response based on input format"""
         try:
-            # Try to decode only new tokens (for conversation models)
-            if hasattr(inputs, 'input_ids') and inputs.input_ids.shape[1] > 0:
-                return self.processor.decode(output_ids[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
-        except:
-            pass
+            # inputs is a dict, access with bracket notation
+            input_ids = inputs.get('input_ids') if isinstance(inputs, dict) else getattr(inputs, 'input_ids', None)
+            if input_ids is not None and input_ids.shape[1] > 0:
+                input_len = input_ids.shape[1]
+                response = self.processor.decode(output_ids[0][input_len:], skip_special_tokens=True).strip()
+                
+                # For LLaVA-style models, also try to extract answer after ASSISTANT:
+                if "ASSISTANT:" in response:
+                    response = response.split("ASSISTANT:")[-1].strip()
+                return response
+        except Exception as e:
+            log.debug("Error decoding new tokens only: %s", e)
             
-        # Fallback: decode entire output
-        return self.processor.decode(output_ids[0], skip_special_tokens=True).strip()
+        # Fallback: decode entire output and try to extract answer
+        full_text = self.processor.decode(output_ids[0], skip_special_tokens=True).strip()
+        
+        # Try to extract answer after common markers
+        for marker in ["ASSISTANT:", "Answer:", "answer:"]:
+            if marker in full_text:
+                return full_text.split(marker)[-1].strip()
+        
+        return full_text
 
     def unload_model(self):
         log.debug("Unloading model")
