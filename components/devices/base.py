@@ -1,20 +1,32 @@
 from abc import ABC, abstractmethod
 import threading
 import logging
+from pathlib import Path
+from typing import Optional
 
 log = logging.getLogger(__name__)
+
+
 class BaseDeviceProfiler(ABC):
     """
     Abstract base class for all device profilers.
     Profilers are responsible for monitoring hardware metrics
     during a benchmark run.
     """
-    def __init__(self, config):
+    
+    def __init__(self, config, results_dir: Optional[Path] = None):
+        """
+        Args:
+            config: Configuration dictionary or DictConfig.
+            results_dir: Directory to save CSV files. If None, uses default from profiler_utils.
+        """
         self.config = config
         self.metrics = {}
         self._monitoring_thread = None
         self._stop_event = threading.Event()
         self.device_name = "[Unknown Device]"
+        self.results_dir = results_dir
+        self.csv_filepath = None
 
     @abstractmethod
     def get_device_info(self) -> str:

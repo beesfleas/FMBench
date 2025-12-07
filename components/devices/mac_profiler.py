@@ -2,18 +2,21 @@ import subprocess
 import time
 import psutil
 import os
-import csv
-import logging
-import tempfile
 import re
+from pathlib import Path
+from typing import Optional
 from .base import BaseDeviceProfiler
+from .profiler_utils import CSVWriter, MetricAccumulator, generate_csv_filepath, get_results_directory
+import logging
 
 log = logging.getLogger(__name__)
+
 
 class MacProfiler(BaseDeviceProfiler):
     """
     Profiler for macOS (Intel and Apple Silicon) using powermetrics.
     """
+    
     # Regex patterns for parsing powermetrics output: (Pattern, Metric Key, Divisor)
     METRIC_PATTERNS = [
         (r'CPU Power:\s*(\d+)\s*mW', 'cpu_power_watts', 1000.0),
@@ -24,8 +27,8 @@ class MacProfiler(BaseDeviceProfiler):
         (r'GPU HW active residency:\s*([\d\.]+)%', 'gpu_utilization_percent', 1.0),
     ]
 
-    def __init__(self, config, profiler_manager=None):
-        super().__init__(config)
+    def __init__(self, config, profiler_manager=None, results_dir: Optional[Path] = None):
+        super().__init__(config, results_dir)
         self.sampling_interval = config.get("sampling_interval", 1.0)
         self.sampling_interval_ms = int(self.sampling_interval * 1000)
         self.device_name = "macOS"
@@ -37,18 +40,23 @@ class MacProfiler(BaseDeviceProfiler):
         self.last_known_metrics = {}
         self.total_energy_joules = 0.0
         self.start_time = 0
-        self.last_sample_time = 0  # Track precise time of previous sample
+        self.last_sample_time = 0
         self.last_psutil_time = 0
         self.last_cpu_util = 0.0
-        self.csv_file = None
         self.csv_writer = None
         
         # Initialize accumulators
-        keys = [
-            "cpu_util", "mem", "mem_pct", "cpu_power", "gpu_power", 
-            "ane_power", "combined_power", "gpu_freq", "gpu_util"
-        ]
-        self.stats = {k: {"count": 0, "sum": 0.0, "max": 0.0, "min": float('inf'), "nonzero_count": 0, "nonzero_sum": 0.0, "nonzero_min": float('inf'), "nonzero_max": 0.0} for k in keys}
+        self.accumulators = {
+            "cpu_util": MetricAccumulator(track_nonzero=True),
+            "mem": MetricAccumulator(),
+            "mem_pct": MetricAccumulator(),
+            "cpu_power": MetricAccumulator(track_nonzero=True),
+            "gpu_power": MetricAccumulator(track_nonzero=True),
+            "ane_power": MetricAccumulator(track_nonzero=True),
+            "combined_power": MetricAccumulator(track_nonzero=True),
+            "gpu_freq": MetricAccumulator(),
+            "gpu_util": MetricAccumulator(track_nonzero=True),
+        }
 
         # Prime psutil to avoid initial 0.0
         psutil.cpu_percent(interval=None)
@@ -56,27 +64,32 @@ class MacProfiler(BaseDeviceProfiler):
 
     def get_device_info(self) -> str:
         try:
-            res = subprocess.run(["system_profiler", "SPHardwareDataType"], capture_output=True, text=True, timeout=5)
-            info = [l.strip() for l in res.stdout.split('\n') if any(x in l for x in ['Model', 'Processor', 'Memory'])]
+            res = subprocess.run(["system_profiler", "SPHardwareDataType"], 
+                               capture_output=True, text=True, timeout=5)
+            info = [l.strip() for l in res.stdout.split('\n') 
+                   if any(x in l for x in ['Model', 'Processor', 'Memory'])]
             return f"{self.device_name} {' | '.join(info)}"
         except Exception:
             return self.device_name
 
     def _start_powermetrics_process(self):
-        if not self._can_read_powermetrics: return
+        if not self._can_read_powermetrics:
+            return
         cmd = ['powermetrics' if os.geteuid() == 0 else 'sudo', 'powermetrics']
         cmd.extend(['--samplers', 'cpu_power,gpu_power', '-i', str(self.sampling_interval_ms)])
         
         try:
-            self.powermetrics_process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
-            time.sleep(0.1) # Quick check for immediate failure
+            self.powermetrics_process = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1
+            )
+            time.sleep(0.1)  # Quick check for immediate failure
             if self.powermetrics_process.poll() is not None:
                 err = self.powermetrics_process.stderr.read()
-                log.warning(f"powermetrics failed: {err}")
+                log.warning("powermetrics failed: %s", err)
                 self._can_read_powermetrics = False
                 self.powermetrics_process = None
         except Exception as e:
-            log.warning(f"Failed to start powermetrics: {e}")
+            log.warning("Failed to start powermetrics: %s", e)
             self._can_read_powermetrics = False
 
     def _parse_powermetrics_block(self, block: str) -> dict:
@@ -87,31 +100,30 @@ class MacProfiler(BaseDeviceProfiler):
                 metrics[key] = float(match.group(1)) / divisor
         
         if not metrics and len(block) > 100 and "Machine model" not in block:
-             log.debug(f"Parsed large block but found no metrics: {block[:100]}...")
+            log.debug("Parsed large block but found no metrics: %s...", block[:100])
         return metrics
 
     def _update_stats(self):
         """Update aggregate statistics in self.metrics based on accumulators."""
-        # Map accumulator keys to metric names
         mappings = {
-            "cpu_util": "cpu_utilization_percent", "mem": "memory_mb", "mem_pct": "memory_utilization_percent",
-            "cpu_power": "cpu_power_watts", "gpu_power": "gpu_power_watts", "ane_power": "ane_power_watts",
-            "combined_power": "combined_power_watts", "gpu_freq": "gpu_active_frequency_mhz",
+            "cpu_util": "cpu_utilization_percent",
+            "mem": "memory_mb",
+            "mem_pct": "memory_utilization_percent",
+            "cpu_power": "cpu_power_watts",
+            "gpu_power": "gpu_power_watts",
+            "ane_power": "ane_power_watts",
+            "combined_power": "combined_power_watts",
+            "gpu_freq": "gpu_active_frequency_mhz",
             "gpu_util": "gpu_utilization_percent"
         }
         
         for acc_key, metric_name in mappings.items():
-            s = self.stats[acc_key]
-            
-            # If we have nonzero samples, use them for stats (matching previous behavior)
-            if s["nonzero_count"] > 0:
-                self.metrics[f"average_{metric_name}"] = s["nonzero_sum"] / s["nonzero_count"]
-                self.metrics[f"peak_{metric_name}"] = s["nonzero_max"]
-                self.metrics[f"min_{metric_name}"] = s["nonzero_min"]
-            else:
-                self.metrics[f"average_{metric_name}"] = 0
-                self.metrics[f"peak_{metric_name}"] = 0
-                self.metrics[f"min_{metric_name}"] = 0
+            acc = self.accumulators[acc_key]
+            use_nonzero = acc.track_nonzero
+            stats = acc.get_stats(use_nonzero=use_nonzero)
+            self.metrics[f"average_{metric_name}"] = stats["average"]
+            self.metrics[f"peak_{metric_name}"] = stats["peak"]
+            self.metrics[f"min_{metric_name}"] = stats["min"]
         
         self.metrics["total_energy_joules"] = self.total_energy_joules
 
@@ -149,11 +161,9 @@ class MacProfiler(BaseDeviceProfiler):
             ])
         
         # Use actual time delta between samples for accurate energy integration
-        # powermetrics buffering means samples may not arrive at exactly self.sampling_interval
         if self.last_sample_time > 0:
             time_delta = now - self.last_sample_time
         else:
-            # Fallback for first sample
             time_delta = self.sampling_interval
 
         if total_power > 0 and time_delta > 0:
@@ -161,86 +171,83 @@ class MacProfiler(BaseDeviceProfiler):
         
         self.last_sample_time = now
 
-        # CSV Write
-        if not self.csv_writer:
-            try:
-                self.csv_file = open(self.csv_filepath, 'w', newline='')
-                fields = sorted(set(sample.keys()) | {
-                    'cpu_power_watts', 'ane_power_watts', 'combined_power_watts', 'gpu_power_watts',
-                    'gpu_utilization_percent', 'gpu_active_frequency_mhz', 
-                    'cpu_utilization_percent', 'memory_used_mb', 'memory_utilization_percent'
-                })
-                self.csv_writer = csv.DictWriter(self.csv_file, fieldnames=fields)
-                self.csv_writer.writeheader()
-            except Exception as e:
-                log.error(f"CSV init failed: {e}")
-
+        # Write sample to CSV
         if self.csv_writer:
-            try:
-                self.csv_writer.writerow(sample)
-                self.csv_file.flush()
-            except Exception: pass
+            self.csv_writer.write_sample(sample)
 
         # Update Accumulators
         acc_map = {
-            "cpu_util": "cpu_utilization_percent", "mem": "memory_used_mb", "mem_pct": "memory_utilization_percent",
-            "cpu_power": "cpu_power_watts", "gpu_power": "gpu_power_watts", "ane_power": "ane_power_watts",
-            "combined_power": "combined_power_watts", "gpu_freq": "gpu_active_frequency_mhz",
+            "cpu_util": "cpu_utilization_percent",
+            "mem": "memory_used_mb",
+            "mem_pct": "memory_utilization_percent",
+            "cpu_power": "cpu_power_watts",
+            "gpu_power": "gpu_power_watts",
+            "ane_power": "ane_power_watts",
+            "combined_power": "combined_power_watts",
+            "gpu_freq": "gpu_active_frequency_mhz",
             "gpu_util": "gpu_utilization_percent"
         }
         for acc_key, sample_k in acc_map.items():
             if sample_k in sample:
-                val = sample[sample_k]
-                s = self.stats[acc_key]
-                s["count"] += 1
-                s["sum"] += val
-                s["max"] = max(s["max"], val)
-                s["min"] = min(s["min"], val)
-                
-                if val != 0:
-                    s["nonzero_count"] += 1
-                    s["nonzero_sum"] += val
-                    s["nonzero_max"] = max(s["nonzero_max"], val)
-                    s["nonzero_min"] = min(s["nonzero_min"], val)
+                self.accumulators[acc_key].add(sample[sample_k])
 
-        self.metrics["num_samples"] = self.stats["cpu_util"]["count"]
+        self.metrics["num_samples"] = self.accumulators["cpu_util"].count
         self.metrics["monitoring_duration_seconds"] = sample["timestamp"]
         self._update_stats()
 
     def _monitor_process(self):
-        timestamp = time.strftime("%Y%m%d_%H%M%S")
-        self.csv_filepath = os.path.join(tempfile.gettempdir(), f"mac_profiler_{timestamp}.csv")
+        # Setup CSV file in results directory
+        if self.results_dir:
+            self.csv_filepath = generate_csv_filepath(self.results_dir, "mac_profiler")
+        else:
+            results_dir = get_results_directory()
+            self.csv_filepath = generate_csv_filepath(results_dir, "mac_profiler")
+        
         self.metrics["csv_filepath"] = self.csv_filepath
-        log.info(f"Writing samples to: {self.csv_filepath}")
+        log.info("Writing samples to: %s", self.csv_filepath)
+        
+        # Define all possible fields for consistent CSV structure
+        all_fields = [
+            'timestamp', 'cpu_utilization_percent', 'memory_used_mb', 'memory_utilization_percent',
+            'cpu_power_watts', 'gpu_power_watts', 'ane_power_watts', 'combined_power_watts',
+            'gpu_utilization_percent', 'gpu_active_frequency_mhz'
+        ]
         
         self._start_powermetrics_process()
         self.start_time = time.perf_counter()
-        self.last_sample_time = self.start_time # Initialize base time for delta calculation
+        self.last_sample_time = self.start_time
         current_block = ""
 
         try:
-            while not self._stop_event.is_set():
-                if self.powermetrics_process and self.powermetrics_process.stdout:
-                    line = self.powermetrics_process.stdout.readline()
-                    if not line: break
-                    
-                    if '***' in line:
-                        if current_block.strip():
-                            metrics = self._parse_powermetrics_block(current_block)
-                            if metrics: self._record_sample(metrics)
-                        current_block = line
+            with CSVWriter(self.csv_filepath) as csv_writer:
+                self.csv_writer = csv_writer
+                
+                while not self._stop_event.is_set():
+                    if self.powermetrics_process and self.powermetrics_process.stdout:
+                        line = self.powermetrics_process.stdout.readline()
+                        if not line:
+                            break
+                        
+                        if '***' in line:
+                            if current_block.strip():
+                                metrics = self._parse_powermetrics_block(current_block)
+                                if metrics:
+                                    self._record_sample(metrics)
+                            current_block = line
+                        else:
+                            current_block += line
                     else:
-                        current_block += line
-                else:
-                    time.sleep(0.1)
+                        time.sleep(0.1)
+                        
         except Exception as e:
-            log.error(f"Monitor loop error: {e}")
+            log.error("Monitor loop error: %s", e)
         finally:
+            self.csv_writer = None
+            
             # Graceful Shutdown & Flush
-            if self.stats["cpu_power"]["count"] == 0 and self.powermetrics_process:
+            if self.accumulators["cpu_power"].count == 0 and self.powermetrics_process:
                 if self.powermetrics_process.poll() is None:
                     log.debug("Waiting for powermetrics flush...")
-                    # Wait for at least one sample interval, or max 2.0s
                     wait_time = max(self.sampling_interval * 2, 2.0)
                     time.sleep(wait_time)
 
@@ -254,11 +261,11 @@ class MacProfiler(BaseDeviceProfiler):
                     
                     if self.powermetrics_process.stdout:
                         current_block += self.powermetrics_process.stdout.read()
-                except Exception: pass
+                except Exception:
+                    pass
                 self.powermetrics_process = None
 
             if current_block.strip():
                 metrics = self._parse_powermetrics_block(current_block)
-                if metrics: self._record_sample(metrics)
-                
-            if self.csv_file: self.csv_file.close()
+                if metrics:
+                    self._record_sample(metrics)

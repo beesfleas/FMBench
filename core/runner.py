@@ -1,4 +1,5 @@
 import logging
+import time
 from components.models.model_factory import get_model_loader
 from omegaconf import DictConfig, OmegaConf
 import hydra
@@ -13,7 +14,15 @@ def _setup_profilers(cfg: DictConfig) -> ProfilerManager:
     Initialize the ProfilerManager based on platform and config.
     """
     log.debug("Initializing profilers with device config: %s", cfg.get('device', {}))
-    profiler_manager = ProfilerManager(cfg)
+    
+    # Create a meaningful run name based on timestamp and model
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    model_id = cfg.model.get("model_id", "unknown")
+    # Use just the model name (last part of path) for the run name
+    model_name = model_id.split("/")[-1] if "/" in model_id else model_id
+    run_name = f"{timestamp}_{model_name}"
+    
+    profiler_manager = ProfilerManager(cfg, run_name=run_name)
     return profiler_manager
 
 def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
@@ -59,7 +68,17 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
     Run inference with profiling.
     """
     log.info("Starting benchmark execution")
-    all_metrics = {}
+    
+    # Initialize metrics with metadata
+    all_metrics = {
+        "metadata": {
+            "model_id": model_config.get("model_id", "unknown"),
+            "model_category": model_config.get("model_category", "unknown"),
+            "scenario": scenario.name if scenario else None,
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "results_dir": str(profiler_manager.results_dir) if profiler_manager.results_dir else None,
+        }
+    }
 
     with profiler_manager:
         if scenario:
@@ -88,17 +107,15 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                 all_metrics["total_samples"] = len(results)
                 # Store full results if needed, or just summary
                 # all_metrics["scenario_results"] = results 
-        else:
-            run_basic_test(loader, model_config)
     
     all_metrics["device_metrics"] = profiler_manager.get_all_metrics()
     log.debug("Collected metrics from %d profiler(s)", len(all_metrics["device_metrics"]))
     
     return all_metrics
 
-def _teardown_and_aggregate(loader: Optional[object], all_metrics: dict):
+def _teardown_and_aggregate(loader: Optional[object], all_metrics: dict, profiler_manager: Optional[ProfilerManager] = None):
     """
-    Unload model and aggregate metrics.
+    Unload model, save metrics to JSON, and print summary.
     """
     # Unload Model
     if loader:
@@ -106,21 +123,37 @@ def _teardown_and_aggregate(loader: Optional[object], all_metrics: dict):
             loader.unload_model()
         else:
             log.warning("Model loader does not support unloading")
-            
-    # Run Metric Aggregator
-    _aggregate_metrics(all_metrics)
+    
+    # Save metrics to JSON file in results directory
+    if profiler_manager and profiler_manager.results_dir and all_metrics:
+        _save_metrics_json(all_metrics, profiler_manager.results_dir)
+    
+    # Print summary to console
+    _print_metrics_summary(all_metrics)
 
-def _aggregate_metrics(all_metrics: dict):
+
+def _save_metrics_json(all_metrics: dict, results_dir):
     """
-    Placeholder for the metric aggregator.
+    Save metrics to a JSON file in the results directory.
+    """
+    json_filepath = results_dir / "summary.json"
+    try:
+        with open(json_filepath, 'w') as f:
+            json.dump(all_metrics, f, indent=2, default=str)
+        log.info("Metrics saved to: %s", json_filepath)
+    except Exception as e:
+        log.error("Failed to save metrics JSON: %s", e)
+
+
+def _print_metrics_summary(all_metrics: dict):
+    """
+    Print metrics summary to console.
     """
     print("\n--- Benchmark Complete: Final Metrics ---")
     if all_metrics:
         try:
-            # Use json for a clean print of the collected metrics
             print(json.dumps(all_metrics, indent=2, default=str))
         except Exception:
-            # Fallback
             print(all_metrics)
     else:
         print("No metrics collected.")
@@ -148,8 +181,8 @@ def run_benchmark(cfg: DictConfig):
     except Exception as e:
         log.critical("Fatal benchmark error: %s: %s", type(e).__name__, e, exc_info=True)
     finally:
-        # Unload model and aggregate results
-        _teardown_and_aggregate(loader, all_metrics)
+        # Unload model, save results, and print summary
+        _teardown_and_aggregate(loader, all_metrics, profiler_manager)
         log.info("Benchmark completed")
 
 def run_scenario(loader, scenario, model_category):
@@ -160,7 +193,6 @@ def run_scenario(loader, scenario, model_category):
     
     # Handle idle/baseline scenarios (no tasks, just sleep)
     if not scenario.tasks:
-        import time
         idle_duration = getattr(scenario, 'idle_duration', 60)
         log.info(f"Idle scenario: sleeping for {idle_duration}s (baseline measurement)")
         time.sleep(idle_duration)
@@ -216,26 +248,3 @@ def run_scenario(loader, scenario, model_category):
             log.error(f"Task {i+1} failed: {e}", exc_info=True)
             
     return results
-
-def run_basic_test(loader, model_config):
-    """Run basic sanity test without scenario"""
-    if model_config.model_category == "VLM":
-        log.warning("VLM model requires a scenario. Use +scenario=simple_vlm to test")
-    elif model_config.model_category == "TIME_SERIES":
-        log.warning("Time Series model requires a scenario. Use +scenario=simple_timeseries to test")
-    elif model_config.model_category == "LLM":
-        log.warning("LLM model requires a scenario. Use +scenario=simple_llm to test")
-    else:
-        log.warning("Reached Unreachable Code")
-        # Basic LLM test
-        prompt = "Tell me a joke."
-        log.info("Running basic test with prompt: %s", prompt)
-        try:
-            result = loader.predict(prompt)
-            if isinstance(result, dict):
-                log.info("Test completed successfully. Response: %s (TTFT: %s)", 
-                         result.get("output"), result.get("ttft"))
-            else:
-                log.info("Test completed successfully. Response: %s", result)
-        except Exception as e:
-            log.error("Test prediction failed: %s", e, exc_info=True)
