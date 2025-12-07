@@ -4,7 +4,8 @@
 .vscode/
 __pycache__/
 outputs/
+results/
 test_image.jpg
 *.DS_Store
-logs
+logs/
 *.log

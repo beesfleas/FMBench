@@ -1,0 +1,4 @@
+name: Idle Baseline
+_target_: components.scenarios.simple.idle_scenario.IdleScenario
+description: Baseline measurement - model loaded, no inference
+idle_duration: 10
