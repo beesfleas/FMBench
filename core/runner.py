@@ -85,6 +85,13 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     all_metrics["avg_latency"] = avg_latency
                     log.info(f"Average Latency (samples {min(5, len(results))}-{len(results)}): {avg_latency:.4f}s")
 
+                # Calculate Average Tokens per Output
+                token_counts = [r.get("num_tokens") for r in results if r.get("num_tokens") is not None]
+                if token_counts:
+                    avg_tokens = sum(token_counts) / len(token_counts)
+                    all_metrics["avg_tokens_per_output"] = avg_tokens
+                    log.info(f"Average Tokens per Output: {avg_tokens:.2f}")
+
                 all_metrics["total_samples"] = len(results)
                 # Store full results if needed, or just summary
                 # all_metrics["scenario_results"] = results 

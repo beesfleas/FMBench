@@ -1,5 +1,6 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import time
+import threading
 from .base import BaseModelLoader
 from .streamers import TTFTStreamer
 from .device_utils import (
@@ -72,16 +73,36 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         log.debug("Generating (max_new_tokens: %d)", max_tokens)
         
         streamer = TTFTStreamer()
-        start_time = time.time()
-        output_ids = self.model.generate(
-            input_ids=inputs['input_ids'],
-            attention_mask=inputs['attention_mask'],
-            max_new_tokens=max_tokens,
-            pad_token_id=self.tokenizer.pad_token_id,
-            streamer=streamer
-        )
-        end_time = time.time()
-        latency = end_time - start_time
+        
+        # Container to store results from the thread
+        thread_results = {}
+
+        def generate_wrapper():
+            start_time = time.time()
+            try:
+                output = self.model.generate(
+                    input_ids=inputs['input_ids'],
+                    attention_mask=inputs['attention_mask'],
+                    max_new_tokens=max_tokens,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    streamer=streamer
+                )
+                end_time = time.time()
+                thread_results['output_ids'] = output
+                thread_results['latency'] = end_time - start_time
+            except Exception as e:
+                thread_results['error'] = e
+
+        # Run generation in a separate thread
+        gen_thread = threading.Thread(target=generate_wrapper)
+        gen_thread.start()
+        gen_thread.join()
+
+        if 'error' in thread_results:
+            raise thread_results['error']
+            
+        output_ids = thread_results['output_ids']
+        latency = thread_results['latency']
         
         log.debug("Generation completed, output shape: %s", output_ids.shape)
         # Decode only the new tokens
@@ -89,7 +110,7 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         new_token_ids = output_ids[0][input_length:]
         result = self.tokenizer.decode(new_token_ids, skip_special_tokens=True).strip()
         log.debug("Decoded result (length: %d)", len(result))
-        return {"output": result, "ttft": streamer.ttft, "latency": latency}
+        return {"output": result, "ttft": streamer.ttft, "latency": latency, "num_tokens": len(new_token_ids)}
 
     def unload_model(self):
         log.debug("Unloading model")
