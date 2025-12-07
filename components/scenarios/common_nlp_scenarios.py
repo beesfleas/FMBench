@@ -70,6 +70,62 @@ class SummarizationScenario(DatasetScenario):
             })
         return tasks
 
+    def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Compute metrics for Summarization.
+        Calculates:
+        - BLEU (sacrebleu)
+        - METEOR (nltk)
+        - BERT Score (bert_score)
+        """
+        metrics = {"accuracy": 0.0}
+        if not isinstance(target, str):
+            return metrics
+
+        # 1. BLEU Score
+        try:
+            import sacrebleu
+            bleu = sacrebleu.sentence_bleu(output, [target])
+            metrics["bleu"] = bleu.score
+        except ImportError:
+            pass
+        except Exception as e:
+            logger.error(f"Error calculating BLEU: {e}")
+
+        # 2. METEOR Score
+        try:
+            import nltk
+            from nltk.translate.meteor_score import meteor_score
+            # Ensure wordnet is downloaded
+            try:
+                 nltk.data.find('corpora/wordnet')
+            except LookupError:
+                 logger.info("Downloading nltk wordnet...")
+                 nltk.download('wordnet', quiet=True)
+            
+            # METEOR expects tokenized list
+            reference = target.split()
+            hypothesis = output.split()
+            metrics["meteor"] = meteor_score([reference], hypothesis)
+        except ImportError as e:
+            logger.warning(f"NLTK not installed or import failed: {e}")
+        except Exception as e:
+            logger.error(f"Error calculating METEOR: {e}")
+
+        # 3. BERT Score
+        if self.config.get("use_expensive_metrics", True):
+            try:
+                import bert_score
+                # BERTScore calculation
+                P, R, F1 = bert_score.score([output], [target], lang="en", verbose=False)
+                metrics["bert_score"] = F1.mean().item()
+            except ImportError as e:
+                logger.warning(f"bert_score not installed or import failed: {e}")
+            except Exception as e:
+                logger.error(f"Error calculating BERT Score: {e}")
+            
+        return metrics
+
 class NERScenario(DatasetScenario):
     """
     Scenario for Named Entity Recognition (e.g., CoNLL2003).
@@ -383,7 +439,7 @@ class TranslationScenario(DatasetScenario):
         # 3. COMET Score
         # COMET requires the source sentence as well
         source = task.get("source")
-        if source:
+        if source and self.config.get("use_expensive_metrics", True):
             try:
                 # Lazy import and model loading
                 if not hasattr(self, "_comet_model"):
