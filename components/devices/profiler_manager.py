@@ -63,29 +63,29 @@ def get_platform_profiler_classes(device_override: str = None) -> List:
         device_override = device_override.lower()
         
         if device_override == "jetson":
-            log.info("Device override: using Jetson profiler")
+            log.debug("Device override: Jetson profiler")
             return [JetsonProfiler]
         elif device_override == "pi":
-            log.info("Device override: using Raspberry Pi profiler")
+            log.debug("Device override: Raspberry Pi profiler")
             return [PiProfiler]
         elif device_override == "mac":
-            log.info("Device override: using Mac profiler")
+            log.debug("Device override: Mac profiler")
             return [MacProfiler]
         elif device_override == "cuda":
-            log.info("Device override: using CUDA profiler (and CPU)")
+            log.debug("Device override: CUDA profiler (and CPU)")
             profilers = [LocalCpuProfiler]
             if torch.cuda.is_available():
                 profilers.append(NvidiaGpuProfiler)
             return profilers
         elif device_override == "cuda-only":
-            log.info("Device override: using CUDA profiler ONLY")
+            log.debug("Device override: CUDA profiler only")
             if torch.cuda.is_available():
                 return [NvidiaGpuProfiler]
             else:
-                log.warning("CUDA requested but not available. Falling back to CPU.")
+                log.warning("CUDA requested but not available, falling back to CPU")
                 return [LocalCpuProfiler]
         elif device_override == "cpu":
-            log.info("Device override: using CPU profiler only")
+            log.debug("Device override: CPU profiler only")
             return [LocalCpuProfiler]
         elif device_override != "auto":
             log.warning("Unknown device override '%s', falling back to auto-detection", device_override)
@@ -220,7 +220,7 @@ class ProfilerManager:
         Stop all profilers and *immediately* collect their metrics.
         This is called by the __exit__ of the 'with' block.
         """
-        log.info("Stopping profilers and collecting metrics")
+        log.debug("Stopping profilers and collecting metrics")
         for profiler in self.profilers:
             metrics = profiler.stop_monitoring()
             profiler_name = profiler.__class__.__name__.lower()

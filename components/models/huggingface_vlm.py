@@ -127,8 +127,8 @@ class HuggingFaceVLMLoader(BaseModelLoader):
             # Try to decode only new tokens (for conversation models)
             if hasattr(inputs, 'input_ids') and inputs.input_ids.shape[1] > 0:
                 return self.processor.decode(output_ids[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
-        except:
-            pass
+        except (AttributeError, KeyError, IndexError, TypeError) as e:
+            log.debug("Failed to decode with input_ids offset: %s", e)
             
         # Fallback: decode entire output
         return self.processor.decode(output_ids[0], skip_special_tokens=True).strip()

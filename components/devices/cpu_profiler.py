@@ -40,7 +40,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         self._detect_cpu_type()
         self._check_metric_availability()
 
-        log.info("Initialized CPU Profiler for %s", self.device_name)
+        log.debug("Initialized CPU Profiler for %s", self.device_name)
         # Prime psutil to avoid initial 0.0 reading
         psutil.cpu_percent(interval=None)
 
@@ -65,7 +65,7 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         else:
             self.cpu_type = "unknown"
         
-        log.info("Detected CPU type: %s", self.cpu_type)
+        log.debug("Detected CPU type: %s", self.cpu_type)
         return self.cpu_type
 
     def _find_intel_rapl_path(self) -> Optional[str]:
@@ -139,24 +139,24 @@ class LocalCpuProfiler(BaseDeviceProfiler):
         if self.cpu_type == "intel":
             self.energy_counter_path = self._find_intel_rapl_path()
             if self.energy_counter_path:
-                log.info("[Intel] Intel RAPL enabled at: %s", self.energy_counter_path)
+                log.debug("Intel RAPL enabled at: %s", self.energy_counter_path)
                 self.power_monitoring_available = True
             else:
-                log.warning("[Intel] No Intel RAPL found. Power monitoring disabled.")
+                log.warning("Intel RAPL not found, power monitoring disabled")
         
         elif self.cpu_type == "amd":
             self.energy_counter_path = self._find_amd_energy_path()
             if self.energy_counter_path:
-                log.info("[AMD] AMD Energy enabled at: %s", self.energy_counter_path)
+                log.debug("AMD Energy enabled at: %s", self.energy_counter_path)
                 self.power_monitoring_available = True
             else:
-                log.warning("[AMD] No AMD Energy file found. Power monitoring disabled.")
+                log.warning("AMD Energy file not found, power monitoring disabled")
         
         elif self.cpu_type == "arm":
-            log.warning("[ARM] No power metric collection implemented for generic ARM CPUs.")
+            log.debug("ARM CPU detected, power monitoring not available")
         
         else:
-            log.warning("[%s] Unknown CPU type. Power monitoring disabled.", self.cpu_type)
+            log.debug("Unknown CPU type '%s', power monitoring disabled", self.cpu_type)
 
     def _read_energy_uj(self) -> Optional[int]:
         """Read the raw energy counter from the determined path."""
@@ -164,12 +164,12 @@ class LocalCpuProfiler(BaseDeviceProfiler):
             with open(self.energy_counter_path, 'r') as f:
                 return int(f.read().strip())
         except PermissionError:
-            log.error("Permission denied reading energy file: %s. Disabling power monitoring.", 
-                     self.energy_counter_path)
+            log.warning("Permission denied reading energy file: %s. Disabling.", 
+                        self.energy_counter_path)
             self.power_monitoring_available = False
             return None
         except Exception as e:
-            log.error("Failed to read energy file: %s. Disabling power monitoring.", e)
+            log.warning("Failed to read energy file: %s. Disabling.", e)
             self.power_monitoring_available = False
             return None
 

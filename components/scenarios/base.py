@@ -1,5 +1,4 @@
 # components/scenarios/base.py
-# components/scenarios/base.py
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 

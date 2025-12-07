@@ -1,14 +1,20 @@
 import logging
 import time
-from components.models.model_factory import get_model_loader
-from omegaconf import DictConfig, OmegaConf
-import hydra
-import json
-from components.devices.profiler_manager import ProfilerManager
-from components.scenarios.perplexity_scenario import PerplexityScenario
 from typing import Optional, Tuple
 
+import hydra
+import json
+from omegaconf import DictConfig, OmegaConf
+from langchain_core.prompts import PromptTemplate
+
+from components.models.model_factory import get_model_loader
+from components.devices.profiler_manager import ProfilerManager
+from components.scenarios.perplexity_scenario import PerplexityScenario
+
 log = logging.getLogger(__name__)
+
+# Number of initial samples to skip for latency calculation (warm-up period)
+WARMUP_SAMPLES = 4
 
 def _setup_profilers(cfg: DictConfig) -> ProfilerManager:
     """
@@ -34,23 +40,22 @@ def _setup_benchmark(cfg: DictConfig) -> Tuple[object, Optional[object]]:
     model_id = cfg.model.get("model_id", "unknown")
     log.info("Loading model: %s", model_id)
     
-    # Sync device preference from global device config if needed
+    # Create merged config to avoid mutating Hydra's immutable config
+    model_config = OmegaConf.to_container(cfg.model, resolve=True)
+    
+    # Sync device preference from global config
     device_type = cfg.get("device", {}).get("type", "auto")
     if device_type in ["cuda", "cuda-only"]:
-        log.info(f"Global device type '{device_type}' implies CUDA preference for model.")
-        OmegaConf.set_struct(cfg.model, False) # Allow adding new keys
-        cfg.model.device_preference = "cuda"
-        OmegaConf.set_struct(cfg.model, True)
+        log.debug("Global device type '%s' implies CUDA preference for model.", device_type)
+        model_config["device_preference"] = "cuda"
 
-    # Inject allow_mps_fallback to model config
+    # Inject allow_mps_fallback from global config if specified
     if cfg.get("allow_mps_fallback") is not None:
-        OmegaConf.set_struct(cfg.model, False)
-        cfg.model.allow_mps_fallback = cfg.allow_mps_fallback
-        OmegaConf.set_struct(cfg.model, True)
+        model_config["allow_mps_fallback"] = cfg.allow_mps_fallback
 
-    loader = get_model_loader(cfg.model)
+    loader = get_model_loader(model_config)
     log.debug("Model loader: %s", loader.__class__.__name__)
-    loader.load_model(cfg.model)
+    loader.load_model(model_config)
 
     # Load Scenario
     scenario = None
@@ -96,60 +101,55 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                 if results and results[0].get("ttft") is not None:
                     first_token_ttft = results[0]["ttft"]
                     all_metrics["first_token_ttft"] = first_token_ttft
-                    log.info(f"First Token TTFT: {first_token_ttft:.4f}s")
+                    log.info("First Token TTFT: %.4fs", first_token_ttft)
 
-                # Generic metric aggregation
-                # Collect all keys from ALL results that are floats and not in ignore list
+                # Aggregate numeric metrics (excluding known special keys)
                 ignore_keys = {"ttft", "latency", "num_tokens", "accuracy", "perplexity", "input", "target", "source", "output"}
-                if results:
-                    # Identify all potential metric keys across all results
-                    all_keys = set()
-                    for res in results:
-                        for k, v in res.items():
-                            if k not in ignore_keys:
-                                # Try to treat as number
-                                try:
-                                    float(v)
-                                    all_keys.add(k)
-                                except (ValueError, TypeError):
-                                    pass
-                    
-                    for key in sorted(all_keys):
-                        # Calculate average
-                        values = []
-                        for r in results:
-                             val = r.get(key)
-                             if val is not None:
-                                 try:
-                                     values.append(float(val))
-                                 except (ValueError, TypeError):
-                                     pass
+                all_keys = set()
+                for res in results:
+                    for k, v in res.items():
+                        if k not in ignore_keys:
+                            try:
+                                float(v)
+                                all_keys.add(k)
+                            except (ValueError, TypeError):
+                                pass
+                
+                for key in sorted(all_keys):
+                    values = []
+                    for r in results:
+                        val = r.get(key)
+                        if val is not None:
+                            try:
+                                values.append(float(val))
+                            except (ValueError, TypeError):
+                                pass
+                    if values:
+                        avg_val = sum(values) / len(values)
+                        all_metrics[f"avg_{key}"] = avg_val
+                        log.info("Average %s: %.4f", key, avg_val)
 
-                        if values:
-                            avg_val = sum(values) / len(values)
-                            all_metrics[f"avg_{key}"] = avg_val
-                            log.info(f"Average {key}: {avg_val:.4f}")
-
-                # Calculate Average Latency from 5th question onwards (warm-up)
-                latencies = [r.get("latency") for r in results[4:] if r.get("latency") is not None]
+                # Calculate Average Latency after warm-up period
+                latencies = [r.get("latency") for r in results[WARMUP_SAMPLES:] if r.get("latency") is not None]
                 if latencies:
                     avg_latency = sum(latencies) / len(latencies)
                     all_metrics["avg_latency"] = avg_latency
-                    log.info(f"Average Latency (samples {min(5, len(results))}-{len(results)}): {avg_latency:.4f}s")
+                    start_sample = min(WARMUP_SAMPLES + 1, len(results))
+                    log.info("Average Latency (samples %d-%d): %.4fs", start_sample, len(results), avg_latency)
 
                 # Calculate Average Tokens per Output
                 token_counts = [r.get("num_tokens") for r in results if r.get("num_tokens") is not None]
                 if token_counts:
                     avg_tokens = sum(token_counts) / len(token_counts)
                     all_metrics["avg_tokens_per_output"] = avg_tokens
-                    log.info(f"Average Tokens per Output: {avg_tokens:.2f}")
+                    log.info("Average Tokens per Output: %.2f", avg_tokens)
 
                 # Calculate Average Perplexity
                 ppls = [r.get("perplexity") for r in results if r.get("perplexity") is not None]
                 if ppls:
                     avg_ppl = sum(ppls) / len(ppls)
                     all_metrics["average_perplexity"] = avg_ppl
-                    log.info(f"Average Perplexity: {avg_ppl:.4f}")
+                    log.info("Average Perplexity: %.4f", avg_ppl)
 
                 all_metrics["total_samples"] = len(results)
                 # Store full results if needed, or just summary
@@ -193,18 +193,59 @@ def _save_metrics_json(all_metrics: dict, results_dir):
 
 
 def _print_metrics_summary(all_metrics: dict):
-    """
-    Print metrics summary to console.
-    """
-    print("\n--- Benchmark Complete: Final Metrics ---")
-    if all_metrics:
-        try:
-            print(json.dumps(all_metrics, indent=2, default=str))
-        except Exception:
-            print(all_metrics)
-    else:
-        print("No metrics collected.")
-    print("-----------------------------------------")
+    """Print key metrics summary to console."""
+    print("\n" + "=" * 50)
+    print("  BENCHMARK SUMMARY")
+    print("=" * 50)
+    
+    if not all_metrics:
+        print("  No metrics collected.")
+        print("=" * 50)
+        return
+    
+    # Model info
+    metadata = all_metrics.get("metadata", {})
+    if metadata.get("model_id"):
+        print(f"  Model:      {metadata['model_id']}")
+    if metadata.get("scenario"):
+        print(f"  Scenario:   {metadata['scenario']}")
+    
+    print("-" * 50)
+    
+    # Key performance metrics
+    if "accuracy" in all_metrics:
+        print(f"  Accuracy:   {all_metrics['accuracy']:.2%}")
+    if "avg_latency" in all_metrics:
+        print(f"  Latency:    {all_metrics['avg_latency']:.3f}s (avg)")
+    if "average_perplexity" in all_metrics:
+        print(f"  Perplexity: {all_metrics['average_perplexity']:.2f}")
+    if "total_samples" in all_metrics:
+        print(f"  Samples:    {all_metrics['total_samples']}")
+    
+    # Hardware metrics (one section per device)
+    device_metrics = all_metrics.get("device_metrics", {})
+    max_name_len = 32
+    for profiler_name, metrics in device_metrics.items():
+        print("-" * 50)
+        # Device name
+        name = metrics.get("device_name", profiler_name)
+        if len(name) > max_name_len:
+            name = name[:max_name_len - 3] + "..."
+        print(f"  Device:     {name}")
+        # Energy
+        if "total_energy_joules" in metrics and metrics["total_energy_joules"] > 0:
+            print(f"  Energy:     {metrics['total_energy_joules']:.1f} J")
+        # Samples
+        if "num_samples" in metrics and metrics["num_samples"] > 0:
+            print(f"  HW Samples: {metrics['num_samples']}")
+    
+    # Results location
+    results_dir = metadata.get("results_dir")
+    if results_dir:
+        print("-" * 50)
+        print(f"  Results:    {results_dir}")
+    
+    print("=" * 50)
 
 def run_benchmark(cfg: DictConfig):
     """
@@ -241,7 +282,7 @@ def run_scenario(loader, scenario, model_category):
     # Handle idle/baseline scenarios (no tasks, just sleep)
     if not scenario.tasks:
         idle_duration = getattr(scenario, 'idle_duration', 60)
-        log.info(f"Idle scenario: sleeping for {idle_duration}s (baseline measurement)")
+        log.info("Idle scenario: sleeping for %ds (baseline measurement)", idle_duration)
         time.sleep(idle_duration)
         return []
     
@@ -250,12 +291,10 @@ def run_scenario(loader, scenario, model_category):
     is_perplexity = isinstance(scenario, PerplexityScenario)
     
     for i, task in enumerate(scenario.tasks):
-        log.debug(f"Processing task {i+1}/{len(scenario.tasks)}")
+        log.debug("Processing task %d/%d", i + 1, len(scenario.tasks))
         
         prompt = task.get("prompt")
         if not prompt and "input" in task:
-            # If prompt is not pre-calculated, format it using the scenario's template
-            from langchain_core.prompts import PromptTemplate
             tmpl = PromptTemplate.from_template(scenario.prompt_template)
             prompt = tmpl.format(input=task["input"])
         image = task.get("image")
@@ -263,14 +302,9 @@ def run_scenario(loader, scenario, model_category):
         
         try:
             additional_metrics = {}
-            # Dispatch based on model category to avoid passing unsupported arguments
-            additional_metrics = {}
-            # Dispatch based on model category to avoid passing unsupported arguments
+            # Dispatch based on model category
             if is_perplexity:
-                # Special handling for perplexity
-                # input is the full text
                 prompt = task["input"]
-                # We expect the loader to have compute_perplexity
                 if hasattr(loader, 'compute_perplexity'):
                     ppl = loader.compute_perplexity(prompt)
                     raw_output = ppl # Pass float directly
@@ -297,26 +331,25 @@ def run_scenario(loader, scenario, model_category):
                 output = raw_output
                 additional_metrics = {}
             else:
-                 # Perplexity case, raw_output is float, no additional metrics usually from predict
-                 additional_metrics = {}
+                additional_metrics = {}
                 
             metrics = scenario.evaluate(task, output)
             metrics.update({k: v for k, v in additional_metrics.items() if v is not None})
             
             # Log progress every 10% or at least every 10 tasks
             if (i + 1) % max(1, len(scenario.tasks) // 10) == 0:
-                log.info(f"Processed {i+1}/{len(scenario.tasks)} tasks")
+                log.info("Processed %d/%d tasks", i + 1, len(scenario.tasks))
             
-            log.debug(f"Task {i+1} Result: {metrics}")
+            log.debug("Task %d Result: %s", i + 1, metrics)
             if "latency" in additional_metrics:
-                log.info(f"Task {i+1} Latency: {additional_metrics['latency']:.4f}s, Output: {output[:50] if isinstance(output, str) else output}...")
+                log.debug("Task %d Latency: %.4fs, Output: %s...", i + 1, additional_metrics['latency'], output[:50] if isinstance(output, str) else output)
             
             if is_perplexity:
-                 log.info(f"Task {i+1} Perplexity: {metrics.get('perplexity')}")
+                log.debug("Task %d Perplexity: %s", i + 1, metrics.get('perplexity'))
 
             results.append(metrics)
             
         except Exception as e:
-            log.error(f"Task {i+1} failed: {e}", exc_info=True)
+            log.error("Task %d failed: %s", i + 1, e, exc_info=True)
             
     return results

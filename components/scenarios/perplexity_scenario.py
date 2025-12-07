@@ -1,9 +1,9 @@
 from typing import List, Dict, Any, Optional
-from .dataset_scenario import DatasetScenario
 import logging
-from tqdm import tqdm
 
-logger = logging.getLogger(__name__)
+from .dataset_scenario import DatasetScenario
+
+log = logging.getLogger(__name__)
 
 class PerplexityScenario(DatasetScenario):
     """
@@ -22,7 +22,7 @@ class PerplexityScenario(DatasetScenario):
         For perplexity, each "task" is just a text sample to evaluate.
         """
         tasks = []
-        logger.info(f"Processing dataset for perplexity. Text column: {self.text_column}")
+        log.info("Processing dataset for perplexity. Text column: %s", self.text_column)
         for i, item in enumerate(dataset):
             text = item.get(self.text_column)
             if text:
@@ -31,7 +31,7 @@ class PerplexityScenario(DatasetScenario):
                     "target": None  # No explicit target for perplexity, the text itself is the target
                 })
             else:
-                logger.warning(f"Item {i} in dataset is missing text column '{self.text_column}'")
+                log.warning("Item %d in dataset is missing text column '%s'", i, self.text_column)
         
         return tasks
 

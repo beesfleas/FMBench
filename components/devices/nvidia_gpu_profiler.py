@@ -46,7 +46,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
         self.memory_available = False
         self.util_available = False
         
-        log.info("Initialized Nvidia GPU Profiler for %s", self.device_name)
+        log.debug("Initialized Nvidia GPU Profiler for %s", self.device_name)
         self._check_metric_availability()
 
     def get_device_info(self) -> str:
@@ -118,7 +118,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         power_acc.add(power_watts)
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
-                            log.error("Could not read GPU power: %s. Disabling power monitoring.", e)
+                            log.warning("Could not read GPU power: %s. Disabling.", e)
                         self.power_available = False
 
                 # Temperature
@@ -129,7 +129,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         temp_acc.add(temp_c)
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
-                            log.error("Could not read GPU temp: %s. Disabling temp monitoring.", e)
+                            log.warning("Could not read GPU temp: %s. Disabling.", e)
                         self.temp_available = False
 
                 # Memory
@@ -141,7 +141,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         memory_acc.add(memory_mb)
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
-                            log.error("Could not read GPU memory: %s. Disabling memory monitoring.", e)
+                            log.warning("Could not read GPU memory: %s. Disabling.", e)
                         self.memory_available = False
 
                 # Utilization
@@ -153,7 +153,7 @@ class NvidiaGpuProfiler(BaseDeviceProfiler):
                         util_acc.add(util_percent)
                     except pynvml.NVMLError as e:
                         if not self._stop_event.is_set():
-                            log.error("Could not read GPU util: %s. Disabling util monitoring.", e)
+                            log.warning("Could not read GPU util: %s. Disabling.", e)
                         self.util_available = False
                 
                 # Write sample to CSV

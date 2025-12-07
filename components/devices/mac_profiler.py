@@ -60,7 +60,7 @@ class MacProfiler(BaseDeviceProfiler):
 
         # Prime psutil to avoid initial 0.0
         psutil.cpu_percent(interval=None)
-        log.info("Initialized macOS Profiler")
+        log.debug("Initialized macOS Profiler")
 
     def get_device_info(self) -> str:
         try:
