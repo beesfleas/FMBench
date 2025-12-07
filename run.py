@@ -5,30 +5,39 @@ import logging
 
 # Check for torch distributed availability and patch if missing
 # This is necessary for Jetson devices with PyTorch builds that lack distributed support
+# We'll check if we are on a Jetson platform first (using jtop availability or platform checks)
 try:
-    import torch
-    if not torch.distributed.is_available():
-        # Create a dummy module to satisfy imports
-        from unittest.mock import MagicMock
-        import types
-        
-        # Mock torch.distributed.fsdp
-        fsdp_mock = types.ModuleType("torch.distributed.fsdp")
-        sys.modules["torch.distributed.fsdp"] = fsdp_mock
-        torch.distributed.fsdp = fsdp_mock
-        
-        # Mock FullyShardedDataParallel class which is checked by transformers
-        class MockFSDP:
-            pass
-        fsdp_mock.FullyShardedDataParallel = MockFSDP
-        
-        # Ensure other distributed functions exist to avoid AttributeErrors
-        if not hasattr(torch.distributed, 'get_world_size'):
-            torch.distributed.get_world_size = lambda: 1
-        if not hasattr(torch.distributed, 'is_initialized'):
-            torch.distributed.is_initialized = lambda: False
-        
-        print("[WARNING] torch.distributed is not available. Mocking torch.distributed.fsdp to prevent transformers ImportError.")
+    try:
+        # Check if we are on a Jetson using jetson-stats
+        from jtop import jtop
+        is_jetson = True
+    except ImportError:
+        is_jetson = False
+
+    if is_jetson:
+        import torch
+        if not torch.distributed.is_available():
+            # Create a dummy module to satisfy imports
+            from unittest.mock import MagicMock
+            import types
+            
+            # Mock torch.distributed.fsdp
+            fsdp_mock = types.ModuleType("torch.distributed.fsdp")
+            sys.modules["torch.distributed.fsdp"] = fsdp_mock
+            torch.distributed.fsdp = fsdp_mock
+            
+            # Mock FullyShardedDataParallel class which is checked by transformers
+            class MockFSDP:
+                pass
+            fsdp_mock.FullyShardedDataParallel = MockFSDP
+            
+            # Ensure other distributed functions exist to avoid AttributeErrors
+            if not hasattr(torch.distributed, 'get_world_size'):
+                torch.distributed.get_world_size = lambda: 1
+            if not hasattr(torch.distributed, 'is_initialized'):
+                torch.distributed.is_initialized = lambda: False
+            
+            print("[WARNING] torch.distributed is not available. Mocking torch.distributed.fsdp to prevent transformers ImportError on Jetson.")
 except ImportError:
     pass
 

@@ -6,15 +6,20 @@ from components.devices.cpu_profiler import LocalCpuProfiler
 from components.devices.pi_profiler import PiProfiler
 from components.devices.jetson_profiler import JetsonProfiler
 from components.devices.mac_profiler import MacProfiler
+from components.devices.profiler_utils import get_results_directory
 
 # Create minimal config
 config = DictConfig({"sampling_interval": 0.5})
 
-# Test instantiation
-cpu_prof = LocalCpuProfiler(config)
-pi_prof = PiProfiler(config)
-jetson_prof = JetsonProfiler(config)
-mac_prof = MacProfiler(config)
+# Get a test results directory
+results_dir = get_results_directory("test_profilers")
+print(f"Test results directory: {results_dir}")
+
+# Test instantiation (without profiler_manager for simple test)
+cpu_prof = LocalCpuProfiler(config, results_dir=results_dir)
+pi_prof = PiProfiler(config, results_dir=results_dir)
+jetson_prof = JetsonProfiler(config, results_dir=results_dir)
+mac_prof = MacProfiler(config, results_dir=results_dir)
 
 # Verify metrics dict structure
 print("CPU Profiler metrics structure:", list(cpu_prof.metrics.keys()))
@@ -36,4 +41,5 @@ for profiler, name in [
         else:
             print(f"✓ {name} profiler has {key}")
 
-print("\nAll profilers instantiated successfully with CSV + metrics pattern!")
+print(f"\nAll profilers instantiated successfully!")
+print(f"CSV files will be saved to: {results_dir}")
