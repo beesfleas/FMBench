@@ -219,7 +219,7 @@ class MacProfiler(BaseDeviceProfiler):
         current_block = ""
 
         try:
-            with CSVWriter(self.csv_filepath) as csv_writer:
+            with CSVWriter(self.csv_filepath, fieldnames=all_fields) as csv_writer:
                 self.csv_writer = csv_writer
                 
                 while not self._stop_event.is_set():

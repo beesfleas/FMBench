@@ -169,7 +169,11 @@ You can override device selection:
   # Or use CPU
   python run.py model=qwen2.5 model.device_preference=cpu
   ```
-- **Sampling Behavior**: The `MacProfiler` relies on the system's `powermetrics` tool, which buffers output. This means that for very short benchmarks, you may see fewer samples than expected (e.g., 2 samples instead of 4 for a 2-second run with 0.5s interval) because samples are only recorded when `powermetrics` flushes its buffer. This is normal behavior and ensures data accuracy over longer runs.
+- **Sampling Behavior**: The `MacProfiler` relies on the system's `powermetrics` tool, which has its own timing behavior:
+  - For **short benchmarks**, you may see fewer samples than expected due to output buffering.
+  - For **longer benchmarks**, you may see *more* samples than expected (e.g., 18 samples in 10 seconds with a 1s interval). This occurs because `powermetrics` with multiple samplers (`cpu_power`, `gpu_power`) can output at a faster rate than requested.
+  - The **first 1-2 samples** may be missing GPU utilization and frequency metrics (empty cells in CSV). This is because power metrics arrive before GPU sampler data. These fields are left empty rather than zeroed to avoid skewing averages.
+  - This is normal behavior—more samples means more granular data, and energy calculations use actual time deltas between samples for accuracy.
 
 ### NVIDIA Jetson Setup
 

@@ -148,17 +148,18 @@ class CSVWriter:
     Handles file creation, header writing, buffering, and cleanup.
     """
     
-    def __init__(self, filepath: str, flush_interval: int = CSV_FLUSH_INTERVAL):
+    def __init__(self, filepath: str, flush_interval: int = CSV_FLUSH_INTERVAL, fieldnames: Optional[List[str]] = None):
         """
         Args:
             filepath: Path to the CSV file.
             flush_interval: Number of samples to buffer before flushing.
+            fieldnames: Optional list of field names. If provided, they are used for the header.
         """
         self.filepath = filepath
         self.flush_interval = flush_interval
         self._file = None
         self._writer = None
-        self._fieldnames = None
+        self._fieldnames = fieldnames
         self._buffer_count = 0
         self._initialized = False
         
@@ -171,7 +172,9 @@ class CSVWriter:
             return
             
         try:
-            self._fieldnames = list(sample.keys())
+            if self._fieldnames is None:
+                self._fieldnames = list(sample.keys())
+            
             self._file = open(self.filepath, 'w', newline='')
             self._writer = csv.DictWriter(self._file, fieldnames=self._fieldnames)
             self._writer.writeheader()

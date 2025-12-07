@@ -137,7 +137,12 @@ class PiProfiler(BaseDeviceProfiler):
         
         total_energy_joules = 0.0
         
-        with CSVWriter(self.csv_filepath) as csv_writer:
+        fieldnames = [
+            "timestamp", "cpu_utilization_percent", "memory_used_mb", 
+            "memory_utilization_percent", "cpu_temp_c", "power_watts"
+        ]
+        
+        with CSVWriter(self.csv_filepath, fieldnames=fieldnames) as csv_writer:
             while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time

@@ -102,7 +102,13 @@ class JetsonProfiler(BaseDeviceProfiler):
         """
         last_sample_time = start_time
         
-        with CSVWriter(self.csv_filepath) as csv_writer:
+        fieldnames = [
+            "timestamp", "cpu_utilization_percent", "memory_used_mb", "memory_utilization_percent",
+            "gpu_utilization_percent", "gpu_frequency_mhz", "cpu_frequency_mhz",
+            "system_power_watts", "gpu_power_watts", "gpu_temp_c"
+        ]
+        
+        with CSVWriter(self.csv_filepath, fieldnames=fieldnames) as csv_writer:
             while not self._stop_event.is_set():
                 loop_start = time.perf_counter()
                 rel_timestamp = loop_start - start_time
