@@ -1,0 +1,13 @@
+name: VQAv2
+description: Visual Question Answering on VQAv2 (via The Cauldron)
+_target_: components.scenarios.common_vlm_scenarios.VQAScenario
+dataset_name: HuggingFaceM4/the_cauldron
+dataset_config: vqav2
+split: train
+num_samples: 10
+image_key: images
+question_key: texts
+target_key: texts
+prompt_template: "User: <image>\n{question}\nAssistant:"
+trust_remote_code: True
+streaming: True
