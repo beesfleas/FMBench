@@ -30,7 +30,7 @@ class JetsonProfiler(BaseDeviceProfiler):
             from jtop import jtop
             self.jtop_wrapper = jtop
             self.has_jtop = True
-            log.info("Jetson-stats (jtop) library found.")
+            log.debug("Jetson-stats (jtop) library found")
         except ImportError:
             log.warning("jetson-stats not found. Run 'pip install jetson-stats'. "
                        "Only CPU/RAM metrics will be available.")
@@ -81,13 +81,13 @@ class JetsonProfiler(BaseDeviceProfiler):
                 with self.jtop_wrapper() as jetson:
                     if jetson.ok():
                         board_info = jetson.board.get('info', {}).get('machine', 'Unknown Jetson')
-                        log.info("jtop connected: %s", board_info)
+                        log.debug("jtop connected: %s", board_info)
                         self._collection_loop(start_time, jetson, accumulators)
                     else:
-                        log.error("jtop failed to initialize (check permissions?). Falling back to psutil.")
+                        log.warning("jtop failed to initialize (check permissions?), falling back to psutil")
                         self._collection_loop(start_time, None, accumulators)
             except Exception as e:
-                log.error("Error running jtop: %s. Falling back to psutil.", e)
+                log.warning("Error running jtop: %s. Falling back to psutil.", e)
                 self._collection_loop(start_time, None, accumulators)
         else:
             self._collection_loop(start_time, None, accumulators)

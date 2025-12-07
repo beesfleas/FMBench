@@ -4,6 +4,9 @@ import logging
 
 log = logging.getLogger(__name__)
 
+# MPS (Apple Silicon) tensor size limit ~1B parameters
+MPS_MAX_PARAMETERS = 1_000_000_000
+
 def get_device_config(config):
     """
     Determine device configuration from config.
@@ -88,9 +91,7 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
     """
     if use_cuda:
         dtype = torch.float16
-        # Disable device_map="auto" to allow manual .to("cuda") in move_to_device
-        # unless quantization is used (which requires it or handles it internally)
-        device_map = None
+        device_map = None  # Manual device placement in move_to_device()
     elif use_mps:
         dtype = torch.float32
         device_map = "cpu" if not quantization_config else None
@@ -119,7 +120,7 @@ def check_mps_model_size(model, model_id):
         model_id: Model identifier for error message
     """
     num_params = sum(p.numel() for p in model.parameters())
-    if num_params > 1_000_000_000:
+    if num_params > MPS_MAX_PARAMETERS:
         raise RuntimeError(
             f"Model too large for MPS ({num_params:,} parameters). "
             f"MPS has a 2^32 byte tensor size limit that large models exceed. "
@@ -144,9 +145,6 @@ def move_to_device(model, use_mps, quantization_config):
         model.to(device)
         return device
     elif torch.cuda.is_available() and not quantization_config:
-        # If we are not using quantization (which handles device placement via device_map),
-        # we should explicitly move to CUDA to ensure it's on the right device.
-        # This overrides 'device_map="auto"' behavior which might pick CPU for small models.
         device = torch.device("cuda")
         log.debug("Moving model to CUDA device")
         model.to(device)

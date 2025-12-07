@@ -8,8 +8,45 @@ from pathlib import Path
 
 # Edit this list to customize benchmark runs
 CONFIGS = [
-    {"model": "distilgpt2", "scenario": "simple_llm", "device": "auto"},
-    {"model": "tinyllama", "scenario": "simple_llm", "device": "auto"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "idle", "scenario.idle_duration": "10"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "arc_easy", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "classification", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "helm", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "ner", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "tinyllama", "scenario": "sentiment", "scenario.num_samples": "20"},
+
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "idle", "scenario.idle_duration": "10"},
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "arc_easy", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "classification", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "helm", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "ner", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "qwen2.5", "scenario": "sentiment", "scenario.num_samples": "20"},
+
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "idle", "scenario.idle_duration": "10"},
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "arc_easy", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "classification", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "helm", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "ner", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "falcon-7b", "scenario": "sentiment", "scenario.num_samples": "20"},
+
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "idle", "scenario.idle_duration": "10"},
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "arc_easy", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "classification", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "helm", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "ner", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama3-1b", "scenario": "sentiment", "scenario.num_samples": "20"},
+
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "idle", "scenario.idle_duration": "10"},
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "arc_easy", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "classification", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "helm", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "ner", "scenario.num_samples": "20"},
+    {"log_level": "INFO", "model": "llama2-7b", "scenario": "sentiment", "scenario.num_samples": "20"},
 ]
 
 LOG_DIR = Path("suite_logs")
