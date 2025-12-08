@@ -49,7 +49,6 @@ class DatasetScenario(Scenario):
                 self.dataset_name, 
                 self.dataset_config, 
                 split=self.split,
-                trust_remote_code=self.config.get("trust_remote_code", True),
                 streaming=streaming
             )
             

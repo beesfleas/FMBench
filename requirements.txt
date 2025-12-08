@@ -14,5 +14,6 @@ bert-score
 nltk
 psutil
 compressed_tensors
+huggingface_hub[hf_xet]
 pandas
 seaborn
