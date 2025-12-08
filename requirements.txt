@@ -13,3 +13,6 @@ unbabel-comet
 bert-score
 nltk
 psutil
+compressed_tensors
+pandas
+seaborn

@@ -6,6 +6,8 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from generate_graphs import main as generate_graphs
+
 # =============================================================================
 # CONFIGURATION - Edit these to customize benchmark runs
 # =============================================================================
@@ -147,6 +149,10 @@ def main():
         passed = sum(ok for _, ok, _ in results)
         log(f"\n{passed}/{len(results)} passed in {fmt_time(time.time() - total_start)}", f)
         log(f"Log: {log_path}", f)
+    
+    # Generate graphs from results
+    graph_dir = generate_graphs(log_path)
+    print(f"Graphs: {graph_dir}")
     
     sys.exit(0 if passed == len(results) else 1)
 
