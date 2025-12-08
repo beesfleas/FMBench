@@ -1,322 +1,225 @@
 # FMBench
 
-FMBench is a flexible benchmarking framework for evaluating foundation models across different hardware platforms. It supports LLMs, VLMs, and time-series models with automatic device detection and comprehensive performance profiling.
+A flexible benchmarking framework for evaluating foundation models across different hardware platforms. Supports LLMs, VLMs, and time-series models with automatic device detection and comprehensive performance profiling.
 
-## Features
+## Key Features
 
-- **Multi-Model Support**: LLMs, Vision-Language Models (VLMs), and Time-Series models
-- **Cross-Platform**: Automatic device detection for CPU, CUDA (NVIDIA GPU), MPS (Apple Silicon), Jetson, and Raspberry Pi
+- **Rapid Model/Scenario Swapping**: Switch between models and scenarios with a single command-line flag—no code changes required
+- **Comprehensive Test Suites**: Run extensive benchmark suites across multiple models and scenarios automatically
+- **Easy Extensibility**: Add new models or scenarios by simply adding YAML config files to `conf/model/` or `conf/scenario/`
+- **Cross-Platform**: Works on any home PC or server running Windows, macOS, or Linux, plus embedded devices like Raspberry Pi and NVIDIA Jetson
 - **Performance Profiling**: Real-time monitoring of CPU, GPU, memory, power consumption, and thermal metrics
-- **Model Quantization**: 4-bit and 8-bit quantization support for memory-efficient inference
-- **Flexible Configuration**: Hydra-based configuration system with command-line overrides
-- **Scenario-Based Testing**: Support for custom benchmarking scenarios
 
 ## Setup
 
-### Prerequisites
-
-- Python 3.8+
-- pip
-
-### Installation
-
-1. Clone the repository:
 ```bash
 git clone https://github.com/beesfleas/FMBench
 cd FMBench
-```
-
-2. Install dependencies:
-```bash
 pip install -r requirements.txt
+pip install bitsandbytes  # Optional: for quantization
 ```
 
-3. (Optional) For quantization support:
-```bash
-pip install bitsandbytes
-```
+**Requirements**: Python 3.8+
 
 ## Quick Start
 
-### Basic Usage
-
-Run a benchmark with default settings:
 ```bash
+# Basic run
 python run.py
-```
 
-Run with a specific model:
-```bash
-python run.py model=qwen2.5
-```
-
-Run with a scenario:
-```bash
-python run.py model=qwen2.5 scenario=sentiment
-```
-
-## Available Scenarios
-
-### Language & Knowledge (LLM)
-- `sentiment`: Sentiment analysis on IMDB movie reviews
-- `summarization`: Abstractive summarization using CNN/DailyMail
-- `ner`: Named Entity Recognition on WikiANN
-- `classification`: Text classification on AG News
-- `translation`: Machine translation (German to English) on WMT16
-- `arc_challenge` / `arc_easy`: AI2 Reasoning Challenge
-- `mmlu`: Massive Multitask Language Understanding benchmark
-- `helm`: Holistic Evaluation of Language Models
-- `perplexity_c4` / `perplexity_wikitext2`: Perplexity evaluation
-- `long_context`: Long context window evaluation
-
-### Vision & Multimodal (VLM)
-- `countbenchqa`: Visual counting question answering
-- `docvqa`: Document Visual Question Answering
-- `vqa`: Visual Question Answering v2
-- `gtsrb`: German Traffic Sign Recognition
-- `hagrid`: Hand Gesture Recognition
-- `simple_vlm`: Basic VLM test scenario
-
-### Time Series
-- `ett`: Electricity Transformer Temperature forecasting
-- `gifteval`: Zero-shot time series forecasting
-- `m3_monthly`: M3 competition monthly forecasting
-- `simple_timeseries`: Basic time series test scenario
-
-## Available Flags
-
-### Model Selection
-
-```bash
-# Select a model (see Available Models section)
-python run.py model=<model_name>
-
-# Examples:
-python run.py model=distilgpt2
+# Swap models instantly
 python run.py model=qwen2.5
 python run.py model=tinyllama
+python run.py model=smolvlm
+
+# Swap scenarios just as easily
+python run.py model=qwen2.5 scenario=sentiment
+python run.py model=qwen2.5 scenario=summarization
+
+# Combine with options
+python run.py model=tinyllama scenario=classification scenario.num_samples=100
 ```
 
-### Scenario Selection
+> [!NOTE]
+> To capture power metrics, `sudo` is required:
+> - **Mac**: For `powermetrics` access
+> - **Linux (AMD/Intel)**: For CPU power usage via RAPL
+
+## Benchmark Suite
+
+Run comprehensive test suites across multiple model/scenario combinations:
 
 ```bash
-# Run with a scenario
-python run.py scenario=<scenario_name>
-
-# Examples:
-python run.py scenario=sentiment
-python run.py scenario=countbenchqa
-python run.py scenario=ett
+python benchmark_suite.py --summary-only  # Preview what will run
+python benchmark_suite.py                  # Run with confirmation
+python benchmark_suite.py -y               # Skip confirmation
 ```
 
-### Common Configuration Flags
+### Device Level Filtering
 
 ```bash
-# Number of samples to run
-python run.py num_samples=100
-
-# Set device
-python run.py device=auto  # or cpu, gpu, mac, jetson, pi
-
-# Model-specific options
-python run.py model.loader_type=vllm
-python run.py model.quantization=4  # or 8
-python run.py model.max_tokens=128
-python run.py model.device_preference=cuda  # or cpu, mps, auto
-
-# Logging
-python run.py log_level=DEBUG  # or INFO, WARNING, ERROR
-python run.py save_logs=true
-
-# Profiling
-python run.py sampling_interval=0.5
-
-# Scenario-specific options
-python run.py scenario.slo_threshold=2  # For CountBenchQA SLO violation tracking
+python benchmark_suite.py --device-level SoC     # ≤1B params (Raspberry Pi, etc.)
+python benchmark_suite.py --device-level Mobile  # ≤3B params
+python benchmark_suite.py --device-level Server  # No limit (default)
 ```
+
+Edit `BENCHMARK_CONFIG` in `benchmark_suite.py` to define your test matrix.
+
+### Auto-Generated Graphs
+
+After running a suite, comparison graphs are automatically generated in `suite_logs/<log_name>_graphs/`:
+
+**Summary Plots** (averaged across all scenarios):
+- `summary_latency_vs_accuracy.png` - Model latency vs accuracy tradeoffs
+- `summary_latency_vs_energy.png` - Latency vs energy consumption
+- `summary_accuracy_vs_energy.png` - Accuracy vs energy efficiency
+
+**Per-Scenario Plots**:
+- `<scenario>_latency_vs_accuracy.png` - Per-scenario latency/accuracy
+- `<scenario>_latency_vs_energy.png` - Per-scenario latency/energy
+- `<scenario>_accuracy_vs_energy.png` - Per-scenario accuracy/energy
+
+**Idle Power Table**:
+- `idle_power_table.png` - Power consumption when model is loaded but idle
+
+<!-- Example graphs (TODO: add actual images)
+![Summary: Latency vs Accuracy](docs/example_summary_latency_vs_accuracy.png)
+![Idle Power Table](docs/example_idle_power_table.png)
+-->
 
 ## Available Models
 
-### LLMs (Large Language Models)
-- `distilgpt2` - DistilGPT-2 (small, fast)
-- `tinyllama` - TinyLlama 1.1B
-- `qwen2.5` - Qwen2.5 1.5B Instruct
-- `llama3-1b` - Llama 3 1B
-- `smollm2` - SmolLM2 1.7B
-- `llama2-7b` - Llama 2 7B
-- `falcon-7b` - Falcon 7B
-- `deepseek-v3` - DeepSeek V3
+### LLMs
+| Model | Config File |
+|-------|-------------|
+| DistilGPT-2 | `distilgpt2` |
+| TinyLlama | `tinyllama` |
+| Llama 2 7B | `llama2-7b`, `llama2-7b-quantized` |
+| Llama 2 13B | `llama2-13b` |
+| Llama 3 1B | `llama3-1b` |
+| Llama 3.2 1B | `llama3.2-1b`, `llama3.2-1b-quantized` |
+| Llama 3.2 3B | `llama3.2-3b`, `llama3.2-3b-quantized` |
+| Qwen 2.5 | `qwen2.5`, `qwen2.5-1.5b`, `qwen2.5-1.5b-quantized`, `qwen2.5-7b`, `qwen2.5-7b-quantized` |
+| Qwen 3 | `qwen3-0.6b`, `qwen3-0.6b-quantized`, `qwen3-4b`, `qwen3-4b-quantized`, `qwen3-8b`, `qwen3-8b-quantized` |
+| Falcon 7B | `falcon-7b`, `falcon-7b-quantized` |
+| SmolLM2 | `smollm2` |
+| DeepSeek V3 | `deepseek-v3` |
 
 ### VLMs (Vision-Language Models)
-- `smolvlm` - SmolVLM 256M
+| Model | Config File |
+|-------|-------------|
+| SmolVLM | `smolvlm` |
+| LLaVA | `llava` |
+| Llama Vision | `llama-vision` |
+| MiniCPM-V | `minicpm-v` |
+| Moondream2 | `moondream2` |
+| Molmo | `molmo` |
+| Qwen 2.5 VL | `qwen2.5-vl` |
 
 ### Time-Series Models
-- `timegpt1` - TimeGPT-1
+| Model | Config File |
+|-------|-------------|
+| TimeGPT-1 | `timegpt1` |
+| Chronos T5 | `chronos-t5-tiny`, `chronos-t5-small` |
+| PatchTST | `patchtst` |
+| MOIRAI | `moirai-small` |
+| Moment | `moment-1-large` |
+| ARIMA | `arima` |
+
+## Available Scenarios
+
+### LLM Scenarios
+| Scenario | Description |
+|----------|-------------|
+| `sentiment` | Sentiment analysis on IMDB |
+| `summarization` | Abstractive summarization (CNN/DailyMail) |
+| `ner` | Named Entity Recognition (WikiANN) |
+| `classification` | Text classification (AG News) |
+| `translation` | German→English translation (WMT16) |
+| `arc_challenge` | AI2 Reasoning Challenge (hard) |
+| `arc_easy` | AI2 Reasoning Challenge (easy) |
+| `perplexity_c4` | Perplexity on C4 dataset |
+| `perplexity_wikitext2` | Perplexity on WikiText-2 |
+
+### VLM Scenarios
+| Scenario | Description |
+|----------|-------------|
+| `countbenchqa` | Visual counting QA |
+| `docvqa` | Document Visual QA |
+| `vqa` | Visual Question Answering v2 |
+| `gtsrb` | German Traffic Sign Recognition |
+| `hagrid` | Hand Gesture Recognition |
+
+### Time-Series Scenarios
+| Scenario | Description |
+|----------|-------------|
+| `fev_bench` | Forecasting evaluation benchmark |
+| `gift_eval` | Zero-shot forecasting |
+| `m3_monthly` | M3 competition monthly forecasting |
+
+### Utility Scenarios
+| Scenario | Description |
+|----------|-------------|
+| `idle` | Idle power measurement |
+| `simple_llm` | Basic LLM test |
+| `simple_vlm` | Basic VLM test |
+| `simple_timeseries` | Basic time-series test |
+
+## Adding New Models/Scenarios
+
+Simply add a YAML config file:
+
+**New Model** (`conf/model/my-model.yaml`):
+```yaml
+model_id: organization/model-name
+model_category: LLM  # or VLM, TIME_SERIES
+max_tokens: 64
+```
+
+**New Scenario** (`conf/scenario/my-scenario.yaml`):
+```yaml
+name: my_scenario
+type: llm  # or vlm, timeseries
+num_samples: 100
+```
 
 ## Device Support
 
-### Automatic Detection
-By default, FMBench automatically detects and uses the best available device:
-- **CUDA** (NVIDIA GPU) - if available
-- **MPS** (Apple Silicon) - if on macOS with Apple Silicon
-- **CPU** - fallback option
+| Platform | Device Types |
+|----------|--------------|
+| **Desktop/Server** | Windows, macOS, Linux (CPU, NVIDIA GPU, Apple Silicon) |
+| **Embedded** | NVIDIA Jetson (Orin, Xavier, Nano), Raspberry Pi |
 
 ### Manual Device Selection
-You can override device selection:
-- `device=cpu` - Force CPU execution
-- `device=gpu` - Force NVIDIA GPU (requires CUDA)
-- `device=mac` - Force Apple Silicon MPS
-- `device=jetson` - NVIDIA Jetson devices
-- `device=pi` - Raspberry Pi devices
-
-### Apple Silicon (MPS) Notes
-- Small models (<1B parameters) work directly on MPS
-- Large models (>1B parameters) require quantization or CPU:
-  ```bash
-  # Use quantization for large models on MPS
-  python run.py model=qwen2.5 model.quantization=4
-  
-  # Or use CPU
-  python run.py model=qwen2.5 model.device_preference=cpu
-  ```
-- **Sampling Behavior**: The `MacProfiler` relies on the system's `powermetrics` tool, which buffers output. This means that for very short benchmarks, you may see fewer samples than expected (e.g., 2 samples instead of 4 for a 2-second run with 0.5s interval) because samples are only recorded when `powermetrics` flushes its buffer. This is normal behavior and ensures data accuracy over longer runs.
+```bash
+python run.py device=cpu      # Force CPU
+python run.py device=gpu      # Force NVIDIA GPU
+python run.py device=mac      # Force Apple Silicon MPS
+python run.py device=jetson   # NVIDIA Jetson
+python run.py device=pi       # Raspberry Pi
+```
 
 ### NVIDIA Jetson Setup
-
-Running FMBench on NVIDIA Jetson (Orin, Xavier, Nano) requires specific setup:
-
-1.  **System Monitoring**: Install `jetson-stats` to enable detailed power, GPU, and thermal monitoring:
-    ```bash
-    sudo -H pip install -U jetson-stats
-    ```
-    (You may need to restart your shell or reboot after installation)
-
-2.  **PyTorch & Python**:
-    - Python 3.8+ is supported (standard on JetPack 5.x/6.x).
-    - FMBench automatically handles missing `torch.distributed` modules often found in Jetson PyTorch builds.
-
-3.  **Running**:
-    - Use `device=jetson` to force Jetson-specific profiling if auto-detection fails.
-    ```bash
-    python run.py device=jetson
-    ```
-
-## Model Quantization
-
-Quantization reduces model memory usage, enabling larger models to run on limited hardware.
-
-### Usage
-
-**Command Line:**
 ```bash
-# 4-bit quantization (reduces size by ~4x)
+sudo -H pip install -U jetson-stats  # Required for monitoring
+```
+
+## Configuration Options
+
+```bash
+# Quantization (4-bit or 8-bit)
 python run.py model=qwen2.5 model.quantization=4
 
-# 8-bit quantization (reduces size by ~2x)
-python run.py model=qwen2.5 model.quantization=8
-```
+# Logging
+python run.py log_level=DEBUG save_logs=true
 
-**Config File:**
-Add to model config file (e.g., `conf/model/qwen2.5.yaml`):
-```yaml
-model_id: Qwen/Qwen2.5-1.5B-Instruct
-model_category: LLM
-max_tokens: 64
-quantization: 4  # 4-bit or 8-bit
-```
+# Profiling interval
+python run.py sampling_interval=0.5
 
-### Requirements
-- Requires `bitsandbytes`: `pip install bitsandbytes`
-- Quantized models run on CPU (quantization doesn't support MPS device_map)
-- Best for large models that exceed MPS memory limits
-
-## Scenarios
-
-Scenarios define structured benchmarking tasks:
-
-- `simple_llm` - Basic LLM text generation tasks
-- `simple_vlm` - Vision-language model tasks
-- `simple_timeseries` - Time-series prediction tasks
-
-## Configuration Files
-
-FMBench uses Hydra for configuration management. Config files are located in `conf/`:
-
-- `conf/config.yaml` - Main configuration
-- `conf/model/` - Model configurations
-- `conf/device/` - Device configurations
-- `conf/scenario/` - Scenario configurations
-
-You can override any config value via command line using dot notation:
-```bash
-python run.py model.max_tokens=128 device.type=cpu
+# Number of samples
+python run.py scenario.num_samples=100
 ```
 
 ## Output
 
-Benchmark results are displayed in JSON format, including:
-- Device metrics (CPU, GPU, memory, power, thermal)
-- Model performance metrics
-- Scenario evaluation results (if applicable)
-
-Logs can be saved to files with `save_logs=true`.
-
-## Examples
-
-### Run a small model on auto-detected device
-```bash
-python run.py model=distilgpt2
-```
-
-### Run sentiment analysis
-```bash
-python run.py model=distilgpt2 scenario=sentiment num_samples=100
-```
-
-### Run VLM counting task with SLO tracking
-```bash
-python run.py model=smolvlm scenario=countbenchqa scenario.slo_threshold=2
-```
-
-### Run a large model with quantization
-```bash
-python run.py model=qwen2.5 model.quantization=4
-```
-
-### Run with custom settings and debug logging
-```bash
-python run.py model=tinyllama log_level=DEBUG save_logs=true
-```
-
-### Run a VLM with a scenario
-```bash
-python run.py model=smolvlm scenario=simple_vlm
-```
-
-### Run time series forecasting
-```bash
-python run.py model=timegpt1 scenario=ett num_samples=50
-```
-
-### Force CPU execution
-```bash
-python run.py model=qwen2.5 device=cpu
-```
-
-## Troubleshooting
-
-### MPS Size Limit Error
-If you see "Model too large for MPS" error:
-- Use quantization: `model.quantization=4`
-- Or use CPU: `model.device_preference=cpu`
-
-### Missing bitsandbytes
-If quantization is requested but fails:
-```bash
-pip install bitsandbytes
-```
-
-### CUDA Not Available
-If CUDA is requested but not available:
-- Use `device=cpu` or `device=auto`
-- Check NVIDIA drivers and CUDA installation
+Results include device metrics (CPU, GPU, memory, power, thermal), model performance (tokens/sec, latency, TTFT), and scenario evaluation scores. Use `save_logs=true` to save detailed logs.

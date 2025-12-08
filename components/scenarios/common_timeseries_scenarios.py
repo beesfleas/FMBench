@@ -299,6 +299,7 @@ class FevBenchScenario(BaseScenario):
                      try:
                          full_series = list(full_series)
                      except:
+                         log.warning(f"Failed to convert target to list: {full_series}")
                          pass
 
                 if len(full_series) <= self.prediction_length:

@@ -77,8 +77,10 @@ BENCHMARK_CONFIG = {
             "perplexity_c4": {},
             "perplexity_wikitext2": {},
             "sentiment": {},
-            "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
-            "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+            "summarization": {},
+            "translation": {},
+            "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
+            "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
         },
     },
     "VLM": {
@@ -115,6 +117,7 @@ def load_model_config(model_name: str) -> Optional[Dict]:
     try:
         return OmegaConf.load(config_path)
     except Exception:
+        log.warning(f"Failed to load model config: {config_path}")
         return None
 
 
@@ -280,12 +283,20 @@ def run_benchmark(config: Dict, log_file) -> Tuple[bool, float]:
     start = time.time()
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     
+    output_lines = []
     for line in proc.stdout:
         print(line, end="")
         log_file.write(line)
+        output_lines.append(line)
     
     proc.wait()
-    return proc.returncode == 0, time.time() - start
+    
+    # Check for failure indicators in output
+    output = "".join(output_lines)
+    no_metrics = "No metrics collected" in output
+    
+    success = proc.returncode == 0 and not no_metrics
+    return success, time.time() - start
 
 
 def format_time(seconds: float) -> str:

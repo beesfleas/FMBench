@@ -70,6 +70,7 @@ class MacProfiler(BaseDeviceProfiler):
                    if any(x in l for x in ['Model', 'Processor', 'Memory'])]
             return f"{self.device_name} {' | '.join(info)}"
         except Exception:
+            log.warning("Failed to get device info")
             return self.device_name
 
     def _start_powermetrics_process(self):
@@ -140,14 +141,33 @@ class MacProfiler(BaseDeviceProfiler):
             
         try:
             vmem = psutil.virtual_memory()
+            # Initialize sample with all fields to ensure consistent CSV headers
             sample = {
                 "timestamp": now - self.start_time,
                 "cpu_utilization_percent": self.last_cpu_util,
                 "memory_used_mb": vmem.used / 1048576,
-                "memory_utilization_percent": vmem.percent
+                "memory_utilization_percent": vmem.percent,
+                "cpu_power_watts": None,
+                "gpu_power_watts": None,
+                "ane_power_watts": None,
+                "combined_power_watts": None,
+                "gpu_utilization_percent": None,
+                "gpu_active_frequency_mhz": None
             }
         except Exception:
-            sample = {"timestamp": now - self.start_time}
+            log.warning("Failed to get psutil metrics")
+            sample = {
+                "timestamp": now - self.start_time,
+                "cpu_utilization_percent": None,
+                "memory_used_mb": None,
+                "memory_utilization_percent": None,
+                "cpu_power_watts": None,
+                "gpu_power_watts": None,
+                "ane_power_watts": None,
+                "combined_power_watts": None,
+                "gpu_utilization_percent": None,
+                "gpu_active_frequency_mhz": None
+            }
 
         sample.update(self.last_known_metrics)
 
@@ -258,10 +278,10 @@ class MacProfiler(BaseDeviceProfiler):
                         self.powermetrics_process.wait(timeout=1.0)
                     except subprocess.TimeoutExpired:
                         self.powermetrics_process.kill()
-                    
                     if self.powermetrics_process.stdout:
                         current_block += self.powermetrics_process.stdout.read()
                 except Exception:
+                    log.warning("Failed to get powermetrics metrics")
                     pass
                 self.powermetrics_process = None
 

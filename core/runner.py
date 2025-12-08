@@ -228,6 +228,8 @@ def _print_metrics_summary(all_metrics: dict):
         print(f"  Accuracy:   {all_metrics['accuracy']:.2%}")
     if "avg_latency" in all_metrics:
         print(f"  Latency:    {all_metrics['avg_latency']:.3f}s (avg)")
+    if "first_token_ttft" in all_metrics:
+        print(f"  TTFT:       {all_metrics['first_token_ttft']:.3f}s")
     if "average_perplexity" in all_metrics:
         print(f"  Perplexity: {all_metrics['average_perplexity']:.2f}")
     if "total_samples" in all_metrics:
@@ -245,6 +247,21 @@ def _print_metrics_summary(all_metrics: dict):
         if len(name) > max_name_len:
             name = name[:max_name_len - 3] + "..."
         print(f"  Device:     {name}")
+        # Total benchmark time (from monitoring duration)
+        if "monitoring_duration_seconds" in metrics and metrics["monitoring_duration_seconds"] > 0:
+            duration = metrics["monitoring_duration_seconds"]
+            if duration >= 60:
+                mins, secs = divmod(duration, 60)
+                print(f"  Duration:   {int(mins)}m {secs:.1f}s")
+            else:
+                print(f"  Duration:   {duration:.1f}s")
+        # Average utilization
+        avg_cpu = metrics.get("average_cpu_utilization_percent")
+        avg_gpu = metrics.get("average_gpu_utilization_percent")
+        if avg_cpu is not None and avg_cpu > 0:
+            print(f"  CPU Util:   {avg_cpu:.1f}% (avg)")
+        if avg_gpu is not None and avg_gpu > 0:
+            print(f"  GPU Util:   {avg_gpu:.1f}% (avg)")
         # Energy
         if "total_energy_joules" in metrics and metrics["total_energy_joules"] > 0:
             print(f"  Energy:     {metrics['total_energy_joules']:.1f} J")

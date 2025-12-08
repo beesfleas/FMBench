@@ -93,8 +93,10 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
         dtype = torch.float16
         device_map = "auto"  # Required for VLMs with multi-part architectures (vision encoder + LLM)
     elif use_mps:
-        dtype = torch.float32
-        device_map = "cpu" if not quantization_config else None
+        # Use float16 on MPS for better performance (Apple Silicon supports it well)
+        dtype = torch.float16
+        # Load directly to MPS device instead of CPU-first (major perf improvement)
+        device_map = "mps"
     else:
         dtype = torch.float32
         device_map = None
@@ -131,6 +133,10 @@ def move_to_device(model, use_mps, quantization_config):
     """
     Move model to appropriate device.
     
+    Note: With device_map="mps" in get_load_kwargs(), models are now loaded
+    directly to MPS. This function handles fallback cases and returns the
+    current device.
+    
     Args:
         model: Model to move
         use_mps: Whether MPS should be used
@@ -139,18 +145,28 @@ def move_to_device(model, use_mps, quantization_config):
     Returns:
         torch.device: Device the model is on
     """
-    if use_mps and not quantization_config:
+    current_device = next(model.parameters()).device
+    
+    # If model is already on the correct device, just return it
+    if use_mps and current_device.type == "mps":
+        log.debug("Model already on MPS device")
+        return current_device
+    elif use_mps and not quantization_config:
+        # Fallback: move to MPS if not already there
         device = torch.device("mps")
         log.debug("Moving model to MPS device")
         model.to(device)
         return device
+    elif torch.cuda.is_available() and current_device.type == "cuda":
+        log.debug("Model already on CUDA device")
+        return current_device
     elif torch.cuda.is_available() and not quantization_config:
         device = torch.device("cuda")
         log.debug("Moving model to CUDA device")
         model.to(device)
         return device
     else:
-        return next(model.parameters()).device
+        return current_device
 
 def clear_device_cache():
     """Clear CUDA and MPS caches."""

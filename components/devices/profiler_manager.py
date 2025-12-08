@@ -41,6 +41,7 @@ def is_raspberry_pi():
                 if line.startswith('Model') and 'Raspberry Pi' in line:
                     return True
     except Exception:
+        log.warning("Failed to check if we are running on a Raspberry Pi")
         pass
     return False
 
