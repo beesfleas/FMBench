@@ -14,38 +14,38 @@ from generate_graphs import main as generate_graphs
 
 # Global settings applied to all runs
 GLOBAL_SETTINGS = {
-    "log_level": "INFO",
+    "save_logs": "true",
 }
 
 # Models to benchmark (runs all scenarios for each model)
 MODELS = [
-    # "distilgpt2",
-    # "tinyllama",
+    # "distilgpt2", # debug
+    # "tinyllama",  # debug
 
-    # "qwen2.5-1.5b",
-    # "qwen2.5-1.5b-quantized",
-    # "qwen2.5-7b",
-    # "qwen2.5-7b-quantized",
+    "qwen2.5-1.5b",
+    "qwen2.5-1.5b-quantized",
+    "qwen2.5-7b",
+    "qwen2.5-7b-quantized",
     "qwen3-0.6b",
     "qwen3-0.6b-quantized",
-    # "qwen3-4b",
-    # "qwen3-4b-quantized",
-    # "qwen3-8b",
-    # "qwen3-8b-quantized",
+    "qwen3-4b",
+    "qwen3-4b-quantized",
+    "qwen3-8b",
+    "qwen3-8b-quantized",
 
-    # "llama2-7b",
-    # "llama2-7b-quantized",
-    # "llama3.2-1b",
-    # "llama3.2-1b-quantized",
-    # "llama3.2-3b",
-    # "llama3.2-3b-quantized",
+    "llama2-7b",
+    "llama2-7b-quantized",
+    "llama3.2-1b",
+    "llama3.2-1b-quantized",
+    "llama3.2-3b",
+    "llama3.2-3b-quantized",
 
-    # "falcon-7b",
-    # "falcon-7b-quantized",
+    "falcon-7b",
+    "falcon-7b-quantized",
 ]
 
 # Default num_samples for scenarios (set to None to disable)
-DEFAULT_NUM_SAMPLES = "10"
+DEFAULT_NUM_SAMPLES = "100"
 
 # Scenarios with optional overrides (name -> extra params dict or None)
 # If a scenario has no overrides, use None or {}
@@ -53,15 +53,15 @@ SCENARIOS = {
     "idle":                 {"scenario.idle_duration": "10", "_skip_num_samples": True},
     "arc_easy":             {},
     "arc_challenge":        {},
-    # "classification":       {},
-    # "ner":                  {},
-    # "perplexity_c4":        {},
-    # "perplexity_wikitext2": {},
-    # "sentiment":            {},
-    # "summarization":        {},
-    # "translation":          {},
-    # "summarization":        {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
-    # "translation":          {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+    "classification":       {},
+    "ner":                  {},
+    "perplexity_c4":        {},
+    "perplexity_wikitext2": {},
+    "sentiment":            {},
+    "summarization":        {},
+    "translation":          {},
+    "summarization":        {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+    "translation":          {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
 }
 
 # =============================================================================
