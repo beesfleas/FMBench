@@ -1,4 +1,4 @@
-from transformers import AutoProcessor, AutoModelForImageTextToText
+# from transformers import AutoProcessor, AutoModelForImageTextToText (Moved to load_model)
 from .base import BaseModelLoader
 from .streamers import TTFTStreamer
 from .device_utils import (
@@ -24,6 +24,7 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         self.config = config
         
         log.debug("Loading processor for %s", model_id)
+        from transformers import AutoProcessor, AutoModelForImageTextToText
         self.processor = AutoProcessor.from_pretrained(model_id)
         
         # Device configuration

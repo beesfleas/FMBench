@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "model_id": "HuggingfaceTB/SmolVLM-256M-Instruct",
+    "model_category": "VLM",
+    "scenario": "HaGRID",
+    "timestamp": "2025-12-07 19:17:14",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_191700_SmolVLM-256M-Instruct"
+  },
+  "accuracy": 0.0,
+  "first_token_ttft": 0.05282711982727051,
+  "total_samples": 5,
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 65,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_191700_SmolVLM-256M-Instruct\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 46.71406250000001,
+      "peak_cpu_utilization_percent": 100.0,
+      "min_cpu_utilization_percent": 27.8,
+      "average_memory_mb": 12570.370973557692,
+      "peak_memory_mb": 13869.0625,
+      "min_memory_mb": 11920.9375,
+      "average_memory_utilization_percent": 77.07230769230773,
+      "peak_memory_utilization_percent": 85.0,
+      "min_memory_utilization_percent": 73.1,
+      "monitoring_duration_seconds": 64.58213010011241,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 65,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_191700_SmolVLM-256M-Instruct\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 126.495,
+      "average_power_watts": 50.41007692307694,
+      "min_power_watts": 14.122,
+      "total_energy_joules": 3276.655000000001,
+      "peak_temp_c": 64,
+      "average_temp_c": 58.01538461538462,
+      "min_temp_c": 51,
+      "peak_memory_mb": 2200.79296875,
+      "average_memory_mb": 2120.61953125,
+      "min_memory_mb": 1626.65234375,
+      "peak_utilization_percent": 99,
+      "average_utilization_percent": 38.83076923076923,
+      "min_utilization_percent": 12,
+      "monitoring_duration_seconds": 64.59596589999273,
+      "sampling_interval": 1
+    }
+  }
+}

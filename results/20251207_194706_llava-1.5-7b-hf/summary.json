@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "model_id": "llava-hf/llava-1.5-7b-hf",
+    "model_category": "VLM",
+    "scenario": "GTSRB",
+    "timestamp": "2025-12-07 19:47:20",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_194706_llava-1.5-7b-hf"
+  },
+  "accuracy": 1.0,
+  "first_token_ttft": 0.12153768539428711,
+  "total_samples": 5,
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 277,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_194706_llava-1.5-7b-hf\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 29.108333333333324,
+      "peak_cpu_utilization_percent": 52.1,
+      "min_cpu_utilization_percent": 21.7,
+      "average_memory_mb": 14118.799780009025,
+      "peak_memory_mb": 15675.5625,
+      "min_memory_mb": 10205.7734375,
+      "average_memory_utilization_percent": 86.57003610108308,
+      "peak_memory_utilization_percent": 96.1,
+      "min_memory_utilization_percent": 62.6,
+      "monitoring_duration_seconds": 278.1238839002326,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 277,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_194706_llava-1.5-7b-hf\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 138.357,
+      "average_power_watts": 50.309617328519856,
+      "min_power_watts": 29.288,
+      "total_energy_joules": 13935.764,
+      "peak_temp_c": 73,
+      "average_temp_c": 67.61371841155234,
+      "min_temp_c": 61,
+      "peak_memory_mb": 7674.92578125,
+      "average_memory_mb": 7294.5725547157035,
+      "min_memory_mb": 6860.75390625,
+      "peak_utilization_percent": 100,
+      "average_utilization_percent": 57.04693140794224,
+      "min_utilization_percent": 2,
+      "monitoring_duration_seconds": 277.8428529999219,
+      "sampling_interval": 1
+    }
+  }
+}

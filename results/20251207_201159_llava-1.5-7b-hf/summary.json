@@ -1,0 +1,51 @@
+{
+  "metadata": {
+    "model_id": "llava-hf/llava-1.5-7b-hf",
+    "model_category": "VLM",
+    "scenario": "docvqa",
+    "timestamp": "2025-12-07 20:12:13",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201159_llava-1.5-7b-hf"
+  },
+  "accuracy": 0.5,
+  "first_token_ttft": 0.1190185546875,
+  "avg_anls": 0.5,
+  "total_samples": 2,
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 73,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201159_llava-1.5-7b-hf\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 46.575,
+      "peak_cpu_utilization_percent": 82.0,
+      "min_cpu_utilization_percent": 22.1,
+      "average_memory_mb": 14909.581549657534,
+      "peak_memory_mb": 15859.21484375,
+      "min_memory_mb": 9026.70703125,
+      "average_memory_utilization_percent": 91.42191780821916,
+      "peak_memory_utilization_percent": 97.2,
+      "min_memory_utilization_percent": 55.3,
+      "monitoring_duration_seconds": 72.48075739992782,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 73,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201159_llava-1.5-7b-hf\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 138.014,
+      "average_power_watts": 52.39449315068493,
+      "min_power_watts": 37.531,
+      "total_energy_joules": 3824.798,
+      "peak_temp_c": 72,
+      "average_temp_c": 67.43835616438356,
+      "min_temp_c": 64,
+      "peak_memory_mb": 7783.42578125,
+      "average_memory_mb": 7498.139501284247,
+      "min_memory_mb": 7030.05078125,
+      "peak_utilization_percent": 99,
+      "average_utilization_percent": 75.05479452054794,
+      "min_utilization_percent": 5,
+      "monitoring_duration_seconds": 72.46372940018773,
+      "sampling_interval": 1
+    }
+  }
+}
