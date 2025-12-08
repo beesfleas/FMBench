@@ -320,5 +320,3 @@ pip install bitsandbytes
 If CUDA is requested but not available:
 - Use `device=cpu` or `device=auto`
 - Check NVIDIA drivers and CUDA installation
-
-## License??
