@@ -31,6 +31,12 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         log.debug("Device: %s", device_name)
         
         load_kwargs = get_load_kwargs(use_cuda, use_mps, None)
+        
+        # FlashAttention 2 support
+        if config.get("use_flash_attention_2", False):
+            load_kwargs["attn_implementation"] = "flash_attention_2"
+            log.info("FlashAttention 2 enabled")
+        
         log.debug("Loading model: device_map=%s, dtype=%s",
                   load_kwargs.get("device_map"), load_kwargs.get("dtype"))
         
