@@ -45,6 +45,14 @@ Run a benchmark with default settings:
 python run.py
 ```
 
+> [!NOTE]
+> To capture power metrics, `sudo` is required:
+> - **Mac**: For `powermetrics` access
+> - **Linux (AMD/Intel)**: For CPU power usage via RAPL
+> ```bash
+> sudo python run.py
+> ```
+
 Run with a specific model:
 ```bash
 python run.py model=qwen2.5
@@ -54,6 +62,57 @@ Run with a scenario:
 ```bash
 python run.py model=qwen2.5 scenario=sentiment
 ```
+
+## Benchmark Suite
+
+For running multiple benchmarks across different model/scenario combinations, use `benchmark_suite.py`:
+
+### Basic Usage
+
+```bash
+# Preview what will run (no execution)
+python benchmark_suite.py --summary-only
+
+# Run all benchmarks with confirmation prompt
+python benchmark_suite.py
+
+# Skip confirmation and run immediately
+python benchmark_suite.py -y
+```
+
+> [!NOTE]
+> On Mac, run with `sudo` to enable power metrics collection via `powermetrics`:
+> ```bash
+> sudo python benchmark_suite.py
+> ```
+
+### Device Level Filtering
+
+Filter models based on device capability (parameter count limits):
+
+```bash
+# SoC devices (≤1B parameters)
+python benchmark_suite.py --device-level SoC
+
+# Mobile devices (≤3B parameters)
+python benchmark_suite.py --device-level Mobile
+
+# Server devices (no limit, default)
+python benchmark_suite.py --device-level Server
+```
+
+### Configuration
+
+Edit the `BENCHMARK_CONFIG` dictionary in `benchmark_suite.py` to customize:
+- **Models**: List of models to benchmark per category (LLM, VLM, TIME_SERIES)
+- **Scenarios**: Scenario configurations including custom parameters
+- **Device limits**: Parameter count thresholds in `DEVICE_LIMITS`
+
+### Output
+
+- **Logs**: Saved to `suite_logs/suite_YYYYMMDD_HHMMSS.log`
+- **Graphs**: Automatically generated after completion
+- **Summary**: Pass/fail status for each configuration with timing
 
 ## Available Scenarios
 
