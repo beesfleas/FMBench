@@ -123,10 +123,6 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     if plot_df.empty:
         return False
     
-    # Calculate footer height based on number of devices
-    num_footer_lines = len(device_info) + 1  # +1 for timestamp
-    footer_height = 0.02 + (num_footer_lines * 0.025)
-    
     plt.figure(figsize=(10, 8))
     sns.scatterplot(data=plot_df, x=x_col, y=y_col, s=100)
     
@@ -144,15 +140,14 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     plt.xlabel(AXIS_LABELS.get(x_col, x_col))
     plt.ylabel(AXIS_LABELS.get(y_col, y_col))
     
-    # Build footer with device info on separate lines
-    footer_lines = [f"{k}: {v}" for k, v in device_info.items() if v]
-    footer_lines.append(f"Generated: {timestamp}")
-    footer_text = '\n'.join(footer_lines)
+    # Build footer text with device info and timestamp on one line
+    footer_parts = [f"{k}: {v}" for k, v in device_info.items() if v]
+    footer_parts.append(f"Generated: {timestamp}")
+    footer_text = '  |  '.join(footer_parts)
     
-    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic',
-                linespacing=1.5)
+    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=7, style='italic')
     
-    plt.tight_layout(rect=[0, footer_height, 1, 1])  # Leave room for footer
+    plt.tight_layout(rect=[0, 0.03, 1, 1])  # Leave room for footer
     plt.savefig(output_path, dpi=150)
     plt.close()
     
@@ -298,17 +293,13 @@ def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
     # Title
     plt.title('Idle Power Usage by Model', fontsize=14, fontweight='bold', pad=20)
     
-    # Footer with device info on separate lines
-    num_footer_lines = len(device_info) + 1
-    footer_height = 0.02 + (num_footer_lines * 0.03)
+    # Footer with device info and timestamp on one line
+    footer_parts = [f"{k}: {v}" for k, v in device_info.items() if v]
+    footer_parts.append(f"Generated: {timestamp}")
+    footer_text = '  |  '.join(footer_parts)
+    plt.figtext(0.5, 0.02, footer_text, ha='center', fontsize=7, style='italic')
     
-    footer_lines = [f"{k}: {v}" for k, v in device_info.items() if v]
-    footer_lines.append(f"Generated: {timestamp}")
-    footer_text = '\n'.join(footer_lines)
-    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic',
-                linespacing=1.5)
-    
-    plt.tight_layout(rect=[0, footer_height, 1, 0.95])
+    plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     plt.savefig(output_dir / 'idle_power_table.png', dpi=150, bbox_inches='tight')
     plt.close()
     
