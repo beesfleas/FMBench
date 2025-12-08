@@ -22,7 +22,7 @@ FMBench is a flexible benchmarking framework for evaluating foundation models ac
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/beesfleas/FMBench
 cd FMBench
 ```
 
