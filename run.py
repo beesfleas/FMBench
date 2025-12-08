@@ -10,6 +10,7 @@ delegating to the core benchmark runner.
 import os
 import sys
 from importlib.metadata import version, PackageNotFoundError
+from typing import Tuple, Optional
 
 # =============================================================================
 # Constants
@@ -82,7 +83,7 @@ def _setup_jetson_compatibility() -> None:
 # Transformers Version Management
 # =============================================================================
 
-def _detect_required_transformers_version() -> tuple[str | None, str | None]:
+def _detect_required_transformers_version() -> Tuple[Optional[str], Optional[str]]:
     """
     Detect required transformers version based on model name in CLI args.
     
@@ -105,7 +106,7 @@ class TransformersVersionError(Exception):
     pass
 
 
-def _parse_version_spec(spec: str) -> tuple[str, str, str]:
+def _parse_version_spec(spec: str) -> Tuple[str, str, str]:
     """
     Parse a version specification like 'transformers>=4.41.0' or 'transformers==4.33.3'.
     
