@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Tutorial - FMBench</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+<body>
+    <div class="sidebar">
+        <h2>FMBench</h2>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="slides.html">Slides</a></li>
+                <li><a href="report.html">Report</a></li>
+                <li><a href="data_appendix.html">Data Appendix</a></li>
+                <li><a href="supplementary.html">Supplementary</a></li>
+                <li><a href="tutorial.html" class="active">Tutorial</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <h1>Tutorial</h1>
+
+        <section class="section">
+            <h2>Quickstart Guide</h2>
+            <p>Welcome to FMBench! This guide shows you how to choose models and scenarios to run your benchmarks.</p>
+
+            <h3>1. Model Classes</h3>
+            <p>FMBench supports three main classes of models:</p>
+            <ul>
+                <li><strong>LLM (Large Language Model)</strong>: For text generation and NLP tasks.</li>
+                <li><strong>VLM (Vision Language Model)</strong>: For tasks involving both images and text.</li>
+                <li><strong>Time Series</strong>: For forecasting and time-series analysis tasks.</li>
+            </ul>
+
+            <h3>2. Available Scenarios</h3>
+            <p>Scenarios define the tasks and datasets used for benchmarking. Here are the available scenarios:</p>
+
+            <h4>Language & Knowledge (LLM)</h4>
+            <ul>
+                <li><code>common_nlp_scenarios</code>: General NLP tasks including:
+                    <ul>
+                        <li>Sentiment Analysis (<code>sentiment</code>)</li>
+                        <li>Summarization (<code>summarization</code>)</li>
+                        <li>Named Entity Recognition (<code>ner</code>)</li>
+                        <li>Text Classification (<code>classification</code>)</li>
+                        <li>Translation (<code>translation</code>)</li>
+                    </ul>
+                </li>
+                <li><code>mmlu_scenarios</code>: Measuring Massive Multitask Language Understanding.</li>
+                <li><code>long_context</code>: Evaluation on long context windows.</li>
+                <li><code>arc_challenge</code> / <code>arc_easy</code>: AI2 Reasoning Challenge.</li>
+                <li><code>countbenchqa</code>: Counting capabilities.</li>
+                <li><code>helm</code>: Holistic Evaluation of Language Models.</li>
+                <li><code>perplexity_c4</code> / <code>perplexity_wikitext2</code>: Perplexity evaluation.</li>
+            </ul>
+
+            <h4>Vision & Multimodal (VLM)</h4>
+            <ul>
+                <li><code>common_vlm_scenarios</code>: Standard visual tasks.</li>
+                <li><code>docvqa</code>: Document Visual Question Answering.</li>
+                <li><code>vqa</code>: Visual Question Answering.</li>
+                <li><code>simple_vlm</code>: Basic VLM test scenario.</li>
+            </ul>
+
+            <h4>Time Series</h4>
+            <ul>
+                <li><code>custom_timeseries</code>: Custom forecasting scenarios.</li>
+                <li><code>simple_timeseries</code>: Basic time series test scenario.</li>
+            </ul>
+
+            <h3>3. Running a Benchmark</h3>
+            <p>To run a benchmark, use the <code>run.py</code> script. You can configure the run using flags.</p>
+
+            <pre><code>python run.py</code></pre>
+
+            <h4>Common Flags</h4>
+            <ul>
+                <li><code>num_samples</code>: (int) Number of samples to run from the dataset (default: all or subset).
+                </li>
+                <li><code>model.loader_type</code>: (string) Specific loader to use (e.g., <code>vllm</code>,
+                    <code>huggingface</code>).</li>
+                <li><code>scenario.name</code>: (string) Name of the scenario to run.</li>
+            </ul>
+        </section>
+
+        <hr>
+
+        <section class="section">
+            <h2>Detailed Instructions</h2>
+            <h3>Prerequisites</h3>
+            <p>[List prerequisites here...]</p>
+
+            <h3>Installation</h3>
+            <pre><code># Example command
+git clone https://github.com/beesfleas/FMBench
+cd FMBench
+pip install -r requirements.txt</code></pre>
+
+            <h3>Configuration</h3>
+            <p>You can configure the benchmark runs by modifying the `conf/` files or overriding them via command line.
+            </p>
+        </section>
+
+        <footer>
+            <p>&copy; 2025 FMBench Project</p>
+        </footer>
+    </div>
+</body>
+
+</html>
