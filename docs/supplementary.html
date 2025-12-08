@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <!DOCTYPE html>
+    <html lang="en">
+
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Supplementary Material - FMBench</title>
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+<body>
+    <div class="sidebar">
+        <h2>FMBench</h2>
+        <nav>
+            <ul>
+                <li><a href="index.html">Home</a></li>
+                <li><a href="slides.html">Slides</a></li>
+                <li><a href="report.html">Report</a></li>
+                <li><a href="data_appendix.html">Data Appendix</a></li>
+                <li><a href="supplementary.html" class="active">Supplementary</a></li>
+                <li><a href="tutorial.html">Tutorial</a></li>
+            </ul>
+        </nav>
+    </div>
+
+    <div class="main-content">
+        <h1>Supplementary Material</h1>
+
+        <section class="section">
+            <h2 id="datasets-used">Datasets Used</h2>
+            <p>FMBench evaluates foundation models across multiple task types using the following datasets:</p>
+
+            <h3>Reasoning Tasks</h3>
+            <ul>
+                <li><strong>allenai/ai2_arc (ARC-Challenge & ARC-Easy)</strong>: The AI2 Abstraction and Reasoning
+                    Corpus is a multiple-choice question-answering dataset containing science questions from
+                    standardized tests. The Challenge set contains harder questions requiring complex reasoning, while
+                    the Easy set contains more straightforward questions.</li>
+                <li><strong>cais/mmlu</strong>: The Massive Multitask Language Understanding benchmark tests knowledge
+                    across 57 subjects including STEM, humanities, social sciences, and more. Used in HELM-style
+                    evaluation.</li>
+            </ul>
+
+            <h3>Natural Language Processing (NLP) Tasks</h3>
+            <ul>
+                <li><strong>ag_news</strong>: A news article classification dataset with 4 categories (World, Sports,
+                    Business, Sci/Tech). Used for text classification benchmarking.</li>
+                <li><strong>imdb</strong>: A binary sentiment analysis dataset containing movie reviews labeled as
+                    positive or negative. Widely used for sentiment classification tasks.</li>
+                <li><strong>wikiann (en)</strong>: A multilingual named entity recognition dataset. The English subset
+                    is used to evaluate NER performance across person, organization, and location entities.</li>
+                <li><strong>cnn_dailymail (v3.0.0)</strong>: A summarization dataset pairing CNN and Daily Mail news
+                    articles with human-written highlights. Used to evaluate abstractive summarization capabilities.
+                </li>
+                <li><strong>wmt16 (de-en)</strong>: A machine translation dataset from the Workshop on Machine
+                    Translation, specifically the German-to-English translation pair.</li>
+            </ul>
+
+            <h3>Vision-Language Model (VLM) Tasks</h3>
+            <ul>
+                <li><strong>vikhyatk/CountBenchQA</strong>: A visual counting question-answering benchmark that tests a
+                    model's ability to count objects in images and answer numerical questions.</li>
+                <li><strong>lmms-lab/DocVQA</strong>: Document Visual Question Answering dataset requiring models to
+                    answer questions about document images, testing OCR and reading comprehension capabilities.</li>
+                <li><strong>tanganke/GTSRB</strong>: German Traffic Sign Recognition Benchmark containing 43 classes of
+                    traffic signs. Tests fine-grained visual classification in real-world scenarios.</li>
+                <li><strong>cj-mills/hagrid-sample-30k-384p</strong>: HAnd Gesture Recognition Image Dataset with 18
+                    gesture classes (like, dislike, peace, stop, etc.). Evaluates hand gesture classification
+                    performance.</li>
+                <li><strong>HuggingFaceM4/the_cauldron (vqav2)</strong>: Visual Question Answering v2 dataset via The
+                    Cauldron collection. Tests general visual reasoning and question answering about images.</li>
+            </ul>
+
+            <h3>Time Series Forecasting Tasks</h3>
+            <ul>
+                <li><strong>autogluon/fev_datasets (ETT_1H subset)</strong>: FEV-Bench time series forecasting dataset,
+                    specifically the Electricity Transformer Temperature dataset with hourly readings. Used for
+                    multivariate time series prediction.</li>
+                <li><strong>Salesforce/GiftEval</strong>: A zero-shot time series forecasting benchmark designed to
+                    evaluate foundation models on diverse time series without task-specific training.</li>
+                <li><strong>monash_tsf (m3_monthly subset)</strong>: The M3 competition monthly forecasting dataset from
+                    the Monash Time Series Forecasting repository. A classic benchmark for time series prediction.</li>
+            </ul>
+
+            <h3>Perplexity Evaluation</h3>
+            <ul>
+                <li><strong>allenai/c4 (en)</strong>: The Colossal Clean Crawled Corpus, a large-scale web text dataset
+                    used for language model perplexity evaluation.</li>
+                <li><strong>wikitext (wikitext-2-raw-v1)</strong>: A language modeling dataset extracted from Wikipedia
+                    articles. Used to measure perplexity on well-formed text.</li>
+            </ul>
+        </section>
+
+        <section class="section">
+            <h2>Prominent External Libraries Used</h2>
+            <p>FMBench leverages a comprehensive stack of libraries and frameworks for model loading, evaluation, and
+                benchmarking:</p>
+
+            <h3>Deep Learning & Model Frameworks</h3>
+            <ul>
+                <li><strong>PyTorch (torch)</strong>: Core deep learning framework for model loading, inference, and GPU
+                    acceleration. Provides the foundation for all model operations.</li>
+                <li><strong>Transformers (Hugging Face)</strong>: Primary library for loading and running foundation
+                    models (LLMs, VLMs, time series models). Supports AutoModel, AutoTokenizer, and streaming
+                    generation.</li>
+                <li><strong>Accelerate</strong>: Hugging Face library for distributed training and inference, device
+                    management, and mixed-precision computation.</li>
+            </ul>
+
+            <h3>Configuration Management</h3>
+            <ul>
+                <li><strong>Hydra</strong>: Framework for composable configuration management. Enables flexible
+                    scenario, model, and benchmark configuration through YAML files.</li>
+                <li><strong>OmegaConf</strong>: Configuration system used by Hydra for hierarchical configuration with
+                    variable interpolation and type safety.</li>
+            </ul>
+
+            <h3>Data & Datasets</h3>
+            <ul>
+                <li><strong>Datasets (Hugging Face)</strong>: Library for loading and processing datasets from Hugging
+                    Face Hub. Supports streaming, caching, and efficient data loading.</li>
+                <li><strong>Pillow (PIL)</strong>: Python Imaging Library for image loading, processing, and
+                    manipulation in VLM scenarios.</li>
+                <li><strong>Pandas</strong>: Data manipulation and analysis library used for time series data processing
+                    and results aggregation.</li>
+            </ul>
+
+            <h3>Evaluation Metrics</h3>
+            <ul>
+                <li><strong>SacreBLEU</strong>: Standard BLEU score implementation for evaluating machine translation
+                    and summarization tasks.</li>
+                <li><strong>NLTK (Natural Language Toolkit)</strong>: NLP library providing METEOR score computation and
+                    text processing utilities for summarization evaluation.</li>
+                <li><strong>BERTScore</strong>: Contextual embedding-based metric for evaluating text generation quality
+                    using BERT models.</li>
+                <li><strong>COMET (Unbabel)</strong>: Neural metric for machine translation evaluation based on
+                    cross-lingual embeddings.</li>
+            </ul>
+
+            <h3>System Monitoring & Utilities</h3>
+            <ul>
+                <li><strong>nvidia-ml-py</strong>: Python bindings for NVIDIA Management Library (NVML) to monitor GPU
+                    utilization, memory, and power consumption.</li>
+                <li><strong>psutil</strong>: Cross-platform library for system and process monitoring (CPU, memory, disk
+                    usage).</li>
+                <li><strong>compressed_tensors</strong>: Library for working with compressed and quantized model
+                    weights.</li>
+            </ul>
+
+            <h3>Visualization & Reporting</h3>
+            <ul>
+                <li><strong>Seaborn</strong>: Statistical data visualization library built on matplotlib, used for
+                    generating benchmark result plots and charts.</li>
+            </ul>
+
+            <h3>Additional Dependencies</h3>
+            <ul>
+                <li><strong>langchain-core</strong>: Core abstractions from LangChain framework for prompt templating
+                    and chain composition.</li>
+                <li><strong>huggingface_hub</strong>: Client library for interacting with Hugging Face Hub, including
+                    model and dataset downloads with XET support.</li>
+            </ul>
+        </section>
+
+        <footer>
+            <p>&copy; 2025 FMBench Project</p>
+        </footer>
+    </div>
+</body>
+
+</html>
