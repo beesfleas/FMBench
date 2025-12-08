@@ -28,8 +28,8 @@ from generate_graphs import main as generate_graphs
 # =============================================================================
 
 DEVICE_LEVEL = "Server"  # Default: "SoC", "Mobile", or "Server"
-GLOBAL_SETTINGS = {"save_logs": "true"}
-DEFAULT_NUM_SAMPLES = "100"
+GLOBAL_SETTINGS = {}
+DEFAULT_NUM_SAMPLES = "10"
 
 # Device capability limits (in billions of parameters)
 DEVICE_LIMITS = {
@@ -63,8 +63,6 @@ BENCHMARK_CONFIG = {
             "qwen2.5-7b-quantized",
             "llama2-7b",
             "llama2-7b-quantized",
-            "falcon-7b",
-            "falcon-7b-quantized",
             "qwen3-8b",
             "qwen3-8b-quantized",
         ],

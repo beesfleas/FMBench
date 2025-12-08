@@ -239,6 +239,22 @@ def _print_metrics_summary(all_metrics: dict):
     
     # Hardware metrics (one section per device)
     device_metrics = all_metrics.get("device_metrics", {})
+    
+    # Find overall duration (max across all devices)
+    overall_duration = 0
+    for metrics in device_metrics.values():
+        duration = metrics.get("monitoring_duration_seconds", 0)
+        if duration > overall_duration:
+            overall_duration = duration
+    
+    # Print duration once at top level
+    if overall_duration > 0:
+        if overall_duration >= 60:
+            mins, secs = divmod(overall_duration, 60)
+            print(f"  Duration:   {int(mins)}m {secs:.1f}s")
+        else:
+            print(f"  Duration:   {overall_duration:.1f}s")
+    
     max_name_len = 32
     for profiler_name, metrics in device_metrics.items():
         print("-" * 50)
@@ -247,17 +263,10 @@ def _print_metrics_summary(all_metrics: dict):
         if len(name) > max_name_len:
             name = name[:max_name_len - 3] + "..."
         print(f"  Device:     {name}")
-        # Total benchmark time (from monitoring duration)
-        if "monitoring_duration_seconds" in metrics and metrics["monitoring_duration_seconds"] > 0:
-            duration = metrics["monitoring_duration_seconds"]
-            if duration >= 60:
-                mins, secs = divmod(duration, 60)
-                print(f"  Duration:   {int(mins)}m {secs:.1f}s")
-            else:
-                print(f"  Duration:   {duration:.1f}s")
         # Average utilization
         avg_cpu = metrics.get("average_cpu_utilization_percent")
-        avg_gpu = metrics.get("average_gpu_utilization_percent")
+        # Check both naming conventions for GPU util
+        avg_gpu = metrics.get("average_gpu_utilization_percent") or metrics.get("average_utilization_percent")
         if avg_cpu is not None and avg_cpu > 0:
             print(f"  CPU Util:   {avg_cpu:.1f}% (avg)")
         if avg_gpu is not None and avg_gpu > 0:
@@ -377,7 +386,10 @@ def run_scenario(loader, scenario, model_category):
             
             log.debug("Task %d Result: %s", i + 1, metrics)
             if "latency" in additional_metrics:
-                log.debug("Task %d Latency: %.4fs, Output: %s...", i + 1, additional_metrics['latency'], output[:50] if isinstance(output, str) else output)
+                # Safely truncate and encode output to avoid UnicodeEncodeError on Windows console
+                output_preview = output[:50] if isinstance(output, str) else str(output)
+                output_preview = output_preview.encode('ascii', 'replace').decode('ascii')
+                log.debug("Task %d Latency: %.4fs, Output: %s...", i + 1, additional_metrics['latency'], output_preview)
             
             if is_perplexity:
                 log.debug("Task %d Perplexity: %s", i + 1, metrics.get('perplexity'))

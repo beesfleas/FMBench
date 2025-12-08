@@ -1,4 +1,4 @@
-model_id: neuralmagic/Qwen2.5-7B-quantized.w8a8
+# Pre-quantized 4-bit version of Qwen2.5-7B-Instruct
+model_id: unsloth/Qwen2.5-7B-Instruct-bnb-4bit
 model_category: LLM
 max_tokens: 128
-# quantization: 4 

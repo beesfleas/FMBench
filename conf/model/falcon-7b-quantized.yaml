@@ -1,4 +1,4 @@
 model_id: QuantFactory/falcon-7b-instruct-GGUF
 model_category: LLM
 max_tokens: 128
-
+use_flash_attention_2: false

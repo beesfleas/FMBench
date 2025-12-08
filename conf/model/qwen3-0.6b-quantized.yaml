@@ -1,5 +1,4 @@
-model_id: RedHatAI/Qwen3-0.6B-quantized.w4a16
+# Pre-quantized 4-bit version of Qwen3-0.6B
+model_id: unsloth/Qwen3-0.6B-bnb-4bit
 model_category: LLM
 max_tokens: 128
-# quantization: 4 
-# note: doesn't actually works, need vllm loader.
