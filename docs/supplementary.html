@@ -112,6 +112,67 @@
         </section>
 
         <section class="section">
+            <h2 id="models-used">Models Used</h2>
+            <p>FMBench supports benchmarking across three categories of foundation models:</p>
+
+            <h3>Large Language Models (LLMs)</h3>
+            <ul>
+                <li><strong>Llama 2 (7B, 13B)</strong>: Meta's open-source foundation models for text generation and
+                    instruction following. <a href="references.html#ref-llama2">[Touvron et al., 2023]</a></li>
+                <li><strong>Llama 3 / Llama 3.2 (1B, 3B)</strong>: Latest generation of Meta's Llama models with
+                    improved multilingual and reasoning capabilities. <a href="references.html#ref-llama3">[Grattafiori
+                        et al., 2024]</a></li>
+                <li><strong>Qwen2.5 (1.5B, 7B) / Qwen3 (0.6B, 4B, 8B)</strong>: Alibaba's Qwen series of
+                    instruction-tuned
+                    language models with strong multilingual support. <a href="references.html#ref-qwen2.5">[Qwen Team,
+                        2024]</a></li>
+                <li><strong>DeepSeek-V3</strong>: Large-scale mixture-of-experts language model with efficient
+                    architecture. <a href="references.html#ref-deepseek-v3">[DeepSeek-AI, 2024]</a></li>
+                <li><strong>Falcon-7B</strong>: Technology Innovation Institute's open-source LLM trained on RefinedWeb
+                    dataset. <a href="references.html#ref-falcon">[Almazrouei et al., 2023]</a></li>
+                <li><strong>TinyLlama (1.1B)</strong>: Compact language model pretrained on 1 trillion tokens. <a
+                        href="references.html#ref-tinyllama">[Zhang et al., 2024]</a></li>
+                <li><strong>SmolLM2 (1.7B)</strong>: HuggingFace's data-centric small language model trained on 11
+                    trillion tokens. <a href="references.html#ref-smollm2">[HuggingFace Team, 2025]</a></li>
+                <li><strong>DistilGPT2</strong>: Distilled version of GPT-2 for efficient text generation.</li>
+            </ul>
+
+            <h3>Vision-Language Models (VLMs)</h3>
+            <ul>
+                <li><strong>LLaVA (1.5-7B)</strong>: Large Language and Vision Assistant trained with visual instruction
+                    tuning. <a href="references.html#ref-llava">[Liu et al., 2023]</a></li>
+                <li><strong>SmolVLM (256M)</strong>: HuggingFace's compact and efficient multimodal model. <a
+                        href="references.html#ref-smolvlm">[HuggingFace Team, 2024]</a></li>
+                <li><strong>Molmo (7B)</strong>: AllenAI's open vision-language model with state-of-the-art performance
+                    and open training data (PixMo). <a href="references.html#ref-molmo">[Deitke et al., 2024]</a></li>
+                <li><strong>MiniCPM-V</strong>: Efficient multimodal LLM achieving GPT-4V level performance on mobile
+                    devices. <a href="references.html#ref-minicpm-v">[Yao et al., 2024]</a></li>
+                <li><strong>Moondream (2B)</strong>: Tiny vision-language model optimized for edge deployment. <a
+                        href="references.html#ref-moondream">[Vikhyat]</a></li>
+                <li><strong>Llama-Vision (3.2)</strong>: Meta's multimodal Llama variant with vision capabilities.</li>
+                <li><strong>Qwen2.5-VL</strong>: Qwen's vision-language model for multimodal understanding.</li>
+            </ul>
+
+            <h3>Time Series Foundation Models</h3>
+            <ul>
+                <li><strong>Chronos-T5 (Tiny, Small)</strong>: Amazon's language model-based time series forecasting
+                    framework using T5 architecture. <a href="references.html#ref-chronos">[Ansari et al., 2024]</a>
+                </li>
+                <li><strong>Moirai (Small, 2.0-R)</strong>: Salesforce's universal time series forecasting transformer
+                    with any-variate attention. <a href="references.html#ref-moirai">[Woo et al., 2024]</a></li>
+                <li><strong>MOMENT (Large)</strong>: Open time series foundation model pretrained on the Time-series
+                    Pile dataset. <a href="references.html#ref-moment">[Goswami et al., 2024]</a></li>
+                <li><strong>PatchTST</strong>: Patch-based time series transformer for long-term forecasting.</li>
+                <li><strong>TimeGPT-1</strong>: Nixtla's generative pretrained transformer for time series.</li>
+                <li><strong>ARIMA</strong>: Classical autoregressive integrated moving average model for baseline
+                    comparison.</li>
+            </ul>
+
+            <p><em>Note: FMBench supports both full-precision and quantized (4-bit, 8-bit) versions of many models to
+                    enable efficient benchmarking across different hardware configurations.</em></p>
+        </section>
+
+        <section class="section">
             <h2>Prominent External Libraries Used</h2>
             <p>FMBench leverages a comprehensive stack of libraries and frameworks for model loading, evaluation, and
                 benchmarking:</p>
