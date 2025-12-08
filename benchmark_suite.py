@@ -19,13 +19,15 @@ GLOBAL_SETTINGS = {
 
 # Models to benchmark (runs all scenarios for each model)
 MODELS = [
-    "distilgpt2",
+    # "distilgpt2",
+    # "tinyllama",
+
     # "qwen2.5-1.5b",
     # "qwen2.5-1.5b-quantized",
     # "qwen2.5-7b",
     # "qwen2.5-7b-quantized",
-    # "qwen3-0.6b",
-    # "qwen3-0.6b-quantized",
+    "qwen3-0.6b",
+    "qwen3-0.6b-quantized",
     # "qwen3-4b",
     # "qwen3-4b-quantized",
     # "qwen3-8b",
@@ -51,10 +53,10 @@ SCENARIOS = {
     "idle":                 {"scenario.idle_duration": "10", "_skip_num_samples": True},
     "arc_easy":             {},
     "arc_challenge":        {},
-    "classification":       {},
-    "ner":                  {},
-    "perplexity_c4":        {},
-    "perplexity_wikitext2": {},
+    # "classification":       {},
+    # "ner":                  {},
+    # "perplexity_c4":        {},
+    # "perplexity_wikitext2": {},
     # "sentiment":            {},
     # "summarization":        {},
     # "translation":          {},

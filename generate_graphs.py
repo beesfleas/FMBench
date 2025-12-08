@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -12,6 +13,22 @@ import seaborn as sns
 
 # Scenarios where accuracy is not meaningful
 SKIP_ACCURACY_SCENARIOS = {'Idle Baseline', 'summarization', 'translation'}
+
+# Axis labels with units
+AXIS_LABELS = {
+    'latency': 'Latency (seconds)',
+    'accuracy': 'Accuracy',
+    'energy': 'Energy (Joules)',
+}
+
+# Map profiler key patterns to device type labels
+PROFILER_PATTERNS = {
+    'nvidiagpuprofiler': 'GPU',
+    'macprofiler': 'Mac',
+    'jetsonprofiler': 'Jetson',
+    'piprofiler': 'Raspberry Pi',
+    'cpuprofiler': 'CPU',
+}
 
 
 def parse_suite_log(log_path: Path) -> list[Path]:
@@ -28,9 +45,14 @@ def parse_suite_log(log_path: Path) -> list[Path]:
     return result_dirs
 
 
-def load_results(result_dirs: list[Path]) -> pd.DataFrame:
-    """Load summary.json from each result directory into a DataFrame."""
+def load_results(result_dirs: list[Path]) -> tuple[pd.DataFrame, dict]:
+    """Load summary.json from each result directory into a DataFrame.
+    
+    Returns:
+        DataFrame with results and dict with device info.
+    """
     records = []
+    device_info = {}  # Will store device names by type
     
     for result_dir in result_dirs:
         summary_path = result_dir / 'summary.json'
@@ -53,15 +75,31 @@ def load_results(result_dirs: list[Path]) -> pd.DataFrame:
             'accuracy': data.get('accuracy'),
         }
         
-        # Extract energy from GPU profiler (check all GPU profilers)
+        # Extract energy, power, and device info from profilers
         device_metrics = data.get('device_metrics', {})
         energy = None
+        idle_power = None
+        
         for key, metrics in device_metrics.items():
-            if 'nvidiagpuprofiler' in key.lower():
-                energy = metrics.get('total_energy_joules')
-                if energy is not None:
+            key_lower = key.lower()
+            
+            # Detect device type and store device name
+            for pattern, label in PROFILER_PATTERNS.items():
+                if pattern in key_lower:
+                    if label not in device_info:
+                        device_info[label] = metrics.get('device_name')
                     break
+            
+            # Extract energy (prefer GPU/accelerator over CPU)
+            if 'cpuprofiler' not in key_lower:
+                if metrics.get('total_energy_joules') is not None:
+                    energy = metrics.get('total_energy_joules')
+                # For idle scenario, capture average power
+                if scenario == 'Idle Baseline':
+                    idle_power = metrics.get('average_power_watts')
+        
         record['energy'] = energy
+        record['idle_power_watts'] = idle_power
         
         # Track if accuracy is meaningful for this scenario
         record['has_valid_accuracy'] = (
@@ -72,17 +110,22 @@ def load_results(result_dirs: list[Path]) -> pd.DataFrame:
         
         records.append(record)
     
-    return pd.DataFrame(records)
+    return pd.DataFrame(records), device_info
 
 
 def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, 
-                        title: str, output_path: Path):
-    """Create a scatter plot with model labels."""
+                        title: str, output_path: Path,
+                        device_info: dict, timestamp: str):
+    """Create a scatter plot with model labels, device info, and timestamp."""
     # Filter out rows with missing data for the columns we need
     plot_df = df.dropna(subset=[x_col, y_col])
     
     if plot_df.empty:
         return False
+    
+    # Calculate footer height based on number of devices
+    num_footer_lines = len(device_info) + 1  # +1 for timestamp
+    footer_height = 0.02 + (num_footer_lines * 0.025)
     
     plt.figure(figsize=(10, 8))
     sns.scatterplot(data=plot_df, x=x_col, y=y_col, s=100)
@@ -98,16 +141,26 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
         )
     
     plt.title(title)
-    plt.xlabel(x_col.replace('_', ' ').title())
-    plt.ylabel(y_col.replace('_', ' ').title())
-    plt.tight_layout()
+    plt.xlabel(AXIS_LABELS.get(x_col, x_col))
+    plt.ylabel(AXIS_LABELS.get(y_col, y_col))
+    
+    # Build footer with device info on separate lines
+    footer_lines = [f"{k}: {v}" for k, v in device_info.items() if v]
+    footer_lines.append(f"Generated: {timestamp}")
+    footer_text = '\n'.join(footer_lines)
+    
+    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic',
+                linespacing=1.5)
+    
+    plt.tight_layout(rect=[0, footer_height, 1, 1])  # Leave room for footer
     plt.savefig(output_path, dpi=150)
     plt.close()
     
     return True
 
 
-def generate_scenario_plots(df: pd.DataFrame, output_dir: Path):
+def generate_scenario_plots(df: pd.DataFrame, output_dir: Path,
+                            device_info: dict, timestamp: str):
     """Generate plots for each scenario."""
     scenarios = df['scenario'].unique()
     
@@ -124,7 +177,8 @@ def generate_scenario_plots(df: pd.DataFrame, output_dir: Path):
             create_scatter_plot(
                 scenario_df, 'latency', 'accuracy',
                 f'{scenario}: Latency vs Accuracy',
-                output_dir / f'{safe_name}_latency_vs_accuracy.png'
+                output_dir / f'{safe_name}_latency_vs_accuracy.png',
+                device_info, timestamp
             )
         
         # Check if energy data is available
@@ -135,7 +189,8 @@ def generate_scenario_plots(df: pd.DataFrame, output_dir: Path):
             create_scatter_plot(
                 scenario_df, 'latency', 'energy',
                 f'{scenario}: Latency vs Energy',
-                output_dir / f'{safe_name}_latency_vs_energy.png'
+                output_dir / f'{safe_name}_latency_vs_energy.png',
+                device_info, timestamp
             )
             
             # 3. Accuracy vs Energy (only if scenario has valid accuracy)
@@ -143,11 +198,13 @@ def generate_scenario_plots(df: pd.DataFrame, output_dir: Path):
                 create_scatter_plot(
                     scenario_df, 'accuracy', 'energy',
                     f'{scenario}: Accuracy vs Energy',
-                    output_dir / f'{safe_name}_accuracy_vs_energy.png'
+                    output_dir / f'{safe_name}_accuracy_vs_energy.png',
+                    device_info, timestamp
                 )
 
 
-def generate_summary_plots(df: pd.DataFrame, output_dir: Path):
+def generate_summary_plots(df: pd.DataFrame, output_dir: Path,
+                           device_info: dict, timestamp: str):
     """Generate summary plots averaging metrics per model across valid scenarios."""
     # Filter to only scenarios with valid accuracy for summary
     valid_df = df[df['has_valid_accuracy']].copy()
@@ -167,7 +224,8 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path):
     create_scatter_plot(
         summary_df, 'latency', 'accuracy',
         'Summary: Average Latency vs Accuracy',
-        output_dir / 'summary_latency_vs_accuracy.png'
+        output_dir / 'summary_latency_vs_accuracy.png',
+        device_info, timestamp
     )
     
     # Check if energy data is available
@@ -178,15 +236,83 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path):
         create_scatter_plot(
             summary_df, 'latency', 'energy',
             'Summary: Average Latency vs Energy',
-            output_dir / 'summary_latency_vs_energy.png'
+            output_dir / 'summary_latency_vs_energy.png',
+            device_info, timestamp
         )
         
         # 3. Accuracy vs Energy
         create_scatter_plot(
             summary_df, 'accuracy', 'energy',
             'Summary: Average Accuracy vs Energy',
-            output_dir / 'summary_accuracy_vs_energy.png'
+            output_dir / 'summary_accuracy_vs_energy.png',
+            device_info, timestamp
         )
+
+
+def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
+                               device_info: dict, timestamp: str):
+    """Generate a table showing idle power usage per model."""
+    # Filter to idle scenarios only
+    idle_df = df[df['scenario'] == 'Idle Baseline'].copy()
+    
+    if idle_df.empty or idle_df['idle_power_watts'].isna().all():
+        print("No idle power data available")
+        return False
+    
+    # Select relevant columns and sort by power
+    table_df = idle_df[['model', 'idle_power_watts']].dropna()
+    table_df = table_df.sort_values('idle_power_watts')
+    table_df.columns = ['Model', 'Idle Power (W)']
+    
+    if table_df.empty:
+        return False
+    
+    # Create figure for table
+    fig, ax = plt.subplots(figsize=(8, max(3, len(table_df) * 0.5 + 2)))
+    ax.axis('off')
+    
+    # Create table
+    table = ax.table(
+        cellText=[[row['Model'], f"{row['Idle Power (W)']:.2f}"] 
+                  for _, row in table_df.iterrows()],
+        colLabels=['Model', 'Idle Power (W)'],
+        cellLoc='center',
+        loc='center',
+        colWidths=[0.6, 0.3]
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1.2, 1.5)
+    
+    # Style header
+    for i in range(2):
+        table[(0, i)].set_facecolor('#4472C4')
+        table[(0, i)].set_text_props(color='white', fontweight='bold')
+    
+    # Alternate row colors
+    for i in range(1, len(table_df) + 1):
+        color = '#D9E2F3' if i % 2 == 0 else 'white'
+        for j in range(2):
+            table[(i, j)].set_facecolor(color)
+    
+    # Title
+    plt.title('Idle Power Usage by Model', fontsize=14, fontweight='bold', pad=20)
+    
+    # Footer with device info on separate lines
+    num_footer_lines = len(device_info) + 1
+    footer_height = 0.02 + (num_footer_lines * 0.03)
+    
+    footer_lines = [f"{k}: {v}" for k, v in device_info.items() if v]
+    footer_lines.append(f"Generated: {timestamp}")
+    footer_text = '\n'.join(footer_lines)
+    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic',
+                linespacing=1.5)
+    
+    plt.tight_layout(rect=[0, footer_height, 1, 0.95])
+    plt.savefig(output_dir / 'idle_power_table.png', dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    return True
 
 
 def main(log_path: Path) -> Path:
@@ -197,22 +323,27 @@ def main(log_path: Path) -> Path:
     output_dir = log_path.parent / f"{log_path.stem}_graphs"
     output_dir.mkdir(exist_ok=True)
     
+    # Generate timestamp (accurate to minute)
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
     # Parse log and load results
     result_dirs = parse_suite_log(log_path)
     if not result_dirs:
         print(f"No result directories found in {log_path}")
         return output_dir
     
-    df = load_results(result_dirs)
+    df, device_info = load_results(result_dirs)
     if df.empty:
         print("No results loaded")
         return output_dir
     
     print(f"Loaded {len(df)} results from {len(result_dirs)} directories")
+    print(f"Devices: {device_info}")
     
     # Generate plots
-    generate_scenario_plots(df, output_dir)
-    generate_summary_plots(df, output_dir)
+    generate_scenario_plots(df, output_dir, device_info, timestamp)
+    generate_summary_plots(df, output_dir, device_info, timestamp)
+    generate_idle_power_table(df, output_dir, device_info, timestamp)
     
     print(f"Graphs saved to: {output_dir}")
     return output_dir
