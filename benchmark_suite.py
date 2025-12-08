@@ -280,12 +280,20 @@ def run_benchmark(config: Dict, log_file) -> Tuple[bool, float]:
     start = time.time()
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     
+    output_lines = []
     for line in proc.stdout:
         print(line, end="")
         log_file.write(line)
+        output_lines.append(line)
     
     proc.wait()
-    return proc.returncode == 0, time.time() - start
+    
+    # Check for failure indicators in output
+    output = "".join(output_lines)
+    no_metrics = "No metrics collected" in output
+    
+    success = proc.returncode == 0 and not no_metrics
+    return success, time.time() - start
 
 
 def format_time(seconds: float) -> str:

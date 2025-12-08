@@ -49,8 +49,8 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         # Load model
         self.model = AutoModelForImageTextToText.from_pretrained(model_id, **load_kwargs)
         
-        # Move to device and check MPS size limits
-        if use_mps:
+        # Move to device and check MPS size limits (skip if quantized)
+        if use_mps and not quantization_config:
             try:
                 check_mps_model_size(self.model, model_id)
             except RuntimeError as e:

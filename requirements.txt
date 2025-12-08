@@ -14,5 +14,6 @@ nltk
 psutil
 compressed_tensors
 pandas
+matplotlib
 seaborn
 huggingface_hub[hf_xet]

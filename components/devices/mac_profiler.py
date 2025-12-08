@@ -140,14 +140,32 @@ class MacProfiler(BaseDeviceProfiler):
             
         try:
             vmem = psutil.virtual_memory()
+            # Initialize sample with all fields to ensure consistent CSV headers
             sample = {
                 "timestamp": now - self.start_time,
                 "cpu_utilization_percent": self.last_cpu_util,
                 "memory_used_mb": vmem.used / 1048576,
-                "memory_utilization_percent": vmem.percent
+                "memory_utilization_percent": vmem.percent,
+                "cpu_power_watts": None,
+                "gpu_power_watts": None,
+                "ane_power_watts": None,
+                "combined_power_watts": None,
+                "gpu_utilization_percent": None,
+                "gpu_active_frequency_mhz": None
             }
         except Exception:
-            sample = {"timestamp": now - self.start_time}
+            sample = {
+                "timestamp": now - self.start_time,
+                "cpu_utilization_percent": None,
+                "memory_used_mb": None,
+                "memory_utilization_percent": None,
+                "cpu_power_watts": None,
+                "gpu_power_watts": None,
+                "ane_power_watts": None,
+                "combined_power_watts": None,
+                "gpu_utilization_percent": None,
+                "gpu_active_frequency_mhz": None
+            }
 
         sample.update(self.last_known_metrics)
 
