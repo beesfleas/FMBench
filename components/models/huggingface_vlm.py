@@ -2,8 +2,8 @@
 from .base import BaseModelLoader
 from .streamers import TTFTStreamer
 from .device_utils import (
-    get_device_config, get_load_kwargs, move_to_device, clear_device_cache,
-    check_mps_model_size
+    get_mps_safe_load_kwargs, try_move_to_mps, move_to_device, 
+    clear_device_cache, handle_mps_errors, MPSMemoryError
 )
 from PIL import Image
 import os
@@ -19,6 +19,7 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         self.processor = None
         self.config = None
 
+    @handle_mps_errors
     def load_model(self, config):
         model_id = config.get("model_id")
         self.config = config
@@ -27,15 +28,9 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         from transformers import AutoProcessor, AutoModelForImageTextToText
         self.processor = AutoProcessor.from_pretrained(model_id)
         
-        # Device configuration
-        use_cuda, use_mps, device_name = get_device_config(config)
+        # Get safe device configuration with pre-flight MPS check
+        load_kwargs, use_cuda, use_mps, device_name, quantization_config = get_mps_safe_load_kwargs(config, model_id)
         log.debug("Device: %s", device_name)
-        
-        # Check for quantization
-        from .device_utils import get_quantization_config
-        quantization_config = get_quantization_config(config, use_cuda)
-        
-        load_kwargs = get_load_kwargs(use_cuda, use_mps, quantization_config)
         
         # FlashAttention 2 support
         if config.get("use_flash_attention_2", False):
@@ -49,24 +44,20 @@ class HuggingFaceVLMLoader(BaseModelLoader):
         # Load model
         self.model = AutoModelForImageTextToText.from_pretrained(model_id, **load_kwargs)
         
-        # Move to device and check MPS size limits (skip if quantized)
-        if use_mps and not quantization_config:
-            try:
-                check_mps_model_size(self.model, model_id)
-            except RuntimeError as e:
-                if config.get("allow_mps_fallback", True):
-                    log.warning("Model too large for MPS: %s. Falling back to CPU.", e)
-                    use_mps = False
-                    device_name = "CPU"
-                else:
-                    raise e
-
+        # If we loaded to CPU due to unknown size, try moving to MPS now
+        if "pending MPS check" in device_name:
+            moved, device_name = try_move_to_mps(self.model, model_id, config)
+            if moved:
+                use_mps = True
+        
         # Move to device (skip if using device_map="auto" as model is already placed)
         if load_kwargs.get("device_map") == "auto":
             # Model is already distributed across devices by accelerate
             self.device = next(self.model.parameters()).device
-        else:
+        elif use_mps and not quantization_config:
             self.device = move_to_device(self.model, use_mps, None)
+        else:
+            self.device = next(self.model.parameters()).device
         log.info("Loaded VLM model: %s on %s", model_id, device_name)
 
     def predict(self, prompt, image=None, time_series_data=None):

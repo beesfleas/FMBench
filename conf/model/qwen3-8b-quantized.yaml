@@ -1,4 +1,3 @@
 model_id: RedHatAI/Qwen3-8B-quantized.w4a16
 model_category: LLM
 max_tokens: 128
-# quantization: 4 

@@ -2,8 +2,9 @@
 from transformers import AutoModel, AutoModelForSeq2SeqLM
 from .base import BaseModelLoader
 from .device_utils import (
-    get_device_config, get_load_kwargs, move_to_device, clear_device_cache,
-    check_mps_model_size
+    get_mps_safe_load_kwargs, try_move_to_mps, move_to_device, 
+    clear_device_cache, handle_mps_errors, MPSMemoryError,
+    get_device_config, get_load_kwargs
 )
 import torch
 import gc
@@ -24,6 +25,7 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
         self.is_arima = False
         self.is_patchtst = False
 
+    @handle_mps_errors
     def load_model(self, config):
         model_id = config.get("model_id")
         self.config = config
@@ -34,13 +36,11 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
             log.info("Initialized ARIMA model (statsmodels). No weights loaded yet (fits per series).")
             return
 
-        # Device configuration
-        use_cuda, use_mps, device_name = get_device_config(config)
+        # Get safe device configuration with pre-flight MPS check
+        load_kwargs, use_cuda, use_mps, device_name, quantization_config = get_mps_safe_load_kwargs(config, model_id)
         log.debug("Device: %s", device_name)
-        
-        load_kwargs = get_load_kwargs(use_cuda, use_mps, None)
         log.debug("Loading model: device_map=%s, dtype=%s",
-                  load_kwargs.get("device_map"), load_kwargs.get("dtype"))
+                  load_kwargs.get("device_map"), load_kwargs.get("torch_dtype"))
         
         try:
             # Check for Moirai
@@ -64,7 +64,9 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
                         model_kwargs={"IS_MOMENT_PIPELINE": True} 
                     )
                     self.model.init()
-                    self.model = self.model.to(device_name.lower() if "cuda" in device_name.lower() else "cpu")
+                    # Use proper device name for moment
+                    moment_device = "cuda" if use_cuda else ("mps" if use_mps else "cpu")
+                    self.model = self.model.to(moment_device)
                 except ImportError:
                      log.warning("momentfm package not found. Attempting to load as standard HF model.")
                      self.model = AutoModel.from_pretrained(model_id, trust_remote_code=True, **load_kwargs)
@@ -110,6 +112,11 @@ class HuggingFaceTimeSeriesLoader(BaseModelLoader):
                 self.model = AutoModel.from_pretrained(model_id, **load_kwargs)
             
             # Post-loading device handling
+            if "pending MPS check" in device_name and self.model and not self.pipeline and not self.is_moment:
+                moved, device_name = try_move_to_mps(self.model, model_id, config)
+                if moved:
+                    use_mps = True
+            
             if not self.pipeline and not self.is_moment and self.model: 
                  self.device = move_to_device(self.model, use_mps, None)
             elif self.pipeline:

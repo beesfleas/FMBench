@@ -5,8 +5,8 @@ import threading
 from .base import BaseModelLoader
 from .streamers import TTFTStreamer
 from .device_utils import (
-    get_device_config, get_quantization_config, get_load_kwargs,
-    check_mps_model_size, move_to_device, clear_device_cache
+    get_mps_safe_load_kwargs, try_move_to_mps, move_to_device, 
+    clear_device_cache, handle_mps_errors, MPSMemoryError
 )
 import gc
 import logging
@@ -19,6 +19,7 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         self.tokenizer = None
         self.config = None
 
+    @handle_mps_errors
     def load_model(self, config):
         model_id = config.get("model_id")
         self.config = config
@@ -28,12 +29,9 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
-        # Device and quantization configuration
-        use_cuda, use_mps, device_name = get_device_config(config)
+        # Get safe device configuration with pre-flight MPS check
+        load_kwargs, use_cuda, use_mps, device_name, quantization_config = get_mps_safe_load_kwargs(config, model_id)
         log.debug("Device: %s", device_name)
-        
-        quantization_config = get_quantization_config(config, use_cuda)
-        load_kwargs = get_load_kwargs(use_cuda, use_mps, quantization_config)
         
         # FlashAttention 2 support
         if config.get("use_flash_attention_2", False):
@@ -41,25 +39,19 @@ class HuggingFaceLLMLoader(BaseModelLoader):
             log.info("FlashAttention 2 enabled")
         
         log.debug("Loading model: device_map=%s, dtype=%s, quantization=%s",
-                  load_kwargs.get("device_map"), load_kwargs.get("dtype"),
+                  load_kwargs.get("device_map"), load_kwargs.get("torch_dtype"),
                   "enabled" if quantization_config else "disabled")
 
         # Load model
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
         
-        # Move to device and check MPS size limits
-        if use_mps and not quantization_config:
-            try:
-                check_mps_model_size(self.model, model_id)
-            except RuntimeError as e:
-                if config.get("allow_mps_fallback", True):
-                    log.warning("Model too large for MPS: %s. Falling back to CPU.", e)
-                    use_mps = False
-                    device_name = "CPU"
-                else:
-                    raise e
+        # If we loaded to CPU due to unknown size, try moving to MPS now
+        if "pending MPS check" in device_name:
+            moved, device_name = try_move_to_mps(self.model, model_id, config)
+        elif use_mps and not quantization_config:
+            # Ensure model is on the right device
+            move_to_device(self.model, use_mps, quantization_config)
         
-        move_to_device(self.model, use_mps, quantization_config)
         log.info("Model loaded: %s on %s", model_id, device_name)
 
     def predict(self, prompt, image=None, time_series_data=None):

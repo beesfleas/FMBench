@@ -28,8 +28,8 @@ from generate_graphs import main as generate_graphs
 # =============================================================================
 
 DEVICE_LEVEL = "Server"  # Default: "SoC", "Mobile", or "Server"
-GLOBAL_SETTINGS = {"save_logs": "true"}
-DEFAULT_NUM_SAMPLES = "100"
+GLOBAL_SETTINGS = {}
+DEFAULT_NUM_SAMPLES = "10"
 
 # Device capability limits (in billions of parameters)
 DEVICE_LIMITS = {
@@ -53,20 +53,20 @@ KNOWN_MODELS = {
 BENCHMARK_CONFIG = {
     "LLM": {
         "models": [
+            "qwen3-0.6b",
+            "qwen3-0.6b-quantized",
+
             "llama3.2-1b",
             "llama3.2-1b-quantized",
-            "llama3.2-3b",
-            "llama3.2-3b-quantized",
+
             "qwen2.5-1.5b",
             "qwen2.5-1.5b-quantized",
+
+            "qwen3-4b",
+            "qwen3-4b-quantized",
+
             "qwen2.5-7b",
             "qwen2.5-7b-quantized",
-            "llama2-7b",
-            "llama2-7b-quantized",
-            "falcon-7b",
-            "falcon-7b-quantized",
-            "qwen3-8b",
-            "qwen3-8b-quantized",
         ],
         "scenarios": {
             "idle": {"scenario.idle_duration": "10", "_skip_num_samples": True},
@@ -114,11 +114,7 @@ def load_model_config(model_name: str) -> Optional[Dict]:
     config_path = Path("conf/model") / f"{model_name}.yaml"
     if not config_path.exists():
         return None
-    try:
-        return OmegaConf.load(config_path)
-    except Exception:
-        # log.warning(f"Failed to load model config: {config_path}")
-        return None
+    return OmegaConf.load(config_path)
 
 
 def get_model_category(model_name: str) -> str:
