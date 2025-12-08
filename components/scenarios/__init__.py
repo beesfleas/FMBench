@@ -6,8 +6,6 @@ from .base import BaseScenario
 from .scenarios import Scenario, FMBenchLLM
 from .dataset_scenario import DatasetScenario
 from .reasoning_tasks import ReasoningScenario
-from .helm_tasks import HELMScenario
-from .nlp_tasks import NLPScenario
 from .perplexity_scenario import PerplexityScenario
 from .common_nlp_scenarios import (
     SentimentScenario,
@@ -23,8 +21,6 @@ __all__ = [
     "FMBenchLLM",
     "DatasetScenario",
     "ReasoningScenario",
-    "HELMScenario",
-    "NLPScenario",
     "PerplexityScenario",
     "SentimentScenario",
     "SummarizationScenario",

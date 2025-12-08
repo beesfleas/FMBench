@@ -3,15 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <!DOCTYPE html>
-    <html lang="en">
-
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Tutorial - FMBench</title>
-        <link rel="stylesheet" href="style.css">
-    </head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quickstart Guide - FMBench</title>
+    <link rel="stylesheet" href="style.css">
+</head>
 
 <body>
     <div class="sidebar">
@@ -23,19 +18,40 @@
                 <li><a href="report.html">Report</a></li>
                 <li><a href="data_appendix.html">Data Appendix</a></li>
                 <li><a href="supplementary.html">Supplementary</a></li>
-                <li><a href="tutorial.html" class="active">Tutorial</a></li>
+                <li><a href="tutorial.html" class="active">Quickstart Guide</a></li>
+                <li><a href="references.html">References</a></li>
             </ul>
         </nav>
     </div>
 
     <div class="main-content">
-        <h1>Tutorial</h1>
+        <h1>Quickstart Guide</h1>
 
         <section class="section">
-            <h2>Quickstart Guide</h2>
-            <p>Welcome to FMBench! This guide shows you how to choose models and scenarios to run your benchmarks.</p>
+            <h2>Installation</h2>
 
-            <h3>1. Model Classes</h3>
+            <h3>Prerequisites</h3>
+            <ul>
+                <li>Python 3.8+</li>
+                <li>pip</li>
+            </ul>
+
+            <h3>Setup</h3>
+            <pre><code># Clone the repository
+git clone https://github.com/beesfleas/FMBench
+cd FMBench
+
+# Install dependencies
+pip install -r requirements.txt
+
+# (Optional) For quantization support
+pip install bitsandbytes</code></pre>
+        </section>
+
+        <hr>
+
+        <section class="section">
+            <h2>Model Classes</h2>
             <p>FMBench supports three main classes of models:</p>
             <ul>
                 <li><strong>LLM (Large Language Model)</strong>: For text generation and NLP tasks.</li>
@@ -43,73 +59,78 @@
                 <li><strong>Time Series</strong>: For forecasting and time-series analysis tasks.</li>
             </ul>
 
-            <h3>2. Available Scenarios</h3>
+            <h2>Available Scenarios</h2>
             <p>Scenarios define the tasks and datasets used for benchmarking. Here are the available scenarios:</p>
 
-            <h4>Language & Knowledge (LLM)</h4>
+            <h3>Language & Knowledge (LLM)</h3>
             <ul>
-                <li><code>common_nlp_scenarios</code>: General NLP tasks including:
-                    <ul>
-                        <li>Sentiment Analysis (<code>sentiment</code>)</li>
-                        <li>Summarization (<code>summarization</code>)</li>
-                        <li>Named Entity Recognition (<code>ner</code>)</li>
-                        <li>Text Classification (<code>classification</code>)</li>
-                        <li>Translation (<code>translation</code>)</li>
-                    </ul>
-                </li>
-                <li><code>mmlu_scenarios</code>: Measuring Massive Multitask Language Understanding.</li>
-                <li><code>long_context</code>: Evaluation on long context windows.</li>
+                <li><code>sentiment</code>: Sentiment analysis on IMDB movie reviews.</li>
+                <li><code>summarization</code>: Abstractive summarization using CNN/DailyMail.</li>
+                <li><code>ner</code>: Named Entity Recognition on WikiANN.</li>
+                <li><code>classification</code>: Text classification on AG News.</li>
+                <li><code>translation</code>: Machine translation (German to English) on WMT16.</li>
                 <li><code>arc_challenge</code> / <code>arc_easy</code>: AI2 Reasoning Challenge.</li>
-                <li><code>countbenchqa</code>: Counting capabilities.</li>
+                <li><code>mmlu</code>: Massive Multitask Language Understanding benchmark.</li>
                 <li><code>helm</code>: Holistic Evaluation of Language Models.</li>
                 <li><code>perplexity_c4</code> / <code>perplexity_wikitext2</code>: Perplexity evaluation.</li>
+                <li><code>long_context</code>: Long context window evaluation.</li>
             </ul>
 
-            <h4>Vision & Multimodal (VLM)</h4>
+            <h3>Vision & Multimodal (VLM)</h3>
             <ul>
-                <li><code>common_vlm_scenarios</code>: Standard visual tasks.</li>
+                <li><code>countbenchqa</code>: Visual counting question answering.</li>
                 <li><code>docvqa</code>: Document Visual Question Answering.</li>
-                <li><code>vqa</code>: Visual Question Answering.</li>
+                <li><code>vqa</code>: Visual Question Answering v2.</li>
+                <li><code>gtsrb</code>: German Traffic Sign Recognition.</li>
+                <li><code>hagrid</code>: Hand Gesture Recognition.</li>
                 <li><code>simple_vlm</code>: Basic VLM test scenario.</li>
             </ul>
 
-            <h4>Time Series</h4>
+            <h3>Time Series</h3>
             <ul>
-                <li><code>custom_timeseries</code>: Custom forecasting scenarios.</li>
+                <li><code>ett</code>: Electricity Transformer Temperature forecasting.</li>
+                <li><code>gifteval</code>: Zero-shot time series forecasting.</li>
+                <li><code>m3_monthly</code>: M3 competition monthly forecasting.</li>
                 <li><code>simple_timeseries</code>: Basic time series test scenario.</li>
             </ul>
 
-            <h3>3. Running a Benchmark</h3>
+            <h2>Running a Benchmark</h2>
             <p>To run a benchmark, use the <code>run.py</code> script. You can configure the run using flags.</p>
 
             <pre><code>python run.py</code></pre>
 
-            <h4>Common Flags</h4>
+            <h3>Common Flags</h3>
             <ul>
-                <li><code>num_samples</code>: (int) Number of samples to run from the dataset (default: all or subset).
+                <li><code>model=&lt;model_name&gt;</code>: (string) Select a specific model configuration.</li>
+                <li><code>scenario=&lt;scenario_name&gt;</code>: (string) Name of the scenario to run.</li>
+                <li><code>num_samples=&lt;N&gt;</code>: (int) Number of samples to run from the dataset.</li>
+                <li><code>device=&lt;device_type&gt;</code>: (string) Device to use (auto, cpu, gpu, mac, jetson, pi).
                 </li>
-                <li><code>model.loader_type</code>: (string) Specific loader to use (e.g., <code>vllm</code>,
-                    <code>huggingface</code>).</li>
-                <li><code>scenario.name</code>: (string) Name of the scenario to run.</li>
+                <li><code>model.loader_type=&lt;loader&gt;</code>: (string) Specific loader to use (e.g.,
+                    <code>vllm</code>, <code>huggingface</code>).</li>
+                <li><code>model.quantization=&lt;bits&gt;</code>: (int) Enable quantization (4 or 8 bit).</li>
+                <li><code>model.max_tokens=&lt;N&gt;</code>: (int) Maximum tokens for generation.</li>
+                <li><code>model.device_preference=&lt;device&gt;</code>: (string) Preferred device for model (auto, cpu,
+                    cuda, mps).</li>
+                <li><code>log_level=&lt;level&gt;</code>: (string) Logging level (DEBUG, INFO, WARNING, ERROR).</li>
+                <li><code>save_logs=&lt;bool&gt;</code>: (bool) Save logs to file.</li>
+                <li><code>sampling_interval=&lt;seconds&gt;</code>: (float) Profiling sampling interval in seconds.</li>
+                <li><code>scenario.slo_threshold=&lt;N&gt;</code>: (int) SLO violation threshold for CountBenchQA (e.g.,
+                    if |predicted - target| > N, it's a violation).</li>
             </ul>
-        </section>
 
-        <hr>
+            <h3>Example Commands</h3>
+            <pre><code># Run sentiment analysis with a small model
+python run.py model=distilgpt2 scenario=sentiment num_samples=100
 
-        <section class="section">
-            <h2>Detailed Instructions</h2>
-            <h3>Prerequisites</h3>
-            <p>[List prerequisites here...]</p>
+# Run VLM counting task with SLO tracking
+python run.py model=smolvlm scenario=countbenchqa scenario.slo_threshold=2
 
-            <h3>Installation</h3>
-            <pre><code># Example command
-git clone https://github.com/beesfleas/FMBench
-cd FMBench
-pip install -r requirements.txt</code></pre>
+# Run with quantization on a large model
+python run.py model=qwen2.5 scenario=summarization model.quantization=4
 
-            <h3>Configuration</h3>
-            <p>You can configure the benchmark runs by modifying the `conf/` files or overriding them via command line.
-            </p>
+# Run time series forecasting
+python run.py model=timegpt1 scenario=ett num_samples=50</code></pre>
         </section>
 
         <footer>
