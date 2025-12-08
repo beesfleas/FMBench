@@ -1,3 +1,4 @@
 model_id: huggingface/time-series-transformer-tourism-monthly
 model_category: TIME_SERIES
 max_tokens: 64
+use_flash_attention_2: false
