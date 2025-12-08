@@ -1,8 +1,0 @@
-name: HELM MMLU
-_target_: components.scenarios.helm_tasks.HELMScenario
-description: MMLU Benchmark (HELM style)
-dataset_name: cais/mmlu
-dataset_config: all
-split: test
-num_samples: 20
-prompt_template: "{input}"
