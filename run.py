@@ -106,7 +106,7 @@ class TransformersVersionError(Exception):
     pass
 
 
-def _parse_version_spec(spec: str) -> tuple[str, str, str]:
+def _parse_version_spec(spec: str) -> Tuple[str, str, str]:
     """
     Parse a version specification like 'transformers>=4.41.0' or 'transformers==4.33.3'.
     
