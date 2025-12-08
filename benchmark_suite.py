@@ -17,15 +17,30 @@ GLOBAL_SETTINGS = {
 
 # Models to benchmark (runs all scenarios for each model)
 MODELS = [
-    "tinyllama",
     "qwen2.5-1.5b",
-    "falcon-7b",
-    "llama3-1b",
+    "qwen2.5-1.5b-quantized",
+    "qwen2.5-7b",
+    "qwen2.5-7b-quantized",
+    "qwen3-0.6b",
+    "qwen3-0.6b-quantized",
+    "qwen3-4b",
+    "qwen3-4b-quantized",
+    "qwen3-8b",
+    "qwen3-8b-quantized",
+
     "llama2-7b",
+    "llama2-7b-quantized",
+    "llama3.2-1b",
+    "llama3.2-1b-quantized",
+    "llama3.2-3b",
+    "llama3.2-3b-quantized",
+
+    "falcon-7b",
+    "falcon-7b-quantized",
 ]
 
 # Default num_samples for scenarios (set to None to disable)
-DEFAULT_NUM_SAMPLES = "20"
+DEFAULT_NUM_SAMPLES = "100"
 
 # Scenarios with optional overrides (name -> extra params dict or None)
 # If a scenario has no overrides, use None or {}
@@ -40,6 +55,8 @@ SCENARIOS = {
     "sentiment":            {},
     "summarization":        {},
     "translation":          {},
+    "summarization":        {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+    "translation":          {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
 }
 
 # =============================================================================

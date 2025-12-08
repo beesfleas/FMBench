@@ -6,7 +6,7 @@ allow_mps_fallback: true # Allow fallback to CPU if model is too large for MPS (
 
 defaults:
   - _self_
-  - model: distilgpt2 # tiny model for debugging
+  - model: qwen3-0.6b # tiny model for debugging
   - device: auto
   - scenario: simple_llm
 
