@@ -3,7 +3,7 @@ description: Visual counting QA benchmark
 _target_: components.scenarios.common_vlm_scenarios.CountBenchQAScenario
 dataset_name: vikhyatk/CountBenchQA
 split: test
-num_samples: 10
+num_samples: 20
 image_key: image
 question_key: question
 target_key: number

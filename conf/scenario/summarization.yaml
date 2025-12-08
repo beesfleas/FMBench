@@ -5,6 +5,6 @@ dataset_config: "3.0.0"
 split: test
 input_key: article
 target_key: highlights
-num_samples: 5
+num_samples: 20
 prompt_template: "Summarize the following article.\n\nArticle: {input}\n\nSummary:"
 use_expensive_metrics: false

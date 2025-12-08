@@ -4,5 +4,5 @@ description: MMLU Benchmark (HELM style)
 dataset_name: cais/mmlu
 dataset_config: all
 split: test
-num_samples: 10
+num_samples: 20
 prompt_template: "{input}"

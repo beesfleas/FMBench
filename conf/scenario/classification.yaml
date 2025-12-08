@@ -10,5 +10,5 @@ label_map:
   1: "Sports"
   2: "Business"
   3: "Sci/Tech"
-num_samples: 5
+num_samples: 20
 prompt_template: "Classify the news article into one of the following categories: World, Sports, Business, Sci/Tech.\n\nArticle: {input}\n\nCategory:"

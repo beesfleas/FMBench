@@ -7,4 +7,4 @@ image_key: image
 question_key: question
 target_key: answers
 prompt_template: "Question: {question}\nAnswer:"
-num_samples: 50
+num_samples: 20

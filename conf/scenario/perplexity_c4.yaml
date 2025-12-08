@@ -5,5 +5,5 @@ dataset_config: en
 split: validation
 streaming: true
 text_column: text
-num_samples: 100
+num_samples: 20
 prompt_template: "{input}"
