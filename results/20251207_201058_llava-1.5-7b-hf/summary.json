@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "model_id": "llava-hf/llava-1.5-7b-hf",
+    "model_category": "VLM",
+    "scenario": "CountBenchQA",
+    "timestamp": "2025-12-07 20:11:11",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201058_llava-1.5-7b-hf"
+  },
+  "accuracy": 0.5,
+  "first_token_ttft": 0.12864112854003906,
+  "total_samples": 2,
+  "slo_violations": 0,
+  "slo_total_evaluated": 2,
+  "slo_violation_pct": 0.0,
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 28,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201058_llava-1.5-7b-hf\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 39.51481481481482,
+      "peak_cpu_utilization_percent": 63.4,
+      "min_cpu_utilization_percent": 26.5,
+      "average_memory_mb": 14139.119838169643,
+      "peak_memory_mb": 15735.78515625,
+      "min_memory_mb": 10198.59765625,
+      "average_memory_utilization_percent": 86.69285714285715,
+      "peak_memory_utilization_percent": 96.5,
+      "min_memory_utilization_percent": 62.5,
+      "monitoring_duration_seconds": 27.185869900044054,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 28,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201058_llava-1.5-7b-hf\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 125.609,
+      "average_power_watts": 60.690214285714276,
+      "min_power_watts": 38.594,
+      "total_energy_joules": 1699.3259999999998,
+      "peak_temp_c": 71,
+      "average_temp_c": 67.42857142857143,
+      "min_temp_c": 65,
+      "peak_memory_mb": 7866.67578125,
+      "average_memory_mb": 7492.738839285715,
+      "min_memory_mb": 7023.5078125,
+      "peak_utilization_percent": 99,
+      "average_utilization_percent": 54.464285714285715,
+      "min_utilization_percent": 6,
+      "monitoring_duration_seconds": 27.184306799899787,
+      "sampling_interval": 1
+    }
+  }
+}

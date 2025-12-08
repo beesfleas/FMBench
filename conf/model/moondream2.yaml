@@ -1,0 +1,4 @@
+model_id: vikhyatk/moondream2
+model_category: VLM
+max_tokens: 256
+use_flash_attention_2: false

@@ -1,0 +1,4 @@
+model_id: statsmodels/arima
+model_category: TIME_SERIES
+# ARIMA settings
+prediction_length: 18 # Standard for M3

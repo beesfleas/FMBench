@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "model_id": "llava-hf/llava-1.5-7b-hf",
+    "model_category": "VLM",
+    "scenario": "VQAv2",
+    "timestamp": "2025-12-07 20:14:05",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201348_llava-1.5-7b-hf"
+  },
+  "accuracy": 0.0,
+  "first_token_ttft": 0.050458669662475586,
+  "total_samples": 2,
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 19,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201348_llava-1.5-7b-hf\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 44.44444444444445,
+      "peak_cpu_utilization_percent": 70.3,
+      "min_cpu_utilization_percent": 34.3,
+      "average_memory_mb": 13906.306743421053,
+      "peak_memory_mb": 15689.1015625,
+      "min_memory_mb": 9722.0546875,
+      "average_memory_utilization_percent": 85.26315789473686,
+      "peak_memory_utilization_percent": 96.2,
+      "min_memory_utilization_percent": 59.6,
+      "monitoring_duration_seconds": 18.113191100303084,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 19,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_201348_llava-1.5-7b-hf\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 132.047,
+      "average_power_watts": 62.31121052631579,
+      "min_power_watts": 44.62,
+      "total_energy_joules": 1183.913,
+      "peak_temp_c": 72,
+      "average_temp_c": 67.78947368421052,
+      "min_temp_c": 66,
+      "peak_memory_mb": 7682.85546875,
+      "average_memory_mb": 7465.518297697368,
+      "min_memory_mb": 6976.79296875,
+      "peak_utilization_percent": 98,
+      "average_utilization_percent": 53.1578947368421,
+      "min_utilization_percent": 12,
+      "monitoring_duration_seconds": 18.12833009986207,
+      "sampling_interval": 1
+    }
+  }
+}

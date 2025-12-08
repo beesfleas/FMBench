@@ -1,0 +1,7 @@
+model_id: Salesforce/moirai-2.0-R-small
+model_category: TIME_SERIES
+# Moirai specific settings
+prediction_length: 18
+context_length: 512
+patch_size: 32 # Common for Moirai
+num_samples: 20

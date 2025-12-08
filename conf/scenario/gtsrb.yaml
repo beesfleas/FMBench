@@ -1,0 +1,11 @@
+name: GTSRB
+description: German Traffic Sign Recognition Benchmark - 43-class traffic sign classification
+_target_: components.scenarios.common_vlm_scenarios.GTSRBScenario
+dataset_name: tanganke/GTSRB
+dataset_config: null
+split: test
+num_samples: 10
+image_key: image
+target_key: label
+prompt_template: "User: <image>\nWhat type of traffic sign is shown in this image? Identify the traffic sign from these categories: Speed limit signs (20-120 km/h), Stop, Yield, No entry, No passing, Priority road, Keep right/left, Turn right/left ahead, Ahead only, Roundabout, Road work, Pedestrians, Children crossing, etc.\nAssistant:"
+trust_remote_code: True

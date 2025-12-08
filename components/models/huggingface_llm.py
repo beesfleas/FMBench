@@ -35,6 +35,11 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         quantization_config = get_quantization_config(config, use_cuda)
         load_kwargs = get_load_kwargs(use_cuda, use_mps, quantization_config)
         
+        # FlashAttention 2 support
+        if config.get("use_flash_attention_2", False):
+            load_kwargs["attn_implementation"] = "flash_attention_2"
+            log.info("FlashAttention 2 enabled")
+        
         log.debug("Loading model: device_map=%s, dtype=%s, quantization=%s",
                   load_kwargs.get("device_map"), load_kwargs.get("dtype"),
                   "enabled" if quantization_config else "disabled")

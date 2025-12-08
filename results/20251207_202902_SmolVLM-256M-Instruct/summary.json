@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "model_id": "HuggingfaceTB/SmolVLM-256M-Instruct",
+    "model_category": "VLM",
+    "scenario": "GTSRB",
+    "timestamp": "2025-12-07 20:29:11",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_202902_SmolVLM-256M-Instruct"
+  },
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 2,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_202902_SmolVLM-256M-Instruct\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 37.7,
+      "peak_cpu_utilization_percent": 37.7,
+      "min_cpu_utilization_percent": 37.7,
+      "average_memory_mb": 9771.98828125,
+      "peak_memory_mb": 9860.2421875,
+      "min_memory_mb": 9683.734375,
+      "average_memory_utilization_percent": 59.95,
+      "peak_memory_utilization_percent": 60.5,
+      "min_memory_utilization_percent": 59.4,
+      "monitoring_duration_seconds": 1.005080099683255,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 2,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_202902_SmolVLM-256M-Instruct\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 33.883,
+      "average_power_watts": 33.795500000000004,
+      "min_power_watts": 33.708,
+      "total_energy_joules": 67.59100000000001,
+      "peak_temp_c": 56,
+      "average_temp_c": 56.0,
+      "min_temp_c": 56,
+      "peak_memory_mb": 1632.765625,
+      "average_memory_mb": 1626.046875,
+      "min_memory_mb": 1619.328125,
+      "peak_utilization_percent": 7,
+      "average_utilization_percent": 6.5,
+      "min_utilization_percent": 6,
+      "monitoring_duration_seconds": 1.0033764000982046,
+      "sampling_interval": 1
+    }
+  }
+}

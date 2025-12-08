@@ -1,0 +1,8 @@
+name: M3 Monthly Forecasting
+description: Monthly time series forecasting task from M3 competition
+_target_: components.scenarios.common_timeseries_scenarios.M3Scenario
+dataset_name: monash_tsf
+subset: m3_monthly
+prediction_length: 18
+limit: 50 # Limit for benchmarking speed
+num_samples: null # Allow override

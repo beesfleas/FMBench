@@ -1,0 +1,50 @@
+{
+  "metadata": {
+    "model_id": "llava-hf/llava-1.5-7b-hf",
+    "model_category": "VLM",
+    "scenario": "GTSRB",
+    "timestamp": "2025-12-07 20:07:49",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_200735_llava-1.5-7b-hf"
+  },
+  "accuracy": 1.0,
+  "first_token_ttft": 0.12458300590515137,
+  "total_samples": 2,
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 166,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_200735_llava-1.5-7b-hf\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 44.421212121212136,
+      "peak_cpu_utilization_percent": 81.1,
+      "min_cpu_utilization_percent": 27.8,
+      "average_memory_mb": 14753.803487387047,
+      "peak_memory_mb": 15596.703125,
+      "min_memory_mb": 10648.31640625,
+      "average_memory_utilization_percent": 90.46445783132528,
+      "peak_memory_utilization_percent": 95.6,
+      "min_memory_utilization_percent": 65.3,
+      "monitoring_duration_seconds": 166.12142730038613,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 166,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_200735_llava-1.5-7b-hf\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 127.23,
+      "average_power_watts": 49.12807831325299,
+      "min_power_watts": 37.207,
+      "total_energy_joules": 8155.260999999997,
+      "peak_temp_c": 73,
+      "average_temp_c": 68.16265060240964,
+      "min_temp_c": 65,
+      "peak_memory_mb": 7858.515625,
+      "average_memory_mb": 7576.095867846386,
+      "min_memory_mb": 7030.2734375,
+      "peak_utilization_percent": 97,
+      "average_utilization_percent": 48.1566265060241,
+      "min_utilization_percent": 7,
+      "monitoring_duration_seconds": 166.11282679997385,
+      "sampling_interval": 1
+    }
+  }
+}

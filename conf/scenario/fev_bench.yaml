@@ -1,0 +1,8 @@
+name: FEV-Bench
+description: Time series forecasting benchmark (autogluon/fev_datasets)
+_target_: components.scenarios.common_timeseries_scenarios.FevBenchScenario
+dataset_name: autogluon/fev_datasets
+subset: ETT_1H
+target_column: OT
+prediction_length: 24
+limit: 50

@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "model_id": "llava-hf/llava-1.5-7b-hf",
+    "model_category": "VLM",
+    "scenario": "HaGRID",
+    "timestamp": "2025-12-07 19:33:52",
+    "results_dir": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_193313_llava-1.5-7b-hf"
+  },
+  "device_metrics": {
+    "localcpuprofiler": {
+      "device_name": "Intel64 Family 6 Model 158 Stepping 10, GenuineIntel",
+      "num_samples": 18,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_193313_llava-1.5-7b-hf\\cpu_profiler.csv",
+      "average_cpu_utilization_percent": 40.35294117647059,
+      "peak_cpu_utilization_percent": 54.9,
+      "min_cpu_utilization_percent": 31.7,
+      "average_memory_mb": 14369.879774305555,
+      "peak_memory_mb": 14633.5703125,
+      "min_memory_mb": 14150.625,
+      "average_memory_utilization_percent": 88.11666666666666,
+      "peak_memory_utilization_percent": 89.7,
+      "min_memory_utilization_percent": 86.8,
+      "monitoring_duration_seconds": 17.09792359964922,
+      "sampling_interval": 1
+    },
+    "nvidiagpuprofiler_gpu0": {
+      "device_name": "NVIDIA GeForce GTX 1070 (GPU 0)",
+      "num_samples": 17,
+      "csv_filepath": "C:\\Users\\Inesh\\OneDrive\\Documents\\FMBench\\results\\20251207_193313_llava-1.5-7b-hf\\nvidia_gpu_profiler_gpu0.csv",
+      "peak_power_watts": 64.163,
+      "average_power_watts": 46.86823529411765,
+      "min_power_watts": 13.257,
+      "total_energy_joules": 796.7600000000001,
+      "peak_temp_c": 57,
+      "average_temp_c": 55.1764705882353,
+      "min_temp_c": 53,
+      "peak_memory_mb": 8042.09765625,
+      "average_memory_mb": 8007.970358455882,
+      "min_memory_mb": 7979.70703125,
+      "peak_utilization_percent": 100,
+      "average_utilization_percent": 91.17647058823529,
+      "min_utilization_percent": 12,
+      "monitoring_duration_seconds": 16.105120699852705,
+      "sampling_interval": 1
+    }
+  }
+}

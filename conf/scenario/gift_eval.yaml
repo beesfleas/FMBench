@@ -1,0 +1,7 @@
+name: GIFT-EVAL
+description: Zero-shot time series forecasting on Salesforce/GiftEval
+_target_: components.scenarios.common_timeseries_scenarios.GiftEvalScenario
+dataset_name: Salesforce/GiftEval
+subset: default
+prediction_length: 24
+limit: 50
