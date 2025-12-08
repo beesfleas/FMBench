@@ -9,7 +9,6 @@ delegating to the core benchmark runner.
 
 import os
 import sys
-import subprocess
 from importlib.metadata import version, PackageNotFoundError
 
 # =============================================================================
@@ -101,18 +100,49 @@ def _detect_required_transformers_version() -> tuple[str | None, str | None]:
     return None, None
 
 
-def _install_and_restart(version_spec: str) -> None:
-    """Install a specific transformers version and restart the process."""
-    subprocess.check_call([sys.executable, "-m", "pip", "install", version_spec])
-    print("[AUTO-INSTALL] Installation complete. Restarting process...")
-    print("-" * 50)
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+class TransformersVersionError(Exception):
+    """Raised when the installed transformers version doesn't match requirements."""
+    pass
 
 
-def _ensure_correct_transformers_version() -> None:
+def _parse_version_spec(spec: str) -> tuple[str, str, str]:
     """
-    Ensure the correct transformers version is installed for the target model.
+    Parse a version specification like 'transformers>=4.41.0' or 'transformers==4.33.3'.
     
+    Returns:
+        Tuple of (package_name, operator, version)
+    """
+    import re
+    match = re.match(r'(\w+)(>=|==|<=|>|<)(.+)', spec)
+    if match:
+        return match.groups()
+    return spec, ">=", "0.0.0"
+
+
+def _version_matches(current: str, operator: str, required: str) -> bool:
+    """Check if current version matches the requirement."""
+    from packaging.version import Version
+    current_v = Version(current)
+    required_v = Version(required)
+    
+    if operator == ">=":
+        return current_v >= required_v
+    elif operator == "==":
+        return current_v == required_v
+    elif operator == "<=":
+        return current_v <= required_v
+    elif operator == ">":
+        return current_v > required_v
+    elif operator == "<":
+        return current_v < required_v
+    return True
+
+
+def _check_transformers_version() -> None:
+    """
+    Check that the correct transformers version is installed for the target model.
+    
+    Raises TransformersVersionError if the installed version doesn't match requirements.
     Legacy models (e.g., Moment) require older transformers versions,
     while modern models benefit from the latest version.
     """
@@ -122,21 +152,34 @@ def _ensure_correct_transformers_version() -> None:
         return
     
     try:
-        current_dist = pkg_resources.get_distribution("transformers")
-        current_version = current_dist.version
-        req = pkg_resources.Requirement.parse(target_spec)
+        current_version = version("transformers")
+        _, operator, required_version = _parse_version_spec(target_spec)
         
-        if current_version not in req:
-            print(f"[AUTO-INSTALL] {reason}. "
-                  f"Current transformers={current_version} does not match {target_spec}.")
-            print(f"[AUTO-INSTALL] Installing {target_spec}...")
-            _install_and_restart(target_spec)
+        if not _version_matches(current_version, operator, required_version):
+            raise TransformersVersionError(
+                f"\n{'='*60}\n"
+                f"TRANSFORMERS VERSION MISMATCH\n"
+                f"{'='*60}\n"
+                f"Reason: {reason}\n"
+                f"Current version: transformers=={current_version}\n"
+                f"Required version: {target_spec}\n"
+                f"\n"
+                f"Please install the correct version:\n"
+                f"  pip install '{target_spec}'\n"
+                f"{'='*60}"
+            )
             
-    except pkg_resources.DistributionNotFound:
-        print("[AUTO-INSTALL] transformers not found. Installing default...")
-        _install_and_restart(NEW_TRANSFORMERS)
-    except Exception as e:
-        print(f"[AUTO-INSTALL] Warning: Failed to check/update transformers: {e}")
+    except PackageNotFoundError:
+        raise TransformersVersionError(
+            f"\n{'='*60}\n"
+            f"TRANSFORMERS NOT INSTALLED\n"
+            f"{'='*60}\n"
+            f"The 'transformers' package is required but not installed.\n"
+            f"\n"
+            f"Please install it:\n"
+            f"  pip install '{NEW_TRANSFORMERS}'\n"
+            f"{'='*60}"
+        )
 
 
 # =============================================================================
@@ -146,8 +189,8 @@ def _ensure_correct_transformers_version() -> None:
 # Apply platform-specific patches
 _setup_jetson_compatibility()
 
-# Ensure correct transformers version before importing dependent modules
-_ensure_correct_transformers_version()
+# Check transformers version before importing dependent modules
+_check_transformers_version()
 
 # Prevent tokenizer fork warnings
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
