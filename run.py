@@ -10,7 +10,7 @@ delegating to the core benchmark runner.
 import os
 import sys
 import subprocess
-import pkg_resources
+from importlib.metadata import version, PackageNotFoundError
 
 # =============================================================================
 # Constants

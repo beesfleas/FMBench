@@ -70,6 +70,7 @@ class MacProfiler(BaseDeviceProfiler):
                    if any(x in l for x in ['Model', 'Processor', 'Memory'])]
             return f"{self.device_name} {' | '.join(info)}"
         except Exception:
+            log.warning("Failed to get device info")
             return self.device_name
 
     def _start_powermetrics_process(self):
@@ -154,6 +155,7 @@ class MacProfiler(BaseDeviceProfiler):
                 "gpu_active_frequency_mhz": None
             }
         except Exception:
+            log.warning("Failed to get psutil metrics")
             sample = {
                 "timestamp": now - self.start_time,
                 "cpu_utilization_percent": None,
@@ -276,10 +278,10 @@ class MacProfiler(BaseDeviceProfiler):
                         self.powermetrics_process.wait(timeout=1.0)
                     except subprocess.TimeoutExpired:
                         self.powermetrics_process.kill()
-                    
                     if self.powermetrics_process.stdout:
                         current_block += self.powermetrics_process.stdout.read()
                 except Exception:
+                    log.warning("Failed to get powermetrics metrics")
                     pass
                 self.powermetrics_process = None
 

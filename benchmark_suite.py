@@ -115,6 +115,7 @@ def load_model_config(model_name: str) -> Optional[Dict]:
     try:
         return OmegaConf.load(config_path)
     except Exception:
+        log.warning(f"Failed to load model config: {config_path}")
         return None
 
 
