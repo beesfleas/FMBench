@@ -343,3 +343,154 @@ class CountBenchQAScenario(DatasetScenario):
                 metrics["slo_violation"] = 1.0 if diff > slo_threshold else 0.0
         
         return metrics
+
+
+class GTSRBScenario(DatasetScenario):
+    """
+    Scenario for GTSRB (German Traffic Sign Recognition Benchmark).
+    Evaluates VLMs on classifying traffic signs into 43 categories.
+    """
+    # Default traffic sign class names (GTSRB has 43 classes)
+    DEFAULT_LABEL_MAP = {
+        0: "Speed limit 20",
+        1: "Speed limit 30",
+        2: "Speed limit 50",
+        3: "Speed limit 60",
+        4: "Speed limit 70",
+        5: "Speed limit 80",
+        6: "End of speed limit 80",
+        7: "Speed limit 100",
+        8: "Speed limit 120",
+        9: "No passing",
+        10: "No passing for vehicles over 3.5t",
+        11: "Right-of-way at next intersection",
+        12: "Priority road",
+        13: "Yield",
+        14: "Stop",
+        15: "No vehicles",
+        16: "Vehicles over 3.5t prohibited",
+        17: "No entry",
+        18: "General caution",
+        19: "Dangerous curve left",
+        20: "Dangerous curve right",
+        21: "Double curve",
+        22: "Bumpy road",
+        23: "Slippery road",
+        24: "Road narrows on right",
+        25: "Road work",
+        26: "Traffic signals",
+        27: "Pedestrians",
+        28: "Children crossing",
+        29: "Bicycles crossing",
+        30: "Beware of ice/snow",
+        31: "Wild animals crossing",
+        32: "End of all speed and passing limits",
+        33: "Turn right ahead",
+        34: "Turn left ahead",
+        35: "Ahead only",
+        36: "Go straight or right",
+        37: "Go straight or left",
+        38: "Keep right",
+        39: "Keep left",
+        40: "Roundabout mandatory",
+        41: "End of no passing",
+        42: "End of no passing for vehicles over 3.5t",
+    }
+
+    def process_dataset(self, dataset) -> List[Dict[str, Any]]:
+        tasks = []
+        image_key = self.config.get("image_key", "image")
+        target_key = self.config.get("target_key", "label")
+        
+        # Get label map from config or use default
+        label_map = self.config.get("label_map", self.DEFAULT_LABEL_MAP)
+        # Convert string keys to int if necessary
+        if label_map and isinstance(next(iter(label_map.keys())), str):
+            label_map = {int(k): v for k, v in label_map.items()}
+        
+        # Get prompt template
+        prompt_template = self.config.get(
+            "prompt_template", 
+            "What type of traffic sign is shown in this image? Answer with only the sign name."
+        )
+        
+        # Build list of class names for the prompt if needed
+        class_names = list(label_map.values()) if label_map else []
+
+        for item in dataset:
+            image = item.get(image_key)
+            label = item.get(target_key)
+            
+            if image is None or label is None:
+                continue
+            
+            # Convert label to class name
+            if isinstance(label, int) and label_map:
+                target_name = label_map.get(label, f"Class {label}")
+            else:
+                target_name = str(label)
+            
+            tasks.append({
+                "image": image,
+                "input": prompt_template,
+                "prompt": prompt_template,
+                "target": target_name,
+                "target_label": label,  # Keep original label for reference
+                "type": "gtsrb",
+                "class_names": class_names,  # Available classes
+            })
+        return tasks
+
+    def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Compute accuracy for GTSRB classification.
+        Checks if the target class name is present in the model output.
+        """
+        metrics = {"accuracy": 0.0}
+        
+        if target is None:
+            return metrics
+        
+        # Normalize strings for comparison
+        output_norm = output.lower().strip()
+        target_norm = str(target).lower().strip()
+        
+        # Exact match
+        if target_norm == output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Containment match - target in output
+        if target_norm in output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Check for key terms match (e.g., "speed limit 30" contains "30")
+        # Extract numbers from both
+        import re
+        target_numbers = re.findall(r'\d+', target_norm)
+        output_numbers = re.findall(r'\d+', output_norm)
+        
+        # Also check for key action words
+        target_words = set(target_norm.split())
+        output_words = set(output_norm.split())
+        
+        # Check if critical words overlap (e.g., "stop", "yield", "speed", "limit")
+        critical_words = {"stop", "yield", "speed", "limit", "no", "passing", "entry", 
+                         "right", "left", "ahead", "roundabout", "pedestrians", "children",
+                         "work", "caution", "priority", "road"}
+        
+        target_critical = target_words & critical_words
+        output_critical = output_words & critical_words
+        
+        # If target has numbers, check if they appear in output
+        if target_numbers:
+            if set(target_numbers) <= set(output_numbers) and target_critical <= output_critical:
+                metrics["accuracy"] = 1.0
+                return metrics
+        else:
+            # No numbers, check if critical words match
+            if target_critical and target_critical <= output_critical:
+                metrics["accuracy"] = 1.0
+        
+        return metrics
