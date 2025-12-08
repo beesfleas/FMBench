@@ -1,0 +1,7 @@
+model_id: amazon/chronos-t5-small
+model_category: TIME_SERIES
+# Chronos specific args
+context_length: 512
+prediction_length: 18
+num_samples: 20
+use_flash_attention_2: false

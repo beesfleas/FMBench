@@ -6,17 +6,22 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from generate_graphs import main as generate_graphs
+
 # =============================================================================
 # CONFIGURATION - Edit these to customize benchmark runs
 # =============================================================================
 
 # Global settings applied to all runs
 GLOBAL_SETTINGS = {
-    "log_level": "INFO",
+    "save_logs": "true",
 }
 
 # Models to benchmark (runs all scenarios for each model)
 MODELS = [
+    # "distilgpt2", # debug
+    # "tinyllama",  # debug
+
     "qwen2.5-1.5b",
     "qwen2.5-1.5b-quantized",
     "qwen2.5-7b",
@@ -147,6 +152,10 @@ def main():
         passed = sum(ok for _, ok, _ in results)
         log(f"\n{passed}/{len(results)} passed in {fmt_time(time.time() - total_start)}", f)
         log(f"Log: {log_path}", f)
+    
+    # Generate graphs from results
+    graph_dir = generate_graphs(log_path)
+    print(f"Graphs: {graph_dir}")
     
     sys.exit(0 if passed == len(results) else 1)
 

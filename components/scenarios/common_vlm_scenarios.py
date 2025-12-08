@@ -259,11 +259,19 @@ class CountBenchQAScenario(DatasetScenario):
         """
         Compute metrics for CountBenchQA.
         Extracts numbers from model output and compares to target count.
+        
+        If slo_threshold is set in config, also computes slo_violation:
+        1.0 if |predicted - target| > slo_threshold, else 0.0.
         """
         import re
         metrics = {"accuracy": 0.0}
         
+        # Get SLO threshold from config (optional)
+        slo_threshold = self.config.get("slo_threshold", None)
+        
         if target is None:
+            if slo_threshold is not None:
+                metrics["slo_violation"] = 1.0  # Can't evaluate, treat as violation
             return metrics
         
         # Normalize target to string
@@ -274,39 +282,371 @@ class CountBenchQAScenario(DatasetScenario):
             target_num = int(target_str)
         except ValueError:
             # Target is not a valid integer
+            if slo_threshold is not None:
+                metrics["slo_violation"] = 1.0  # Can't evaluate, treat as violation
             return metrics
         
         # Normalize output
         output_norm = output.lower().strip()
         
-        # Strategy 1: Check if output contains the exact number
+        # Extract predicted number from output
+        predicted_num = None
+        
+        # Strategy 1: Check if output contains the exact target number
         # Look for the number as a standalone word/value
         number_pattern = r'\b' + str(target_num) + r'\b'
         if re.search(number_pattern, output_norm):
             metrics["accuracy"] = 1.0
-            return metrics
+            predicted_num = target_num
         
-        # Strategy 2: Extract all numbers from output and check if target is among them
+        # Strategy 2: Extract all numbers from output
         # This handles cases like "There are 5 cats in the image."
-        found_numbers = re.findall(r'\b(\d+)\b', output_norm)
-        if found_numbers:
-            for num_str in found_numbers:
-                try:
-                    if int(num_str) == target_num:
-                        metrics["accuracy"] = 1.0
-                        return metrics
-                except ValueError:
-                    continue
+        if predicted_num is None:
+            found_numbers = re.findall(r'\b(\d+)\b', output_norm)
+            if found_numbers:
+                for num_str in found_numbers:
+                    try:
+                        num_val = int(num_str)
+                        if num_val == target_num:
+                            metrics["accuracy"] = 1.0
+                            predicted_num = num_val
+                            break
+                        # Store first found number as fallback for SLO check
+                        if predicted_num is None:
+                            predicted_num = num_val
+                    except ValueError:
+                        continue
         
         # Strategy 3: Handle word numbers (one, two, three, etc.)
-        word_to_num = {
-            "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
-            "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
-            "ten": 10
-        }
-        for word, num in word_to_num.items():
-            if word in output_norm and num == target_num:
+        if metrics["accuracy"] == 0.0:
+            word_to_num = {
+                "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
+                "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+                "ten": 10
+            }
+            for word, num in word_to_num.items():
+                if word in output_norm:
+                    if num == target_num:
+                        metrics["accuracy"] = 1.0
+                    # Store word number as predicted if not yet found
+                    if predicted_num is None:
+                        predicted_num = num
+                    break
+        
+        # Compute SLO violation if threshold is set
+        if slo_threshold is not None:
+            if predicted_num is None:
+                # Could not extract any number from output
+                metrics["slo_violation"] = 1.0
+            else:
+                diff = abs(predicted_num - target_num)
+                metrics["slo_violation"] = 1.0 if diff > slo_threshold else 0.0
+        
+        return metrics
+
+
+class GTSRBScenario(DatasetScenario):
+    """
+    Scenario for GTSRB (German Traffic Sign Recognition Benchmark).
+    Evaluates VLMs on classifying traffic signs into 43 categories.
+    """
+    # Default traffic sign class names (GTSRB has 43 classes)
+    DEFAULT_LABEL_MAP = {
+        0: "Speed limit 20",
+        1: "Speed limit 30",
+        2: "Speed limit 50",
+        3: "Speed limit 60",
+        4: "Speed limit 70",
+        5: "Speed limit 80",
+        6: "End of speed limit 80",
+        7: "Speed limit 100",
+        8: "Speed limit 120",
+        9: "No passing",
+        10: "No passing for vehicles over 3.5t",
+        11: "Right-of-way at next intersection",
+        12: "Priority road",
+        13: "Yield",
+        14: "Stop",
+        15: "No vehicles",
+        16: "Vehicles over 3.5t prohibited",
+        17: "No entry",
+        18: "General caution",
+        19: "Dangerous curve left",
+        20: "Dangerous curve right",
+        21: "Double curve",
+        22: "Bumpy road",
+        23: "Slippery road",
+        24: "Road narrows on right",
+        25: "Road work",
+        26: "Traffic signals",
+        27: "Pedestrians",
+        28: "Children crossing",
+        29: "Bicycles crossing",
+        30: "Beware of ice/snow",
+        31: "Wild animals crossing",
+        32: "End of all speed and passing limits",
+        33: "Turn right ahead",
+        34: "Turn left ahead",
+        35: "Ahead only",
+        36: "Go straight or right",
+        37: "Go straight or left",
+        38: "Keep right",
+        39: "Keep left",
+        40: "Roundabout mandatory",
+        41: "End of no passing",
+        42: "End of no passing for vehicles over 3.5t",
+    }
+
+    def process_dataset(self, dataset) -> List[Dict[str, Any]]:
+        tasks = []
+        image_key = self.config.get("image_key", "image")
+        target_key = self.config.get("target_key", "label")
+        
+        # Get label map from config or use default
+        label_map = self.config.get("label_map", self.DEFAULT_LABEL_MAP)
+        # Convert string keys to int if necessary
+        if label_map and isinstance(next(iter(label_map.keys())), str):
+            label_map = {int(k): v for k, v in label_map.items()}
+        
+        # Get prompt template
+        prompt_template = self.config.get(
+            "prompt_template", 
+            "What type of traffic sign is shown in this image? Answer with only the sign name."
+        )
+        
+        # Build list of class names for the prompt if needed
+        class_names = list(label_map.values()) if label_map else []
+
+        for item in dataset:
+            image = item.get(image_key)
+            label = item.get(target_key)
+            
+            if image is None or label is None:
+                continue
+            
+            # Convert label to class name
+            if isinstance(label, int) and label_map:
+                target_name = label_map.get(label, f"Class {label}")
+            else:
+                target_name = str(label)
+            
+            tasks.append({
+                "image": image,
+                "input": prompt_template,
+                "prompt": prompt_template,
+                "target": target_name,
+                "target_label": label,  # Keep original label for reference
+                "type": "gtsrb",
+                "class_names": class_names,  # Available classes
+            })
+        return tasks
+
+    def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Compute accuracy for GTSRB classification.
+        Checks if the target class name is present in the model output.
+        """
+        metrics = {"accuracy": 0.0}
+        
+        if target is None:
+            return metrics
+        
+        # Normalize strings for comparison
+        output_norm = output.lower().strip()
+        target_norm = str(target).lower().strip()
+        
+        # Exact match
+        if target_norm == output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Containment match - target in output
+        if target_norm in output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Check for key terms match (e.g., "speed limit 30" contains "30")
+        # Extract numbers from both
+        import re
+        target_numbers = re.findall(r'\d+', target_norm)
+        output_numbers = re.findall(r'\d+', output_norm)
+        
+        # Also check for key action words
+        target_words = set(target_norm.split())
+        output_words = set(output_norm.split())
+        
+        # Check if critical words overlap (e.g., "stop", "yield", "speed", "limit")
+        critical_words = {"stop", "yield", "speed", "limit", "no", "passing", "entry", 
+                         "right", "left", "ahead", "roundabout", "pedestrians", "children",
+                         "work", "caution", "priority", "road"}
+        
+        target_critical = target_words & critical_words
+        output_critical = output_words & critical_words
+        
+        # If target has numbers, check if they appear in output
+        if target_numbers:
+            if set(target_numbers) <= set(output_numbers) and target_critical <= output_critical:
                 metrics["accuracy"] = 1.0
                 return metrics
+        else:
+            # No numbers, check if critical words match
+            if target_critical and target_critical <= output_critical:
+                metrics["accuracy"] = 1.0
+        
+        return metrics
+
+
+class HaGRIDScenario(DatasetScenario):
+    """
+    Scenario for HaGRID (HAnd Gesture Recognition Image Dataset).
+    Evaluates VLMs on classifying hand gestures into 18 categories.
+    """
+    # Default gesture class names (HaGRID has 18 gesture classes + no_gesture)
+    DEFAULT_LABEL_MAP = {
+        0: "call",
+        1: "dislike",
+        2: "fist",
+        3: "four",
+        4: "like",
+        5: "mute",
+        6: "ok",
+        7: "one",
+        8: "palm",
+        9: "peace",
+        10: "peace_inverted",
+        11: "rock",
+        12: "stop",
+        13: "stop_inverted",
+        14: "three",
+        15: "three2",
+        16: "two_up",
+        17: "two_up_inverted",
+        18: "no_gesture",
+    }
+
+    def process_dataset(self, dataset) -> List[Dict[str, Any]]:
+        tasks = []
+        image_key = self.config.get("image_key", "image")
+        target_key = self.config.get("target_key", "label")
+        
+        # Try to get label names from dataset features
+        label_map = self.config.get("label_map", None)
+        if label_map is None:
+            # Try to extract from dataset's ClassLabel feature
+            try:
+                if hasattr(dataset, 'features') and target_key in dataset.features:
+                    feature = dataset.features[target_key]
+                    if hasattr(feature, 'names'):
+                        # Build label map from dataset's label names
+                        label_map = {}
+                        for i, name in enumerate(feature.names):
+                            # Strip common prefixes like 'train_val_'
+                            clean_name = name
+                            for prefix in ['train_val_', 'test_', 'val_', 'train_']:
+                                if clean_name.startswith(prefix):
+                                    clean_name = clean_name[len(prefix):]
+                                    break
+                            label_map[i] = clean_name
+                        logger.debug("Extracted %d labels from dataset features", len(label_map))
+            except Exception as e:
+                logger.debug("Could not extract labels from dataset features: %s", e)
+        
+        # Fallback to default label map
+        if label_map is None:
+            label_map = self.DEFAULT_LABEL_MAP
+        
+        # Convert string keys to int if necessary
+        if label_map and isinstance(next(iter(label_map.keys())), str):
+            label_map = {int(k): v for k, v in label_map.items()}
+        
+        # Get prompt template
+        prompt_template = self.config.get(
+            "prompt_template", 
+            "What hand gesture is shown in this image? Answer with only the gesture name."
+        )
+        
+        # Build list of class names for the prompt
+        class_names = list(label_map.values()) if label_map else []
+
+        for item in dataset:
+            image = item.get(image_key)
+            label = item.get(target_key)
+            
+            if image is None or label is None:
+                continue
+            
+            # Convert label to class name
+            if isinstance(label, int) and label_map:
+                target_name = label_map.get(label, f"Class {label}")
+            else:
+                target_name = str(label)
+            
+            tasks.append({
+                "image": image,
+                "input": prompt_template,
+                "prompt": prompt_template,
+                "target": target_name,
+                "target_label": label,
+                "type": "hagrid",
+                "class_names": class_names,
+            })
+        return tasks
+
+    def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Compute accuracy for HaGRID gesture classification.
+        Checks if the target gesture name is present in the model output.
+        """
+        metrics = {"accuracy": 0.0}
+        
+        if target is None:
+            return metrics
+        
+        # Normalize strings for comparison
+        output_norm = output.lower().strip().replace("_", " ").replace("-", " ")
+        target_norm = str(target).lower().strip().replace("_", " ").replace("-", " ")
+        
+        # Exact match
+        if target_norm == output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Containment match - target in output
+        if target_norm in output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Check for keyword matches (gesture-specific terms)
+        # Map common variations
+        gesture_aliases = {
+            "call": ["call", "phone", "calling"],
+            "dislike": ["dislike", "thumbs down", "thumb down"],
+            "fist": ["fist", "closed hand", "punch"],
+            "four": ["four", "4"],
+            "like": ["like", "thumbs up", "thumb up"],
+            "mute": ["mute", "shush", "quiet", "silence"],
+            "ok": ["ok", "okay", "o.k.", "circle"],
+            "one": ["one", "1", "index", "pointing"],
+            "palm": ["palm", "open hand", "hand open"],
+            "peace": ["peace", "victory", "v sign", "two"],
+            "peace inverted": ["peace inverted", "inverted peace", "inverted v"],
+            "rock": ["rock", "rock on", "horns", "metal"],
+            "stop": ["stop", "halt"],
+            "stop inverted": ["stop inverted", "inverted stop"],
+            "three": ["three", "3"],
+            "three2": ["three2", "three 2", "three variant"],
+            "two up": ["two up", "two fingers up"],
+            "two up inverted": ["two up inverted", "inverted two up"],
+            "no gesture": ["no gesture", "none", "nothing", "no hand gesture"],
+        }
+        
+        # Check if any alias matches
+        target_key = target_norm.replace(" ", "_")
+        if target_key in gesture_aliases or target_norm in gesture_aliases:
+            aliases = gesture_aliases.get(target_key, gesture_aliases.get(target_norm, []))
+            for alias in aliases:
+                if alias in output_norm:
+                    metrics["accuracy"] = 1.0
+                    return metrics
         
         return metrics

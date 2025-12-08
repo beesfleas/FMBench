@@ -1,3 +1,4 @@
 model_id: HuggingfaceTB/SmolVLM-256M-Instruct
 model_category: VLM
 max_tokens: 256
+use_flash_attention_2: false

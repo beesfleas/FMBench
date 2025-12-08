@@ -1,4 +1,5 @@
-model_id: llava-hf/llava-1.5-7b-hf
+model_id: allenai/Molmo-7B-D-0924
 model_category: VLM
 max_tokens: 256
+quantization: 4
 use_flash_attention_2: false

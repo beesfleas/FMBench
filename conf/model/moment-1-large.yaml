@@ -1,0 +1,4 @@
+model_id: AutonLab/MOMENT-1-large
+model_category: TIME_SERIES
+# Moment specific settings
+prediction_length: 18

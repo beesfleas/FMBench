@@ -1,4 +1,5 @@
-model_id: llava-hf/llava-1.5-7b-hf
+model_id: openbmb/MiniCPM-V-2_6
 model_category: VLM
 max_tokens: 256
+quantization: 4
 use_flash_attention_2: false

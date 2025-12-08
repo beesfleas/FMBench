@@ -9,3 +9,8 @@ question_key: question
 target_key: number
 prompt_template: "Question: {question}\nAnswer with just the number:"
 trust_remote_code: True
+
+# Optional: Set slo_threshold to track SLO violations
+# If prediction differs from target by more than this value, it's a violation
+# Example: slo_threshold: 2 means |predicted - target| > 2 is a violation
+slo_threshold: 2

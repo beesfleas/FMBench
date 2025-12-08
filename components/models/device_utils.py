@@ -91,7 +91,7 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
     """
     if use_cuda:
         dtype = torch.float16
-        device_map = None  # Manual device placement in move_to_device()
+        device_map = "auto"  # Required for VLMs with multi-part architectures (vision encoder + LLM)
     elif use_mps:
         dtype = torch.float32
         device_map = "cpu" if not quantization_config else None

@@ -1,0 +1,7 @@
+model_id: ibm-granite/granite-timeseries-patchtst
+model_category: TIME_SERIES
+# PatchTST settings
+prediction_length: 18 # Standard for M3
+context_length: 512 # Standard for PatchTST Base
+num_samples: 20
+allow_mps_fallback: true

@@ -1,4 +1,4 @@
-model_id: llava-hf/llava-1.5-7b-hf
+model_id: vikhyatk/moondream2
 model_category: VLM
 max_tokens: 256
 use_flash_attention_2: false

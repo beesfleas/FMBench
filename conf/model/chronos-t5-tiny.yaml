@@ -1,0 +1,4 @@
+model_id: amazon/chronos-t5-tiny
+model_category: TIME_SERIES
+max_tokens: 64
+use_flash_attention_2: false
