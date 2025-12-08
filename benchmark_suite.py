@@ -48,6 +48,7 @@ KNOWN_MODELS = {
     "arima": 0.0,
     "llava": 7.0,
     "minicpm-v": 2.4,
+    "patchtst": 0.0,
 }
 
 BENCHMARK_CONFIG = {
