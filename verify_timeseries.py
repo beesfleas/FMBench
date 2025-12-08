@@ -10,7 +10,7 @@ import numpy as np
 sys.path.append(os.getcwd())
 
 from components.models.huggingface_timeseries import HuggingFaceTimeSeriesLoader
-from components.scenarios.common_timeseries_scenarios import M3Scenario
+from components.scenarios.common_timeseries_scenarios import M3Scenario, FevBenchScenario
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -18,21 +18,19 @@ log = logging.getLogger(__name__)
 def verify():
     # 1. Configs
     models_to_test = [
-        {"model_id": "amazon/chronos-t5-tiny", "name": "Chronos"},
-        {"model_id": "Salesforce/moirai-1.0-R-small", "name": "Moirai"},
-        {"model_id": "AutonLab/MOMENT-1-large", "name": "Moment"}
+        {"model_id": "ibm-granite/granite-timeseries-patchtst", "name": "PatchTST"}
     ]
     
     scenario_config = OmegaConf.create({
-        "dataset_name": "monash_tsf",
-        "subset": "m3_monthly",
-        "prediction_length": 8,
+        "dataset_name": "autogluon/fev_datasets",
+        "subset": "ETT_1H",
+        "prediction_length": 24, # Standard for ETT
         "limit": 2
     })
 
     # 2. Load Scenario
     log.info("Loading Scenario...")
-    scenario = M3Scenario(**scenario_config) # Unpack for kwargs
+    scenario = FevBenchScenario(**scenario_config) # Unpack for kwargs
     tasks = scenario.get_tasks()
     log.info(f"Loaded {len(tasks)} tasks.")
     if not tasks:
