@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """Generate graphs from FMBench suite results."""
+from __future__ import annotations
+
 import json
 import re
 from pathlib import Path

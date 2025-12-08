@@ -1,4 +1,3 @@
---index-url https://download.pytorch.org/whl/cu124
 torch
 transformers
 hydra-core
@@ -14,6 +13,6 @@ bert-score
 nltk
 psutil
 compressed_tensors
-huggingface_hub[hf_xet]
 pandas
 seaborn
+huggingface_hub[hf_xet]
