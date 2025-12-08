@@ -52,8 +52,36 @@ python run.py model=qwen2.5
 
 Run with a scenario:
 ```bash
-python run.py model=qwen2.5 scenario=simple_llm
+python run.py model=qwen2.5 scenario=sentiment
 ```
+
+## Available Scenarios
+
+### Language & Knowledge (LLM)
+- `sentiment`: Sentiment analysis on IMDB movie reviews
+- `summarization`: Abstractive summarization using CNN/DailyMail
+- `ner`: Named Entity Recognition on WikiANN
+- `classification`: Text classification on AG News
+- `translation`: Machine translation (German to English) on WMT16
+- `arc_challenge` / `arc_easy`: AI2 Reasoning Challenge
+- `mmlu`: Massive Multitask Language Understanding benchmark
+- `helm`: Holistic Evaluation of Language Models
+- `perplexity_c4` / `perplexity_wikitext2`: Perplexity evaluation
+- `long_context`: Long context window evaluation
+
+### Vision & Multimodal (VLM)
+- `countbenchqa`: Visual counting question answering
+- `docvqa`: Document Visual Question Answering
+- `vqa`: Visual Question Answering v2
+- `gtsrb`: German Traffic Sign Recognition
+- `hagrid`: Hand Gesture Recognition
+- `simple_vlm`: Basic VLM test scenario
+
+### Time Series
+- `ett`: Electricity Transformer Temperature forecasting
+- `gifteval`: Zero-shot time series forecasting
+- `m3_monthly`: M3 competition monthly forecasting
+- `simple_timeseries`: Basic time series test scenario
 
 ## Available Flags
 
@@ -69,60 +97,42 @@ python run.py model=qwen2.5
 python run.py model=tinyllama
 ```
 
-### Device Configuration
-
-```bash
-# Auto-detect device (default)
-python run.py device=auto
-
-# Force specific device
-python run.py device=cpu
-python run.py device=gpu      # NVIDIA GPU
-python run.py device=mac      # Apple Silicon
-python run.py device=jetson   # NVIDIA Jetson
-python run.py device=pi       # Raspberry Pi
-```
-
-### Model-Specific Options
-
-```bash
-# Set device preference for model
-python run.py model=qwen2.5 model.device_preference=mps
-python run.py model=qwen2.5 model.device_preference=cpu
-python run.py model=qwen2.5 model.device_preference=cuda
-python run.py model=qwen2.5 model.device_preference=auto
-
-# Enable quantization (4-bit or 8-bit)
-python run.py model=qwen2.5 model.quantization=4
-python run.py model=qwen2.5 model.quantization=8
-
-# Set max tokens for generation
-python run.py model=qwen2.5 model.max_tokens=128
-```
-
-### Logging and Output
-
-```bash
-# Set log level
-python run.py log_level=DEBUG
-python run.py log_level=INFO
-python run.py log_level=WARNING
-python run.py log_level=ERROR
-
-# Save logs to file
-python run.py save_logs=true
-
-# Set profiling sampling interval (seconds)
-python run.py sampling_interval=0.5
-```
-
 ### Scenario Selection
 
 ```bash
 # Run with a scenario
-python run.py scenario=simple_llm
-python run.py scenario=simple_vlm
-python run.py scenario=simple_timeseries
+python run.py scenario=<scenario_name>
+
+# Examples:
+python run.py scenario=sentiment
+python run.py scenario=countbenchqa
+python run.py scenario=ett
+```
+
+### Common Configuration Flags
+
+```bash
+# Number of samples to run
+python run.py num_samples=100
+
+# Set device
+python run.py device=auto  # or cpu, gpu, mac, jetson, pi
+
+# Model-specific options
+python run.py model.loader_type=vllm
+python run.py model.quantization=4  # or 8
+python run.py model.max_tokens=128
+python run.py model.device_preference=cuda  # or cpu, mps, auto
+
+# Logging
+python run.py log_level=DEBUG  # or INFO, WARNING, ERROR
+python run.py save_logs=true
+
+# Profiling
+python run.py sampling_interval=0.5
+
+# Scenario-specific options
+python run.py scenario.slo_threshold=2  # For CountBenchQA SLO violation tracking
 ```
 
 ## Available Models
@@ -258,6 +268,16 @@ Logs can be saved to files with `save_logs=true`.
 python run.py model=distilgpt2
 ```
 
+### Run sentiment analysis
+```bash
+python run.py model=distilgpt2 scenario=sentiment num_samples=100
+```
+
+### Run VLM counting task with SLO tracking
+```bash
+python run.py model=smolvlm scenario=countbenchqa scenario.slo_threshold=2
+```
+
 ### Run a large model with quantization
 ```bash
 python run.py model=qwen2.5 model.quantization=4
@@ -271,6 +291,11 @@ python run.py model=tinyllama log_level=DEBUG save_logs=true
 ### Run a VLM with a scenario
 ```bash
 python run.py model=smolvlm scenario=simple_vlm
+```
+
+### Run time series forecasting
+```bash
+python run.py model=timegpt1 scenario=ett num_samples=50
 ```
 
 ### Force CPU execution
