@@ -494,3 +494,159 @@ class GTSRBScenario(DatasetScenario):
                 metrics["accuracy"] = 1.0
         
         return metrics
+
+
+class HaGRIDScenario(DatasetScenario):
+    """
+    Scenario for HaGRID (HAnd Gesture Recognition Image Dataset).
+    Evaluates VLMs on classifying hand gestures into 18 categories.
+    """
+    # Default gesture class names (HaGRID has 18 gesture classes + no_gesture)
+    DEFAULT_LABEL_MAP = {
+        0: "call",
+        1: "dislike",
+        2: "fist",
+        3: "four",
+        4: "like",
+        5: "mute",
+        6: "ok",
+        7: "one",
+        8: "palm",
+        9: "peace",
+        10: "peace_inverted",
+        11: "rock",
+        12: "stop",
+        13: "stop_inverted",
+        14: "three",
+        15: "three2",
+        16: "two_up",
+        17: "two_up_inverted",
+        18: "no_gesture",
+    }
+
+    def process_dataset(self, dataset) -> List[Dict[str, Any]]:
+        tasks = []
+        image_key = self.config.get("image_key", "image")
+        target_key = self.config.get("target_key", "label")
+        
+        # Try to get label names from dataset features
+        label_map = self.config.get("label_map", None)
+        if label_map is None:
+            # Try to extract from dataset's ClassLabel feature
+            try:
+                if hasattr(dataset, 'features') and target_key in dataset.features:
+                    feature = dataset.features[target_key]
+                    if hasattr(feature, 'names'):
+                        # Build label map from dataset's label names
+                        label_map = {}
+                        for i, name in enumerate(feature.names):
+                            # Strip common prefixes like 'train_val_'
+                            clean_name = name
+                            for prefix in ['train_val_', 'test_', 'val_', 'train_']:
+                                if clean_name.startswith(prefix):
+                                    clean_name = clean_name[len(prefix):]
+                                    break
+                            label_map[i] = clean_name
+                        logger.debug("Extracted %d labels from dataset features", len(label_map))
+            except Exception as e:
+                logger.debug("Could not extract labels from dataset features: %s", e)
+        
+        # Fallback to default label map
+        if label_map is None:
+            label_map = self.DEFAULT_LABEL_MAP
+        
+        # Convert string keys to int if necessary
+        if label_map and isinstance(next(iter(label_map.keys())), str):
+            label_map = {int(k): v for k, v in label_map.items()}
+        
+        # Get prompt template
+        prompt_template = self.config.get(
+            "prompt_template", 
+            "What hand gesture is shown in this image? Answer with only the gesture name."
+        )
+        
+        # Build list of class names for the prompt
+        class_names = list(label_map.values()) if label_map else []
+
+        for item in dataset:
+            image = item.get(image_key)
+            label = item.get(target_key)
+            
+            if image is None or label is None:
+                continue
+            
+            # Convert label to class name
+            if isinstance(label, int) and label_map:
+                target_name = label_map.get(label, f"Class {label}")
+            else:
+                target_name = str(label)
+            
+            tasks.append({
+                "image": image,
+                "input": prompt_template,
+                "prompt": prompt_template,
+                "target": target_name,
+                "target_label": label,
+                "type": "hagrid",
+                "class_names": class_names,
+            })
+        return tasks
+
+    def compute_metrics(self, output: str, target: Any, task: Dict[str, Any]) -> Dict[str, float]:
+        """
+        Compute accuracy for HaGRID gesture classification.
+        Checks if the target gesture name is present in the model output.
+        """
+        metrics = {"accuracy": 0.0}
+        
+        if target is None:
+            return metrics
+        
+        # Normalize strings for comparison
+        output_norm = output.lower().strip().replace("_", " ").replace("-", " ")
+        target_norm = str(target).lower().strip().replace("_", " ").replace("-", " ")
+        
+        # Exact match
+        if target_norm == output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Containment match - target in output
+        if target_norm in output_norm:
+            metrics["accuracy"] = 1.0
+            return metrics
+        
+        # Check for keyword matches (gesture-specific terms)
+        # Map common variations
+        gesture_aliases = {
+            "call": ["call", "phone", "calling"],
+            "dislike": ["dislike", "thumbs down", "thumb down"],
+            "fist": ["fist", "closed hand", "punch"],
+            "four": ["four", "4"],
+            "like": ["like", "thumbs up", "thumb up"],
+            "mute": ["mute", "shush", "quiet", "silence"],
+            "ok": ["ok", "okay", "o.k.", "circle"],
+            "one": ["one", "1", "index", "pointing"],
+            "palm": ["palm", "open hand", "hand open"],
+            "peace": ["peace", "victory", "v sign", "two"],
+            "peace inverted": ["peace inverted", "inverted peace", "inverted v"],
+            "rock": ["rock", "rock on", "horns", "metal"],
+            "stop": ["stop", "halt"],
+            "stop inverted": ["stop inverted", "inverted stop"],
+            "three": ["three", "3"],
+            "three2": ["three2", "three 2", "three variant"],
+            "two up": ["two up", "two fingers up"],
+            "two up inverted": ["two up inverted", "inverted two up"],
+            "no gesture": ["no gesture", "none", "nothing", "no hand gesture"],
+        }
+        
+        # Check if any alias matches
+        target_key = target_norm.replace(" ", "_")
+        if target_key in gesture_aliases or target_norm in gesture_aliases:
+            aliases = gesture_aliases.get(target_key, gesture_aliases.get(target_norm, []))
+            for alias in aliases:
+                if alias in output_norm:
+                    metrics["accuracy"] = 1.0
+                    return metrics
+        
+        return metrics

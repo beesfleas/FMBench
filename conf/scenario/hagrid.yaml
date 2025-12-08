@@ -1,0 +1,11 @@
+name: HaGRID
+description: HAnd Gesture Recognition Image Dataset - 18-class hand gesture classification
+_target_: components.scenarios.common_vlm_scenarios.HaGRIDScenario
+dataset_name: cj-mills/hagrid-sample-30k-384p
+dataset_config: null
+split: train
+num_samples: 10
+image_key: image
+target_key: label
+prompt_template: "User: <image>\nWhat hand gesture is shown in this image? Identify the gesture from these categories: call, dislike, fist, four, like, mute, ok, one, palm, peace, peace_inverted, rock, stop, stop_inverted, three, three2, two_up, two_up_inverted, no_gesture.\nAssistant:"
+

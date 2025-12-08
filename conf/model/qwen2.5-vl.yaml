@@ -1,0 +1,5 @@
+model_id: Qwen/Qwen2.5-VL-7B-Instruct
+model_category: VLM
+max_tokens: 256
+quantization: 4
+use_flash_attention_2: false
