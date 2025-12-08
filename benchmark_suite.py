@@ -77,8 +77,10 @@ BENCHMARK_CONFIG = {
             "perplexity_c4": {},
             "perplexity_wikitext2": {},
             "sentiment": {},
-            "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
-            "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+            "summarization": {},
+            "translation": {},
+            "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
+            "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
         },
     },
     "VLM": {
