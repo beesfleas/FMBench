@@ -14,11 +14,14 @@ from generate_graphs import main as generate_graphs
 
 # Global settings applied to all runs
 GLOBAL_SETTINGS = {
-    "log_level": "INFO",
+    "save_logs": "true",
 }
 
 # Models to benchmark (runs all scenarios for each model)
 MODELS = [
+    # "distilgpt2", # debug
+    # "tinyllama",  # debug
+
     "qwen2.5-1.5b",
     "qwen2.5-1.5b-quantized",
     "qwen2.5-7b",
