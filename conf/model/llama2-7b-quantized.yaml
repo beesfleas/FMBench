@@ -1,5 +1,4 @@
-# Pre-quantized 4-bit version of Llama-2-7b
-model_id: neuralmagic/llama2-7b-quantized.w8a8
+model_id: RedHatAI/Llama-2-7b-chat-quantized.w8a8
 model_category: LLM
 max_tokens: 128
 use_flash_attention_2: false
