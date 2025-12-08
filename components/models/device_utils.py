@@ -219,7 +219,12 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
     
     if quantization_config:
         kwargs["quantization_config"] = quantization_config
-    elif device_map is not None:
+    
+    # Always set device_map when specified - this is needed for:
+    # 1. CUDA: device_map="auto" ensures all model parts go to GPU
+    # 2. Pre-quantized models (compressed_tensors): need explicit device mapping
+    # 3. VLMs: multi-part architectures need proper device distribution
+    if device_map is not None:
         kwargs["device_map"] = device_map
     
     return kwargs
