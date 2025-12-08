@@ -259,11 +259,19 @@ class CountBenchQAScenario(DatasetScenario):
         """
         Compute metrics for CountBenchQA.
         Extracts numbers from model output and compares to target count.
+        
+        If slo_threshold is set in config, also computes slo_violation:
+        1.0 if |predicted - target| > slo_threshold, else 0.0.
         """
         import re
         metrics = {"accuracy": 0.0}
         
+        # Get SLO threshold from config (optional)
+        slo_threshold = self.config.get("slo_threshold", None)
+        
         if target is None:
+            if slo_threshold is not None:
+                metrics["slo_violation"] = 1.0  # Can't evaluate, treat as violation
             return metrics
         
         # Normalize target to string
@@ -274,39 +282,64 @@ class CountBenchQAScenario(DatasetScenario):
             target_num = int(target_str)
         except ValueError:
             # Target is not a valid integer
+            if slo_threshold is not None:
+                metrics["slo_violation"] = 1.0  # Can't evaluate, treat as violation
             return metrics
         
         # Normalize output
         output_norm = output.lower().strip()
         
-        # Strategy 1: Check if output contains the exact number
+        # Extract predicted number from output
+        predicted_num = None
+        
+        # Strategy 1: Check if output contains the exact target number
         # Look for the number as a standalone word/value
         number_pattern = r'\b' + str(target_num) + r'\b'
         if re.search(number_pattern, output_norm):
             metrics["accuracy"] = 1.0
-            return metrics
+            predicted_num = target_num
         
-        # Strategy 2: Extract all numbers from output and check if target is among them
+        # Strategy 2: Extract all numbers from output
         # This handles cases like "There are 5 cats in the image."
-        found_numbers = re.findall(r'\b(\d+)\b', output_norm)
-        if found_numbers:
-            for num_str in found_numbers:
-                try:
-                    if int(num_str) == target_num:
-                        metrics["accuracy"] = 1.0
-                        return metrics
-                except ValueError:
-                    continue
+        if predicted_num is None:
+            found_numbers = re.findall(r'\b(\d+)\b', output_norm)
+            if found_numbers:
+                for num_str in found_numbers:
+                    try:
+                        num_val = int(num_str)
+                        if num_val == target_num:
+                            metrics["accuracy"] = 1.0
+                            predicted_num = num_val
+                            break
+                        # Store first found number as fallback for SLO check
+                        if predicted_num is None:
+                            predicted_num = num_val
+                    except ValueError:
+                        continue
         
         # Strategy 3: Handle word numbers (one, two, three, etc.)
-        word_to_num = {
-            "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
-            "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
-            "ten": 10
-        }
-        for word, num in word_to_num.items():
-            if word in output_norm and num == target_num:
-                metrics["accuracy"] = 1.0
-                return metrics
+        if metrics["accuracy"] == 0.0:
+            word_to_num = {
+                "zero": 0, "one": 1, "two": 2, "three": 3, "four": 4,
+                "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+                "ten": 10
+            }
+            for word, num in word_to_num.items():
+                if word in output_norm:
+                    if num == target_num:
+                        metrics["accuracy"] = 1.0
+                    # Store word number as predicted if not yet found
+                    if predicted_num is None:
+                        predicted_num = num
+                    break
+        
+        # Compute SLO violation if threshold is set
+        if slo_threshold is not None:
+            if predicted_num is None:
+                # Could not extract any number from output
+                metrics["slo_violation"] = 1.0
+            else:
+                diff = abs(predicted_num - target_num)
+                metrics["slo_violation"] = 1.0 if diff > slo_threshold else 0.0
         
         return metrics

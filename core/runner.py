@@ -104,7 +104,7 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     log.info("First Token TTFT: %.4fs", first_token_ttft)
 
                 # Aggregate numeric metrics (excluding known special keys)
-                ignore_keys = {"ttft", "latency", "num_tokens", "accuracy", "perplexity", "input", "target", "source", "output"}
+                ignore_keys = {"ttft", "latency", "num_tokens", "accuracy", "perplexity", "input", "target", "source", "output", "slo_violation"}
                 all_keys = set()
                 for res in results:
                     for k, v in res.items():
@@ -152,6 +152,17 @@ def _run_execution(loader: object, scenario: Optional[object], model_config: Dic
                     log.info("Average Perplexity: %.4f", avg_ppl)
 
                 all_metrics["total_samples"] = len(results)
+                
+                # Handle SLO violations specially (count and percentage)
+                slo_violations = [r.get("slo_violation") for r in results if r.get("slo_violation") is not None]
+                if slo_violations:
+                    violation_count = sum(1 for v in slo_violations if v > 0)
+                    total_evaluated = len(slo_violations)
+                    all_metrics["slo_violations"] = violation_count
+                    all_metrics["slo_total_evaluated"] = total_evaluated
+                    all_metrics["slo_violation_pct"] = (violation_count / total_evaluated) * 100
+                    log.info("SLO Violations: %d/%d (%.2f%%)", violation_count, total_evaluated, all_metrics["slo_violation_pct"])
+                
                 # Store full results if needed, or just summary
                 # all_metrics["scenario_results"] = results  
     
@@ -221,6 +232,8 @@ def _print_metrics_summary(all_metrics: dict):
         print(f"  Perplexity: {all_metrics['average_perplexity']:.2f}")
     if "total_samples" in all_metrics:
         print(f"  Samples:    {all_metrics['total_samples']}")
+    if "slo_violation_pct" in all_metrics:
+        print(f"  SLO Violations: {all_metrics['slo_violation_pct']:.2f}% ({all_metrics['slo_violations']}/{all_metrics['slo_total_evaluated']})")
     
     # Hardware metrics (one section per device)
     device_metrics = all_metrics.get("device_metrics", {})
