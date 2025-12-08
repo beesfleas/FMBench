@@ -13,5 +13,5 @@ tag_map:
   4: "I-ORG" 
   5: "B-LOC" 
   6: "I-LOC"
-num_samples: 5
+num_samples: 20
 prompt_template: "Perform Named Entity Recognition on the following text. List entities as 'Entity (Type)'.\n\nText: {input}\n\nEntities:"

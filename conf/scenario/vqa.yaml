@@ -4,7 +4,7 @@ _target_: components.scenarios.common_vlm_scenarios.VQAScenario
 dataset_name: HuggingFaceM4/the_cauldron
 dataset_config: vqav2
 split: train
-num_samples: 10
+num_samples: 20
 image_key: images
 question_key: texts
 target_key: texts

@@ -1,0 +1,4 @@
+model_id: Qwen/Qwen2.5-7B-Instruct
+model_category: LLM
+max_tokens: 128
+# quantization: 4 

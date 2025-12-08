@@ -6,48 +6,80 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-# Edit this list to customize benchmark runs
-CONFIGS = [
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "idle", "scenario.idle_duration": "10"},
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "arc_easy", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "classification", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "helm", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "ner", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "tinyllama", "scenario": "sentiment", "scenario.num_samples": "20"},
+# =============================================================================
+# CONFIGURATION - Edit these to customize benchmark runs
+# =============================================================================
 
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "idle", "scenario.idle_duration": "10"},
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "arc_easy", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "classification", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "helm", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "ner", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "qwen2.5", "scenario": "sentiment", "scenario.num_samples": "20"},
+# Global settings applied to all runs
+GLOBAL_SETTINGS = {
+    "log_level": "INFO",
+}
 
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "idle", "scenario.idle_duration": "10"},
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "arc_easy", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "classification", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "helm", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "ner", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "falcon-7b", "scenario": "sentiment", "scenario.num_samples": "20"},
+# Models to benchmark (runs all scenarios for each model)
+MODELS = [
+    "qwen2.5-1.5b",
+    "qwen2.5-1.5b-quantized",
+    "qwen2.5-7b",
+    "qwen2.5-7b-quantized",
+    "qwen3-0.6b",
+    "qwen3-0.6b-quantized",
+    "qwen3-4b",
+    "qwen3-4b-quantized",
+    "qwen3-8b",
+    "qwen3-8b-quantized",
 
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "idle", "scenario.idle_duration": "10"},
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "arc_easy", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "classification", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "helm", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "ner", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama3-1b", "scenario": "sentiment", "scenario.num_samples": "20"},
+    "llama2-7b",
+    "llama2-7b-quantized",
+    "llama3.2-1b",
+    "llama3.2-1b-quantized",
+    "llama3.2-3b",
+    "llama3.2-3b-quantized",
 
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "idle", "scenario.idle_duration": "10"},
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "arc_easy", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "arc_challenge", "+scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "classification", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "helm", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "ner", "scenario.num_samples": "20"},
-    {"log_level": "INFO", "model": "llama2-7b", "scenario": "sentiment", "scenario.num_samples": "20"},
+    "falcon-7b",
+    "falcon-7b-quantized",
 ]
+
+# Default num_samples for scenarios (set to None to disable)
+DEFAULT_NUM_SAMPLES = "100"
+
+# Scenarios with optional overrides (name -> extra params dict or None)
+# If a scenario has no overrides, use None or {}
+SCENARIOS = {
+    "idle":                 {"scenario.idle_duration": "10", "_skip_num_samples": True},
+    "arc_easy":             {},
+    "arc_challenge":        {},
+    "classification":       {},
+    "ner":                  {},
+    "perplexity_c4":        {},
+    "perplexity_wikitext2": {},
+    "sentiment":            {},
+    "summarization":        {},
+    "translation":          {},
+    "summarization":        {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+    "translation":          {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "20"},
+}
+
+# =============================================================================
+
+
+def build_configs(models=MODELS, scenarios=SCENARIOS, global_settings=GLOBAL_SETTINGS,
+                  default_num_samples=DEFAULT_NUM_SAMPLES):
+    """Generate config list from models × scenarios."""
+    configs = []
+    for model in models:
+        for scenario_name, scenario_params in scenarios.items():
+            params = dict(scenario_params or {})
+            skip_num_samples = params.pop("_skip_num_samples", False)
+            
+            config = {**global_settings, "model": model, "scenario": scenario_name}
+            if default_num_samples and not skip_num_samples:
+                config["scenario.num_samples"] = default_num_samples
+            config.update(params)
+            configs.append(config)
+    return configs
+
+
+CONFIGS = build_configs()
 
 LOG_DIR = Path("suite_logs")
 

@@ -1,4 +1,4 @@
-model_id: meta-llama/Llama-2-7b-hf
+model_id: meta-llama/Llama-2-7b
 model_category: LLM
 max_tokens: 128
 use_flash_attention_2: false
