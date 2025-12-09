@@ -353,9 +353,6 @@ def run_benchmarks(configs: List[Dict], device_level: str) -> int:
     # Generate graphs
     print("\nGenerating graphs...")
     try:
-    # Generate graphs
-    print("\nGenerating graphs...")
-    try:
         # Call generate_graphs.py as a subprocess to handle argument parsing cleanly
         cmd = [sys.executable, "generate_graphs.py", str(log_path)]
         subprocess.run(cmd, check=True)
