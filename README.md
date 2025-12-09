@@ -145,7 +145,7 @@ After running a suite, comparison graphs are automatically generated in `suite_l
 | Scenario | Description |
 |----------|-------------|
 | `countbenchqa` | Visual counting QA |
-| `docvqa` | Document Visual QA |
+| `docvqa` | Document OCR QA |
 | `vqa` | Visual Question Answering v2 |
 | `gtsrb` | German Traffic Sign Recognition |
 | `hagrid` | Hand Gesture Recognition |
