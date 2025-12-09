@@ -16,4 +16,5 @@ compressed_tensors
 pandas
 matplotlib
 seaborn
+adjustText
 huggingface_hub[hf_xet]

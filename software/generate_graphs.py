@@ -113,6 +113,8 @@ def load_results(result_dirs: list[Path]) -> tuple[pd.DataFrame, dict]:
     return pd.DataFrame(records), device_info
 
 
+from adjustText import adjust_text
+
 def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, 
                         title: str, output_path: Path,
                         device_info: dict, timestamp: str):
@@ -123,32 +125,52 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     if plot_df.empty:
         return False
     
-    plt.figure(figsize=(10, 8))
-    sns.scatterplot(data=plot_df, x=x_col, y=y_col, s=100)
+    plt.figure(figsize=(12, 10))  # Increased size slightly for better visibility
+    
+    # helper for clean model names (remove path/extensions if present)
+    def clean_model_name(name):
+        return str(name).split('/')[-1]
+
+    plot_df['model_clean'] = plot_df['model'].apply(clean_model_name)
+    
+    # Use hue for different models to give them different colors
+    # s=100 sets point size
+    sns.scatterplot(data=plot_df, x=x_col, y=y_col, hue='model_clean', s=150, style='model_clean', palette='deep')
     
     # Add model labels
+    texts = []
     for _, row in plot_df.iterrows():
-        plt.annotate(
-            row['model'], 
-            (row[x_col], row[y_col]),
-            textcoords="offset points",
-            xytext=(5, 5),
-            fontsize=8
-        )
+        texts.append(plt.text(
+            row[x_col], 
+            row[y_col], 
+            row['model_clean'],
+            fontsize=9
+        ))
     
-    plt.title(title)
-    plt.xlabel(AXIS_LABELS.get(x_col, x_col))
-    plt.ylabel(AXIS_LABELS.get(y_col, y_col))
+    # Handle overlapping labels
+    adjust_text(
+        texts, 
+        arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
+        expand_points=(1.5, 1.5),
+        expand_text=(1.2, 1.2)
+    )
+    
+    plt.title(title, fontsize=14, pad=20)
+    plt.xlabel(AXIS_LABELS.get(x_col, x_col), fontsize=12)
+    plt.ylabel(AXIS_LABELS.get(y_col, y_col), fontsize=12)
+    
+    # Relocate legend if it's too big or obscuring
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0.)
     
     # Build footer text with device info and timestamp on one line
     footer_parts = [f"{k}: {v}" for k, v in device_info.items() if v]
     footer_parts.append(f"Generated: {timestamp}")
     footer_text = '  |  '.join(footer_parts)
     
-    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=7, style='italic')
+    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic', backgroundcolor='white')
     
-    plt.tight_layout(rect=[0, 0.03, 1, 1])  # Leave room for footer
-    plt.savefig(output_path, dpi=150)
+    plt.tight_layout(rect=[0, 0.03, 0.85, 1])  # Adjust rect to make room for external legend
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
     plt.close()
     
     return True

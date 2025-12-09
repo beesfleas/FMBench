@@ -224,6 +224,9 @@ def _print_metrics_summary(all_metrics: dict):
     print("-" * 50)
     
     # Key performance metrics
+    # Key performance metrics
+    known_metrics = {"accuracy", "avg_latency", "first_token_ttft", "average_perplexity", "total_samples", "slo_violation_pct", "slo_violations", "slo_total_evaluated", "device_metrics", "metadata"}
+    
     if "accuracy" in all_metrics:
         print(f"  Accuracy:   {all_metrics['accuracy']:.2%}")
     if "avg_latency" in all_metrics:
@@ -232,6 +235,17 @@ def _print_metrics_summary(all_metrics: dict):
         print(f"  TTFT:       {all_metrics['first_token_ttft']:.3f}s")
     if "average_perplexity" in all_metrics:
         print(f"  Perplexity: {all_metrics['average_perplexity']:.2f}")
+
+    # Dynamically print other average metrics (e.g. sMAPE)
+    for key, value in all_metrics.items():
+        if key.startswith("avg_") and key not in known_metrics:
+            # Format key for display: avg_sMAPE -> sMAPE
+            display_name = key.replace("avg_", "")
+            if isinstance(value, float):
+                print(f"  {display_name:<10}  {value:.4f}")
+            else:
+                print(f"  {display_name:<10}  {value}")
+
     if "total_samples" in all_metrics:
         print(f"  Samples:    {all_metrics['total_samples']}")
     if "slo_violation_pct" in all_metrics:
@@ -263,14 +277,26 @@ def _print_metrics_summary(all_metrics: dict):
         if len(name) > max_name_len:
             name = name[:max_name_len - 3] + "..."
         print(f"  Device:     {name}")
+        
         # Average utilization
         avg_cpu = metrics.get("average_cpu_utilization_percent")
         # Check both naming conventions for GPU util
         avg_gpu = metrics.get("average_gpu_utilization_percent") or metrics.get("average_utilization_percent")
+        
         if avg_cpu is not None and avg_cpu > 0:
             print(f"  CPU Util:   {avg_cpu:.1f}% (avg)")
         if avg_gpu is not None and avg_gpu > 0:
             print(f"  GPU Util:   {avg_gpu:.1f}% (avg)")
+            
+        # Memory Usage
+        avg_mem = metrics.get("average_memory_mb")
+        if avg_mem is not None and avg_mem > 0:
+            # Heuristic: if it has GPU util, it's VRAM, else it's likely system RAM
+            # Or check profiler_name/device_name for "gpu"
+            is_gpu = "gpu" in profiler_name.lower() or "gpu" in name.lower()
+            label = "Avg VRAM" if is_gpu else "Avg RAM"
+            print(f"  {label:<10}  {avg_mem:.1f} MB")
+
         # Energy
         if "total_energy_joules" in metrics and metrics["total_energy_joules"] > 0:
             print(f"  Energy:     {metrics['total_energy_joules']:.1f} J")
