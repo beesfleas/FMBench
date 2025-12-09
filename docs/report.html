@@ -154,7 +154,87 @@
             </p>
 
             <h3 id="models">Models</h3>
-            <p>[Details about Models...]</p>
+            <p>Models are the core entities being benchmarked. The framework uses a flexible, plugin-based architecture
+                to support a wide variety of foundation models, ranging from Large Language Models (LLMs) to
+                Vision-Language Models (VLMs) and Time-Series Forecasting models.</p>
+
+            <h4>Architectural Design</h4>
+            <p>The model loading system abstracts the complexities of different libraries (Hugging Face Transformers,
+                momentfm, chronos, statsmodels) into a unified interface. The core components are:</p>
+            <ul>
+                <li><strong>BaseModelLoader</strong> (<code>base.py</code>): The abstract base class that defines the
+                    contract for all model loaders. It enforces standard methods like <code>load_model</code>,
+                    <code>predict</code>, <code>unload_model</code>, and <code>compute_perplexity</code>.
+                </li>
+                <li><strong>ModelFactory</strong> (<code>model_factory.py</code>): A factory pattern that dynamically
+                    simplifies instantiation. It reads the <code>model_category</code> from the configuration (e.g.,
+                    <code>LLM</code>, <code>VLM</code>, <code>TIME_SERIES</code>) and returns the appropriate loader
+                    class.
+                </li>
+                <li><strong>Device Utils</strong> (<code>device_utils.py</code>): A shared utility module that handles
+                    complex device logic, including automatic MPS (Apple Silicon) compatibility checks, CUDA
+                    availability, and int4/int8 quantization configuration.</li>
+            </ul>
+
+            <h4>Supported Model Types</h4>
+
+            <div class="model-card">
+                <h5>Large Language Models (LLMs)</h5>
+                <p><strong>Loader</strong>: <code>HuggingFaceLLMLoader</code></p>
+                <p><strong>Description</strong>: Supports any causal language model available on the Hugging Face Hub
+                    (e.g., Llama 2/3, Qwen, Mistral, TinyLlama).</p>
+                <p><strong>Key Features</strong>:</p>
+                <ul>
+                    <li>Automatic 4-bit and 8-bit quantization via <code>bitsandbytes</code>.</li>
+                    <li>FlashAttention-2 support for optimized inference.</li>
+                    <li>Time-To-First-Token (TTFT) measurement using a custom <code>TTFTStreamer</code>.</li>
+                </ul>
+            </div>
+
+            <div class="model-card">
+                <h5>Vision-Language Models (VLMs)</h5>
+                <p><strong>Loader</strong>: <code>HuggingFaceVLMLoader</code></p>
+                <p><strong>Description</strong>: Models that can process both text and images (e.g., LLaVA, SmolVLM,
+                    Qwen-VL).</p>
+                <p><strong>Key Features</strong>:</p>
+                <ul>
+                    <li>Handles complex multimodal tokenization and image preprocessing.</li>
+                    <li>Supports multiple input formats (Chat templates, pure text prompts, separate image inputs).</li>
+                    <li>Automatic resizing of images to match model encoder requirements (e.g., 336x336 for LLaVA).</li>
+                </ul>
+            </div>
+
+            <div class="model-card">
+                <h5>Time-Series Models</h5>
+                <p><strong>Loader</strong>: <code>HuggingFaceTimeSeriesLoader</code></p>
+                <p><strong>Description</strong>: A diverse set of forecasting models including Chronos, MOMENT,
+                    PatchTST, and classic ARIMA.</p>
+                <p><strong>Key Features</strong>:</p>
+                <ul>
+                    <li><strong>Chronos</strong>: Uses a tokenizer-based approach to treat time series as language.</li>
+                    <li><strong>MOMENT</strong>: A foundation model for time series that uses a multi-patch
+                        architecture.</li>
+                    <li><strong>ARIMA</strong>: Integrated via <code>statsmodels</code> for distinct statistical
+                        benchmarking baselines.</li>
+                </ul>
+            </div>
+
+            <h4>Loading Workflow</h4>
+            <p>The framework implements a robust "safe-loading" mechanism to prevent Out-Of-Memory (OOM) errors,
+                particularly on edge devices:</p>
+            <ol>
+                <li><strong>Configuration Parsing</strong>: The system reads the YAML config to determine the model ID
+                    and requested parameters (quantization, max tokens, etc.).</li>
+                <li><strong>Device Selection</strong>: It checks for available accelerators (CUDA, MPS). For Apple
+                    Silicon, it performs a "pre-flight" check to estimate if the model fits within the 1GB tensor limit
+                    of the MPS backend.</li>
+                <li><strong>Instantiation</strong>: The model is loaded. If 4-bit quantization is requested, the
+                    <code>BitsAndBytesConfig</code> is injected.
+                </li>
+                <li><strong>Placement</strong>: If not already placed by the loader (e.g. via
+                    <code>device_map="auto"</code>), the model is explicitly moved to the target device.
+                </li>
+            </ol>
         </section>
 
         <section id="evaluation" class="section">
