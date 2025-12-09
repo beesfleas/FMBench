@@ -14,7 +14,7 @@ A flexible benchmarking framework for evaluating foundation models across differ
 
 ```bash
 git clone https://github.com/beesfleas/FMBench
-cd FMBench
+cd FMBench/software
 pip install -r requirements.txt
 pip install bitsandbytes  # Optional: for quantization
 ```
