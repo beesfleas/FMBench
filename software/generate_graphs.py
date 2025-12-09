@@ -32,22 +32,55 @@ PROFILER_PATTERNS = {
     'cpuprofiler': 'CPU',
 }
 
+# Scenario Categories for grouping in report
+SCENARIO_CATEGORIES = {
+    "LLM Scenarios": {
+        "ARC Easy", "ARC Challenge", "classification", "ner", 
+        "perplexity_c4", "perplexity_wikitext2", "sentiment", 
+        "summarization", "translation"
+    },
+    "VLM Scenarios": {
+        "HaGRID", "GTSRB", "CountBenchQA", "docvqa", "VQAv2"
+    },
+    "Time-Series Scenarios": {
+        "FEV-Bench", "GIFT-EVAL", "M3 Monthly Forecasting"
+    },
+    "Baseline Scenarios": {
+        "Idle Baseline"
+    }
+}
 
-def parse_suite_log(log_path: Path) -> List[Path]:
-    """Parse suite log to extract result directory paths."""
-    result_dirs = []
-    pattern = re.compile(r'Results will be saved to: (.+)')
+
+def parse_suite_log(log_path: Path) -> List[Tuple[Path, str]]:
+    """Parse suite log to extract result directory paths and their configs."""
+    results = []
+    # Pattern to match config line: [1/5] model=...
+    config_pattern = re.compile(r'\[\d+/\d+\] (.+)')
+    # Pattern to match result path
+    path_pattern = re.compile(r'Results will be saved to: (.+)')
+    
+    current_config = ""
     
     with open(log_path, 'r', encoding='utf-8') as f:
         for line in f:
-            match = pattern.search(line)
-            if match:
-                result_dirs.append(Path(match.group(1).strip()))
+            # Check for config line
+            config_match = config_pattern.search(line)
+            if config_match:
+                current_config = config_match.group(1).strip()
+                continue
+                
+            # Check for result path
+            path_match = path_pattern.search(line)
+            if path_match:
+                path = Path(path_match.group(1).strip())
+                results.append((path, current_config))
+                # Reset config to avoid reusing it incorrectly (though usually 1:1)
+                current_config = ""
     
-    return result_dirs
+    return results
 
 
-def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
+def load_results(result_info: List[Tuple[Path, str]]) -> Tuple[pd.DataFrame, dict]:
     """Load summary.json from each result directory into a DataFrame.
     
     Returns:
@@ -56,13 +89,14 @@ def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
     records = []
     device_info = {}  # Will store device names by type
     
-    for result_dir in result_dirs:
+    for result_dir, config_str in result_info:
         summary_path = result_dir / 'summary.json'
         if not summary_path.exists():
             continue
         
         with open(summary_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
+
         
         metadata = data.get('metadata', {})
         model_id = metadata.get('model_id', 'unknown')
@@ -153,6 +187,27 @@ def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
 
         # Track if sMAPE is available
         record['has_valid_smape'] = record['sMAPE'] is not None
+        
+        # Add flags from config string
+        # Clean up: remove model=... and scenario=... as they are redundant
+        flags = config_str
+        if flags:
+            parts = flags.split()
+            cleaned_parts = [p for p in parts if not p.startswith('model=') and not p.startswith('scenario=')]
+            
+            formatted_parts = []
+            for p in cleaned_parts:
+                # Remove common prefixes
+                p = p.replace('scenario.', '')
+                # Replace assignment with colon
+                p = p.replace('=', ': ')
+                # Replace underscores with spaces
+                p = p.replace('_', ' ')
+                formatted_parts.append(p)
+                
+            record['flags'] = ", ".join(formatted_parts)
+        else:
+            record['flags'] = 'N/A'
         
         records.append(record)
     
@@ -421,7 +476,7 @@ def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
     return True
 
 
-def generate_latex_table(df: pd.DataFrame, output_dir: Path, timestamp: str) -> None:
+def generate_latex_table(df: pd.DataFrame, output_dir: Path, device_info: dict, timestamp: str) -> None:
     """Generate a valid LaTeX file containing tables for all scenarios."""
     latex_path = output_dir / "results.tex"
     
@@ -434,14 +489,17 @@ def generate_latex_table(df: pd.DataFrame, output_dir: Path, timestamp: str) -> 
         'tokens_per_output': ('Tok/Out', 1),
         'accuracy': ('Accuracy', 2),
         'perplexity': ('Perplexity', 2),
-        'sMAPE': ('sMAPE (%)', 2),
+        'sMAPE': ('sMAPE (\\%)', 2),
         'energy': ('Energy (J)', 1),
         'idle_power_watts': ('Idle Power (W)', 1),
-        'cpu_util': ('CPU Util (%)', 1),
+        'cpu_util': ('CPU Util (\\%)', 1),
         'ram_usage': ('RAM (MB)', 0),
-        'gpu_util': ('GPU Util (%)', 1),
+        'gpu_util': ('GPU Util (\\%)', 1),
         'vram_usage': ('VRAM (MB)', 0),
     }
+
+    # Format device info
+    device_str = " \\\\ ".join([f"\\textbf{{{k}}}: {v}" for k, v in device_info.items() if v])
 
     # Header
     content = [
@@ -450,68 +508,204 @@ def generate_latex_table(df: pd.DataFrame, output_dir: Path, timestamp: str) -> 
         r"\usepackage{geometry}",
         r"\usepackage{float}",
         r"\usepackage{caption}",
+        r"\usepackage{adjustbox}",  # Added for table scaling
         r"\geometry{margin=1in}",
         r"\begin{document}",
         r"\title{FMBench Results}",
-        f"\\date{{Generated: {timestamp}}}",
+        f"\\date{{{device_str} \\\\[1ex] Generated: {timestamp}}}",
         r"\maketitle",
         r"",
     ]
 
-    scenarios = sorted(df['scenario'].unique())
+    # -------------------------------------------------------------------------
+    # Benchmark Summary Page
+    # -------------------------------------------------------------------------
+    content.append(r"\section*{Benchmark Summary}")
     
-    for scenario in scenarios:
-        scenario_df = df[df['scenario'] == scenario].copy()
-        safe_scenario = scenario.replace("_","\\_").replace("%","\\%")
+    # Use minipage to put tables side-by-side
+    content.append(r"\noindent")
+    content.append(r"\begin{minipage}[t]{0.45\textwidth}")
+    
+    # 1. Models Table
+    content.append(r"\subsection*{Evaluated Models}")
+    content.append(r"\begin{table}[H]")
+    content.append(r"\centering")
+    content.append(r"\begin{tabular}{l}")
+    content.append(r"\toprule")
+    content.append(r"\textbf{Model Name} \\")
+    content.append(r"\midrule")
+    
+    unique_models = sorted(df['model'].unique())
+    for model in unique_models:
+        safe_model = str(model).replace("_", "\\_")
+        content.append(f"{safe_model} \\\\")
         
-        if scenario_df.empty:
+    content.append(r"\bottomrule")
+    content.append(r"\end{tabular}")
+    content.append(r"\end{table}")
+    content.append(r"\end{minipage}")
+    content.append(r"\hfill")
+    content.append(r"\begin{minipage}[t]{0.50\textwidth}")
+
+    # 2. Scenarios Table
+    content.append(r"\subsection*{Scenario Configurations}")
+    content.append(r"\begin{table}[H]")
+    content.append(r"\centering")
+    content.append(r"\begin{adjustbox}{max width=\textwidth}")
+    # Use p column for flags to allow line breaking
+    content.append(r"\begin{tabular}{l p{5cm}}")
+    content.append(r"\toprule")
+    content.append(r"\textbf{Scenario} & \textbf{Flags} \\")
+    content.append(r"\midrule")
+    
+    # Unique scenarios+flags
+    unique_scenarios = df[['scenario', 'flags']].drop_duplicates().sort_values(['scenario'])
+    
+    for _, row in unique_scenarios.iterrows():
+        scenario = str(row['scenario']).replace("_", "\\_").replace("%", "\\%")
+        # Replace comma separator with newline for LaTeX p-column
+        flags = str(row['flags']).replace("_", "\\_").replace("%", "\\%").replace(", ", r" \newline ")
+        content.append(f"{scenario} & {flags} \\\\")
+        
+    content.append(r"\bottomrule")
+    content.append(r"\end{tabular}")
+    content.append(r"\end{adjustbox}")
+    content.append(r"\end{table}")
+    content.append(r"\end{minipage}")
+    
+    content.append(r"\newpage")
+    # -------------------------------------------------------------------------
+
+    # Get all scenarios present in data
+    present_scenarios = set(df['scenario'].unique())
+    
+    # Process categories in specific order
+    category_order = ["LLM Scenarios", "VLM Scenarios", "Time-Series Scenarios", "Baseline Scenarios"]
+    
+    # Track which scenarios have been processed to handle any uncategorized ones
+    processed_scenarios = set()
+
+    for category in category_order:
+        # Find scenarios in this category that are present in the data
+        cat_scenarios = SCENARIO_CATEGORIES.get(category, set())
+        scenarios_to_report = sorted(list(cat_scenarios.intersection(present_scenarios)))
+        
+        if not scenarios_to_report:
             continue
             
-        content.append(f"\\section*{{Scenario: {safe_scenario}}}")
-        content.append(r"\begin{table}[H]")
-        content.append(r"\centering")
-        content.append(r"\begin{tabular}{" + "l" + "c" * (len(columns_map)-1) + "}")
-        content.append(r"\toprule")
+        content.append(f"\\section*{{{category}}}")
         
-        # Determine valid columns (not all None)
-        valid_cols = []
-        for col in columns_map:
-            # Check if this column has ANY non-null data in this scenario
-            if col == 'model' or scenario_df[col].notna().any():
-                valid_cols.append(col)
-        
-        # Build Header Row
-        headers = [columns_map[c][0] for c in valid_cols]
-        content.append(" & ".join(headers) + r" \\")
-        content.append(r"\midrule")
-        
-        # Build Rows
-        for _, row in scenario_df.iterrows():
-            row_items = []
-            for col in valid_cols:
-                val = row.get(col)
-                if val is None or pd.isna(val):
-                    row_items.append("-")
-                elif col == 'model':
-                    row_items.append(str(val).replace("_", "\\_"))
-                else:
-                    precision = columns_map[col][1]
-                    try:
-                        fval = float(val)
-                        if precision == 0:
-                             row_items.append(f"{int(fval)}")
-                        else:
-                             row_items.append(f"{fval:.{precision}f}")
-                    except (ValueError, TypeError):
-                         row_items.append(str(val))
+        for scenario in scenarios_to_report:
+            processed_scenarios.add(scenario)
+            scenario_df = df[df['scenario'] == scenario].copy()
+            safe_scenario = scenario.replace("_","\\_").replace("%","\\%")
             
-            content.append(" & ".join(row_items) + r" \\")
+            if scenario_df.empty:
+                continue
+                
+            content.append(f"\\subsection*{{{safe_scenario}}}")
+            content.append(r"\begin{table}[H]")
+            content.append(r"\centering")
             
-        content.append(r"\bottomrule")
-        content.append(r"\end{tabular}")
-        content.append(f"\\caption{{Results for {safe_scenario}}}")
-        content.append(r"\end{table}")
-        content.append(r"")
+            # Determine valid columns (not all None)
+            valid_cols = []
+            for col in columns_map:
+                # Check if this column has ANY non-null data in this scenario
+                if col == 'model' or scenario_df[col].notna().any():
+                    valid_cols.append(col)
+            
+            content.append(r"\begin{adjustbox}{max width=\textwidth}")
+            content.append(r"\begin{tabular}{" + "l" + "c" * (len(valid_cols)-1) + "}")
+            content.append(r"\toprule")
+    
+            # Build Header Row
+            headers = [columns_map[c][0] for c in valid_cols]
+            content.append(" & ".join(headers) + r" \\")
+            content.append(r"\midrule")
+            
+            # Build Rows
+            for _, row in scenario_df.iterrows():
+                row_items = []
+                for col in valid_cols:
+                    val = row.get(col)
+                    if val is None or pd.isna(val):
+                        row_items.append("-")
+                    elif col == 'model':
+                        row_items.append(str(val).replace("_", "\\_"))
+                    else:
+                        precision = columns_map[col][1]
+                        try:
+                            fval = float(val)
+                            if precision == 0:
+                                 row_items.append(f"{int(fval)}")
+                            else:
+                                 row_items.append(f"{fval:.{precision}f}")
+                        except (ValueError, TypeError):
+                             row_items.append(str(val))
+                
+                content.append(" & ".join(row_items) + r" \\")
+                
+            content.append(r"\bottomrule")
+            content.append(r"\end{tabular}")
+            content.append(r"\end{adjustbox}")
+            content.append(f"\\caption{{Results for {safe_scenario}}}")
+            content.append(r"\end{table}")
+            content.append(r"")
+
+    # Handle uncategorized scenarios
+    uncategorized = sorted(list(present_scenarios - processed_scenarios))
+    if uncategorized:
+        content.append(r"\section*{Other Scenarios}")
+        for scenario in uncategorized:
+            scenario_df = df[df['scenario'] == scenario].copy()
+            safe_scenario = scenario.replace("_","\\_").replace("%","\\%")
+            
+            if scenario_df.empty:
+                continue
+                
+            content.append(f"\\subsection*{{{safe_scenario}}}")
+            content.append(r"\begin{table}[H]")
+            content.append(r"\centering")
+            
+            # Determine valid columns
+            valid_cols = []
+            for col in columns_map:
+                if col == 'model' or scenario_df[col].notna().any():
+                    valid_cols.append(col)
+            
+            content.append(r"\begin{adjustbox}{max width=\textwidth}")
+            content.append(r"\begin{tabular}{" + "l" + "c" * (len(valid_cols)-1) + "}")
+            content.append(r"\toprule")
+            headers = [columns_map[c][0] for c in valid_cols]
+            content.append(" & ".join(headers) + r" \\")
+            content.append(r"\midrule")
+            
+            for _, row in scenario_df.iterrows():
+                row_items = []
+                for col in valid_cols:
+                    val = row.get(col)
+                    if val is None or pd.isna(val):
+                        row_items.append("-")
+                    elif col == 'model':
+                        row_items.append(str(val).replace("_", "\\_"))
+                    else:
+                        precision = columns_map[col][1]
+                        try:
+                            fval = float(val)
+                            if precision == 0:
+                                 row_items.append(f"{int(fval)}")
+                            else:
+                                 row_items.append(f"{fval:.{precision}f}")
+                        except (ValueError, TypeError):
+                             row_items.append(str(val))
+                content.append(" & ".join(row_items) + r" \\")
+                
+            content.append(r"\bottomrule")
+            content.append(r"\end{tabular}")
+            content.append(r"\end{adjustbox}")
+            content.append(f"\\caption{{Results for {safe_scenario}}}")
+            content.append(r"\end{table}")
+            content.append(r"")
     
     content.append(r"\end{document}")
     
@@ -521,9 +715,9 @@ def generate_latex_table(df: pd.DataFrame, output_dir: Path, timestamp: str) -> 
     print(f"LaTeX tables saved to: {latex_path}")
 
 
-def collect_result_dirs(inputs: List[str]) -> List[Path]:
+def collect_result_dirs(inputs: List[str]) -> List[Tuple[Path, str]]:
     """Collect all result directories from provided inputs (logs or root dirs)."""
-    result_dirs = []
+    results = []
     
     for inp in inputs:
         path = Path(inp)
@@ -535,7 +729,7 @@ def collect_result_dirs(inputs: List[str]) -> List[Path]:
             # If it's a log file, parse it
             if path.suffix == '.log' or 'suite_' in path.name:
                 print(f"Parsing log file: {path}")
-                result_dirs.extend(parse_suite_log(path))
+                results.extend(parse_suite_log(path))
             else:
                 print(f"Warning: Skipping file {path} (not a recognized log).")
         
@@ -544,12 +738,18 @@ def collect_result_dirs(inputs: List[str]) -> List[Path]:
             print(f"Scanning directory: {path}")
             found = list(path.rglob('summary.json'))
             print(f"  Found {len(found)} result(s).")
-            # The result dir is the parent of summary.json
-            result_dirs.extend([f.parent for f in found])
+            # For direct directory scan, we don't have the log config string
+            results.extend([(f.parent, "") for f in found])
             
-    # Remove duplicates and resolve paths
-    unique_dirs = list(set([d.resolve() for d in result_dirs]))
-    return unique_dirs
+    # Remove duplicates (based on path)
+    unique_results = {}
+    for p, c in results:
+        res_p = p.resolve()
+        # If we already have this path, prefer the one with config
+        if res_p not in unique_results or (not unique_results[res_p] and c):
+            unique_results[res_p] = c
+            
+    return list(unique_results.items())
 
 
 def main():
@@ -562,15 +762,16 @@ def main():
     args = parser.parse_args()
     
     # Collect all valid result directories
-    result_dirs = collect_result_dirs(args.inputs)
+    # result_info is list of (path, config_str)
+    result_info = collect_result_dirs(args.inputs)
     
-    if not result_dirs:
+    if not result_info:
         print("No result directories found from inputs.")
         return
         
-    print(f"Total entries to process: {len(result_dirs)}")
+    print(f"Total entries to process: {len(result_info)}")
     
-    df, device_info = load_results(result_dirs)
+    df, device_info = load_results(result_info)
     if df.empty:
         print("No valid results loaded (data is empty).")
         return
@@ -610,7 +811,7 @@ def main():
     generate_scenario_plots(df, output_dir, device_info, timestamp)
     generate_summary_plots(df, output_dir, device_info, timestamp)
     generate_idle_power_table(df, output_dir, device_info, timestamp)
-    generate_latex_table(df, output_dir, timestamp)
+    generate_latex_table(df, output_dir, device_info, timestamp)
     
     print(f"Graphs saved to: {output_dir}")
 

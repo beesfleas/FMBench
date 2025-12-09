@@ -79,8 +79,8 @@ BENCHMARK_CONFIG = {
             "sentiment": {},
             "summarization": {},
             "translation": {},
-            "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
-            "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
+            # "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
+            # "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
         },
     },
     "VLM": {
