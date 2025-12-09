@@ -2,6 +2,7 @@
 import torch
 import logging
 from functools import wraps
+from typing import Optional, Tuple, Union
 
 log = logging.getLogger(__name__)
 
@@ -14,7 +15,7 @@ class MPSMemoryError(RuntimeError):
     pass
 
 
-def estimate_model_size_from_hub(model_id: str) -> int | None:
+def estimate_model_size_from_hub(model_id: str) -> Optional[int]:
     """
     Estimate model parameter count from HuggingFace Hub before loading.
     
@@ -54,7 +55,7 @@ def estimate_model_size_from_hub(model_id: str) -> int | None:
         return None
 
 
-def check_mps_compatibility(model_id: str, allow_fallback: bool = True) -> tuple[bool, str]:
+def check_mps_compatibility(model_id: str, allow_fallback: bool = True) -> Tuple[bool, str]:
     """
     Pre-flight check if a model is likely compatible with MPS.
     
@@ -230,7 +231,7 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config):
     return kwargs
 
 
-def get_mps_safe_load_kwargs(config, model_id: str) -> tuple[dict, bool, bool, str]:
+def get_mps_safe_load_kwargs(config, model_id: str) -> Tuple[dict, bool, bool, str]:
     """
     Get safe loading configuration with pre-flight MPS compatibility check.
     
@@ -333,7 +334,7 @@ def clear_device_cache():
         torch.mps.empty_cache()
 
 
-def try_move_to_mps(model, model_id: str, config: dict) -> tuple[bool, str]:
+def try_move_to_mps(model, model_id: str, config: dict) -> Tuple[bool, str]:
     """
     Attempt to move a CPU-loaded model to MPS after verifying size.
     

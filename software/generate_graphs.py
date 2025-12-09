@@ -6,6 +6,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -32,7 +33,7 @@ PROFILER_PATTERNS = {
 }
 
 
-def parse_suite_log(log_path: Path) -> list[Path]:
+def parse_suite_log(log_path: Path) -> List[Path]:
     """Parse suite log to extract result directory paths."""
     result_dirs = []
     pattern = re.compile(r'Results will be saved to: (.+)')
@@ -46,7 +47,7 @@ def parse_suite_log(log_path: Path) -> list[Path]:
     return result_dirs
 
 
-def load_results(result_dirs: list[Path]) -> tuple[pd.DataFrame, dict]:
+def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
     """Load summary.json from each result directory into a DataFrame.
     
     Returns:
@@ -382,7 +383,7 @@ def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
     return True
 
 
-def collect_result_dirs(inputs: list[str]) -> list[Path]:
+def collect_result_dirs(inputs: List[str]) -> List[Path]:
     """Collect all result directories from provided inputs (logs or root dirs)."""
     result_dirs = []
     
