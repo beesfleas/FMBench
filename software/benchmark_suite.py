@@ -55,7 +55,6 @@ BENCHMARK_CONFIG = {
     "LLM": {
         "models": [
             "qwen3-0.6b",
-            "qwen3-0.6b-quantized",
 
             "llama3.2-1b",
             "llama3.2-1b-quantized",
@@ -99,8 +98,8 @@ BENCHMARK_CONFIG = {
         "models": ["patchtst", "chronos-t5-small", "arima"],
         "scenarios": {
             "idle": {"scenario.idle_duration": "10", "_skip_num_samples": True},
-            "fev_bench": {},
-            "gift_eval": {},
+            "fev_bench": {"_skip_num_samples": True},
+            "gift_eval": {"_skip_num_samples": True},
             "m3_monthly": {},
         },
     },
@@ -112,7 +111,8 @@ BENCHMARK_CONFIG = {
 
 def load_model_config(model_name: str) -> Optional[Dict]:
     """Load model config file, return None if not found."""
-    config_path = Path("conf/model") / f"{model_name}.yaml"
+    base_dir = Path(__file__).parent
+    config_path = base_dir / "conf/model" / f"{model_name}.yaml"
     if not config_path.exists():
         return None
     return OmegaConf.load(config_path)
@@ -275,7 +275,9 @@ LOG_DIR = Path("suite_logs")
 
 def run_benchmark(config: Dict, log_file) -> Tuple[bool, float]:
     """Run one benchmark, return (success, duration)."""
-    args = [sys.executable, "run.py"] + [f"{k}={v}" for k, v in config.items()]
+    base_dir = Path(__file__).parent
+    run_script = base_dir / "run.py"
+    args = [sys.executable, str(run_script)] + [f"{k}={v}" for k, v in config.items()]
     
     start = time.time()
     proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)

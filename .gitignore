@@ -9,3 +9,4 @@ test_image.jpg
 *.DS_Store
 logs/
 *.log
+suite_logs/
