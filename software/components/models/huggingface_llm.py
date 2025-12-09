@@ -1,4 +1,5 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
+import transformers
 import torch
 import time
 import threading
@@ -24,8 +25,13 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         model_id = config.get("model_id")
         self.config = config
         
+        log.info("Transformers version: %s", transformers.__version__)
+        
+        # Default trust_remote_code to True
         trust_remote_code = config.get("trust_remote_code", True)
         log.debug("Loading tokenizer for %s (trust_remote_code=%s)", model_id, trust_remote_code)
+        
+        # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust_remote_code)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
@@ -43,12 +49,21 @@ class HuggingFaceLLMLoader(BaseModelLoader):
                   load_kwargs.get("device_map"), load_kwargs.get("torch_dtype"),
                   "enabled" if quantization_config else "disabled")
 
+        # Explicitly load config first to ensure model type is recognized
+        log.debug("Loading config with trust_remote_code=%s", trust_remote_code)
+        model_config = AutoConfig.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+        
+        # Add explicit kwargs
         if trust_remote_code:
             load_kwargs["trust_remote_code"] = True
-            log.info("`trust_remote_code` is enabled (default behavior). This allows the model to execute custom code from the repository.")
+            log.info("`trust_remote_code` is enabled (default behavior). This allows the model to execute custom code for %s", model_id)
 
-        # Load model
-        self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
+        # Load model using the loaded config
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id, 
+            config=model_config,
+            **load_kwargs
+        )
         
         # If we loaded to CPU due to unknown size, try moving to MPS now
         if "pending MPS check" in device_name:
