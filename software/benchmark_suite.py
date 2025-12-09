@@ -354,7 +354,9 @@ def run_benchmarks(configs: List[Dict], device_level: str) -> int:
     print("\nGenerating graphs...")
     try:
         # Call generate_graphs.py as a subprocess to handle argument parsing cleanly
-        cmd = [sys.executable, "generate_graphs.py", str(log_path)]
+        base_dir = Path(__file__).parent
+        generate_graphs_script = base_dir / "generate_graphs.py"
+        cmd = [sys.executable, str(generate_graphs_script), str(log_path)]
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
         print(f"Warning: Failed to generate graphs: {e}")

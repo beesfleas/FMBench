@@ -604,7 +604,7 @@ def main():
     # Generate timestamp
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     
-    print(f"Devices: {device_info}")
+    # print(f"Devices: {device_info}")
     
     # Generate plots
     generate_scenario_plots(df, output_dir, device_info, timestamp)
