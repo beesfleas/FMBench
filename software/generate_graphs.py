@@ -6,7 +6,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -74,14 +74,23 @@ def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
             'model': model_name,
             'scenario': scenario,
             'latency': data.get('avg_latency'),
+            'ttft': data.get('first_token_ttft'),
             'accuracy': data.get('accuracy'),
+            'perplexity': data.get('average_perplexity'),
             'sMAPE': data.get('avg_sMAPE'),
+            'tokens_per_output': data.get('avg_tokens_per_output'),
         }
         
         # Extract energy, power, and device info from profilers
         device_metrics = data.get('device_metrics', {})
         energy = None
         idle_power = None
+        
+        # Hardware Metrics
+        cpu_util = None
+        gpu_util = None
+        ram_usage = None
+        vram_usage = None
         
         for key, metrics in device_metrics.items():
             key_lower = key.lower()
@@ -93,16 +102,47 @@ def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
                         device_info[label] = metrics.get('device_name')
                     break
             
-            # Extract energy (prefer GPU/accelerator over CPU)
+            # Extract CPU Util (from CPU profiler)
+            if 'cpuprofiler' in key_lower:
+                if metrics.get('average_cpu_utilization_percent') is not None:
+                    cpu_util = metrics.get('average_cpu_utilization_percent')
+                if metrics.get('average_memory_mb') is not None:
+                    ram_usage = metrics.get('average_memory_mb')
+            
+            # Extract GPU metrics (Energy, Util, VRAM)
+            # Prefer discrete GPU or specific accelerator profilers
             if 'cpuprofiler' not in key_lower:
                 if metrics.get('total_energy_joules') is not None:
-                    energy = metrics.get('total_energy_joules')
+                    # Sum energy if multiple devices? Currently picking first found
+                    if energy is None:
+                        energy = metrics.get('total_energy_joules')
+                    else:
+                        energy += metrics.get('total_energy_joules')
+                
                 # For idle scenario, capture average power
                 if scenario == 'Idle Baseline':
-                    idle_power = metrics.get('average_power_watts')
+                    if metrics.get('average_power_watts') is not None:
+                        idle_power = metrics.get('average_power_watts')
+
+                # GPU Utilization
+                # Check standardized key or fallback
+                g_util = metrics.get('average_gpu_utilization_percent') or metrics.get('average_utilization_percent')
+                if g_util is not None:
+                    # If multiple GPUs, maybe average them? For now pick first non-None
+                    if gpu_util is None:
+                        gpu_util = g_util
+                
+                # VRAM
+                if metrics.get('average_memory_mb') is not None:
+                    if vram_usage is None:
+                        vram_usage = metrics.get('average_memory_mb')
         
         record['energy'] = energy
         record['idle_power_watts'] = idle_power
+        record['cpu_util'] = cpu_util
+        record['gpu_util'] = gpu_util
+        record['ram_usage'] = ram_usage
+        record['vram_usage'] = vram_usage
         
         # Track if accuracy is meaningful for this scenario
         record['has_valid_accuracy'] = (
@@ -117,8 +157,6 @@ def load_results(result_dirs: List[Path]) -> Tuple[pd.DataFrame, dict]:
         records.append(record)
     
     return pd.DataFrame(records), device_info
-
-
 
 
 def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, 
@@ -322,7 +360,7 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path,
 
 
 def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
-                               device_info: dict, timestamp: str):
+                                device_info: dict, timestamp: str):
     """Generate a table showing idle power usage per model."""
     # Filter to idle scenarios only
     idle_df = df[df['scenario'] == 'Idle Baseline'].copy()
@@ -381,6 +419,106 @@ def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
     plt.close()
     
     return True
+
+
+def generate_latex_table(df: pd.DataFrame, output_dir: Path, timestamp: str) -> None:
+    """Generate a valid LaTeX file containing tables for all scenarios."""
+    latex_path = output_dir / "results.tex"
+    
+    # Columns map: internal_col -> (Display Name, decimal_places)
+    # The order here determines column order in LaTeX
+    columns_map = {
+        'model': ('Model', None),
+        'latency': ('Latency (s)', 2),
+        'ttft': ('TTFT (s)', 3),
+        'tokens_per_output': ('Tok/Out', 1),
+        'accuracy': ('Accuracy', 2),
+        'perplexity': ('Perplexity', 2),
+        'sMAPE': ('sMAPE (%)', 2),
+        'energy': ('Energy (J)', 1),
+        'idle_power_watts': ('Idle Power (W)', 1),
+        'cpu_util': ('CPU Util (%)', 1),
+        'ram_usage': ('RAM (MB)', 0),
+        'gpu_util': ('GPU Util (%)', 1),
+        'vram_usage': ('VRAM (MB)', 0),
+    }
+
+    # Header
+    content = [
+        r"\documentclass{article}",
+        r"\usepackage{booktabs}",
+        r"\usepackage{geometry}",
+        r"\usepackage{float}",
+        r"\usepackage{caption}",
+        r"\geometry{margin=1in}",
+        r"\begin{document}",
+        r"\title{FMBench Results}",
+        f"\\date{{Generated: {timestamp}}}",
+        r"\maketitle",
+        r"",
+    ]
+
+    scenarios = sorted(df['scenario'].unique())
+    
+    for scenario in scenarios:
+        scenario_df = df[df['scenario'] == scenario].copy()
+        safe_scenario = scenario.replace("_","\\_").replace("%","\\%")
+        
+        if scenario_df.empty:
+            continue
+            
+        content.append(f"\\section*{{Scenario: {safe_scenario}}}")
+        content.append(r"\begin{table}[H]")
+        content.append(r"\centering")
+        content.append(r"\begin{tabular}{" + "l" + "c" * (len(columns_map)-1) + "}")
+        content.append(r"\toprule")
+        
+        # Determine valid columns (not all None)
+        valid_cols = []
+        for col in columns_map:
+            # Check if this column has ANY non-null data in this scenario
+            if col == 'model' or scenario_df[col].notna().any():
+                valid_cols.append(col)
+        
+        # Build Header Row
+        headers = [columns_map[c][0] for c in valid_cols]
+        content.append(" & ".join(headers) + r" \\")
+        content.append(r"\midrule")
+        
+        # Build Rows
+        for _, row in scenario_df.iterrows():
+            row_items = []
+            for col in valid_cols:
+                val = row.get(col)
+                if val is None or pd.isna(val):
+                    row_items.append("-")
+                elif col == 'model':
+                    row_items.append(str(val).replace("_", "\\_"))
+                else:
+                    precision = columns_map[col][1]
+                    try:
+                        fval = float(val)
+                        if precision == 0:
+                             row_items.append(f"{int(fval)}")
+                        else:
+                             row_items.append(f"{fval:.{precision}f}")
+                    except (ValueError, TypeError):
+                         row_items.append(str(val))
+            
+            content.append(" & ".join(row_items) + r" \\")
+            
+        content.append(r"\bottomrule")
+        content.append(r"\end{tabular}")
+        content.append(f"\\caption{{Results for {safe_scenario}}}")
+        content.append(r"\end{table}")
+        content.append(r"")
+    
+    content.append(r"\end{document}")
+    
+    with open(latex_path, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(content))
+        
+    print(f"LaTeX tables saved to: {latex_path}")
 
 
 def collect_result_dirs(inputs: List[str]) -> List[Path]:
@@ -472,6 +610,7 @@ def main():
     generate_scenario_plots(df, output_dir, device_info, timestamp)
     generate_summary_plots(df, output_dir, device_info, timestamp)
     generate_idle_power_table(df, output_dir, device_info, timestamp)
+    generate_latex_table(df, output_dir, timestamp)
     
     print(f"Graphs saved to: {output_dir}")
 
