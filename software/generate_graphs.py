@@ -19,6 +19,7 @@ AXIS_LABELS = {
     'latency': 'Latency (seconds)',
     'accuracy': 'Accuracy',
     'energy': 'Energy (Joules)',
+    'sMAPE': 'sMAPE (%)',
 }
 
 # Map profiler key patterns to device type labels
@@ -73,6 +74,7 @@ def load_results(result_dirs: list[Path]) -> tuple[pd.DataFrame, dict]:
             'scenario': scenario,
             'latency': data.get('avg_latency'),
             'accuracy': data.get('accuracy'),
+            'sMAPE': data.get('avg_sMAPE'),
         }
         
         # Extract energy, power, and device info from profilers
@@ -107,6 +109,9 @@ def load_results(result_dirs: list[Path]) -> tuple[pd.DataFrame, dict]:
             and scenario not in SKIP_ACCURACY_SCENARIOS
             and not scenario.lower().startswith('perplexity')
         )
+
+        # Track if sMAPE is available
+        record['has_valid_smape'] = record['sMAPE'] is not None
         
         records.append(record)
     
@@ -131,7 +136,7 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     def clean_model_name(name):
         return str(name).split('/')[-1]
 
-    plot_df['model_clean'] = plot_df['model'].apply(clean_model_name)
+    plot_df = plot_df.assign(model_clean=plot_df['model'].apply(clean_model_name))
     
     # Use hue for different models to give them different colors
     # s=100 sets point size
@@ -176,6 +181,48 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     return True
 
 
+def create_bar_plot(df: pd.DataFrame, x_col: str, y_col: str, 
+                    title: str, output_path: Path,
+                    device_info: dict, timestamp: str):
+    """Create a bar plot for a single metric."""
+    plot_df = df.dropna(subset=[x_col, y_col])
+    if plot_df.empty:
+        return False
+        
+    plt.figure(figsize=(10, 6))
+    
+    # Clean model names for display
+    def clean_model_name(name):
+        return str(name).split('/')[-1]
+    
+    # Use .assign or .loc to avoid copy warning
+    plot_df = plot_df.assign(model_clean=plot_df['model'].apply(clean_model_name))
+    
+    # Create barplot
+    # Fix future warning: assign x to hue and set legend=False
+    sns.barplot(data=plot_df, x='model_clean', y=y_col, hue='model_clean', palette='viridis', legend=False)
+    
+    plt.title(title, fontsize=14, pad=20)
+    plt.xlabel('Model', fontsize=12)
+    plt.ylabel(AXIS_LABELS.get(y_col, y_col), fontsize=12)
+    
+    # Rotate x labels to avoid overlap
+    plt.xticks(rotation=45, ha='right')
+    
+    # Build footer text
+    footer_parts = [f"{k}: {v}" for k, v in device_info.items() if v]
+    footer_parts.append(f"Generated: {timestamp}")
+    footer_text = '  |  '.join(footer_parts)
+    
+    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic', backgroundcolor='white')
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 1])
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    return True
+
+
 def generate_scenario_plots(df: pd.DataFrame, output_dir: Path,
                             device_info: dict, timestamp: str):
     """Generate plots for each scenario."""
@@ -198,11 +245,28 @@ def generate_scenario_plots(df: pd.DataFrame, output_dir: Path,
                 device_info, timestamp
             )
         
+        # 2. sMAPE Bar Plot (if valid sMAPE)
+        if scenario_df['has_valid_smape'].any():
+            create_bar_plot(
+                scenario_df, 'model', 'sMAPE',
+                f'{scenario}: sMAPE by Model',
+                output_dir / f'{safe_name}_smape_bar.png',
+                device_info, timestamp
+            )
+            
+            # Also Latency vs sMAPE scatter
+            create_scatter_plot(
+                scenario_df, 'latency', 'sMAPE',
+                f'{scenario}: Latency vs sMAPE',
+                output_dir / f'{safe_name}_latency_vs_smape.png',
+                device_info, timestamp
+            )
+        
         # Check if energy data is available
         has_energy = scenario_df['energy'].notna().any()
         
         if has_energy:
-            # 2. Latency vs Energy
+            # 3. Latency vs Energy
             create_scatter_plot(
                 scenario_df, 'latency', 'energy',
                 f'{scenario}: Latency vs Energy',
@@ -210,12 +274,20 @@ def generate_scenario_plots(df: pd.DataFrame, output_dir: Path,
                 device_info, timestamp
             )
             
-            # 3. Accuracy vs Energy (only if scenario has valid accuracy)
+            # 4. Accuracy/sMAPE vs Energy
             if scenario_df['has_valid_accuracy'].any():
                 create_scatter_plot(
                     scenario_df, 'accuracy', 'energy',
                     f'{scenario}: Accuracy vs Energy',
                     output_dir / f'{safe_name}_accuracy_vs_energy.png',
+                    device_info, timestamp
+                )
+            
+            if scenario_df['has_valid_smape'].any():
+                create_scatter_plot(
+                    scenario_df, 'sMAPE', 'energy',
+                    f'{scenario}: sMAPE vs Energy',
+                    output_dir / f'{safe_name}_smape_vs_energy.png',
                     device_info, timestamp
                 )
 
