@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from omegaconf import OmegaConf
-from generate_graphs import main as generate_graphs
+from generate_graphs import main as generate_graphs_main
 
 # =============================================================================
 # CONFIGURATION
@@ -353,10 +353,16 @@ def run_benchmarks(configs: List[Dict], device_level: str) -> int:
     # Generate graphs
     print("\nGenerating graphs...")
     try:
-        graph_dir = generate_graphs(log_path)
-        print(f"Graphs saved to: {graph_dir}")
-    except Exception as e:
+    # Generate graphs
+    print("\nGenerating graphs...")
+    try:
+        # Call generate_graphs.py as a subprocess to handle argument parsing cleanly
+        cmd = [sys.executable, "generate_graphs.py", str(log_path)]
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
         print(f"Warning: Failed to generate graphs: {e}")
+    except Exception as e:
+        print(f"Warning: Error invoking graph generation: {e}")
     
     return 0 if passed == len(results) else 1
 

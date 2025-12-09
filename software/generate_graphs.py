@@ -118,7 +118,7 @@ def load_results(result_dirs: list[Path]) -> tuple[pd.DataFrame, dict]:
     return pd.DataFrame(records), device_info
 
 
-from adjustText import adjust_text
+
 
 def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, 
                         title: str, output_path: Path,
@@ -139,26 +139,8 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     plot_df = plot_df.assign(model_clean=plot_df['model'].apply(clean_model_name))
     
     # Use hue for different models to give them different colors
-    # s=100 sets point size
+    # s=150 sets point size
     sns.scatterplot(data=plot_df, x=x_col, y=y_col, hue='model_clean', s=150, style='model_clean', palette='deep')
-    
-    # Add model labels
-    texts = []
-    for _, row in plot_df.iterrows():
-        texts.append(plt.text(
-            row[x_col], 
-            row[y_col], 
-            row['model_clean'],
-            fontsize=9
-        ))
-    
-    # Handle overlapping labels
-    adjust_text(
-        texts, 
-        arrowprops=dict(arrowstyle='->', color='gray', lw=0.5),
-        expand_points=(1.5, 1.5),
-        expand_text=(1.2, 1.2)
-    )
     
     plt.title(title, fontsize=14, pad=20)
     plt.xlabel(AXIS_LABELS.get(x_col, x_col), fontsize=12)
@@ -172,7 +154,7 @@ def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str,
     footer_parts.append(f"Generated: {timestamp}")
     footer_text = '  |  '.join(footer_parts)
     
-    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic', backgroundcolor='white')
+    plt.figtext(0.02, 0.01, footer_text, ha='left', fontsize=8, style='italic', backgroundcolor='white')
     
     plt.tight_layout(rect=[0, 0.03, 0.85, 1])  # Adjust rect to make room for external legend
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -214,7 +196,7 @@ def create_bar_plot(df: pd.DataFrame, x_col: str, y_col: str,
     footer_parts.append(f"Generated: {timestamp}")
     footer_text = '  |  '.join(footer_parts)
     
-    plt.figtext(0.5, 0.01, footer_text, ha='center', fontsize=8, style='italic', backgroundcolor='white')
+    plt.figtext(0.02, 0.01, footer_text, ha='left', fontsize=8, style='italic', backgroundcolor='white')
     
     plt.tight_layout(rect=[0, 0.03, 1, 1])
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
@@ -312,7 +294,7 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path,
     # 1. Latency vs Accuracy
     create_scatter_plot(
         summary_df, 'latency', 'accuracy',
-        'Summary: Average Latency vs Accuracy',
+        'Summary: Average Latency vs Average Accuracy',
         output_dir / 'summary_latency_vs_accuracy.png',
         device_info, timestamp
     )
@@ -324,7 +306,7 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path,
         # 2. Latency vs Energy
         create_scatter_plot(
             summary_df, 'latency', 'energy',
-            'Summary: Average Latency vs Energy',
+            'Summary: Average Latency vs Average Energy',
             output_dir / 'summary_latency_vs_energy.png',
             device_info, timestamp
         )
@@ -332,7 +314,7 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path,
         # 3. Accuracy vs Energy
         create_scatter_plot(
             summary_df, 'accuracy', 'energy',
-            'Summary: Average Accuracy vs Energy',
+            'Summary: Average Accuracy vs AverageEnergy',
             output_dir / 'summary_accuracy_vs_energy.png',
             device_info, timestamp
         )
@@ -391,7 +373,7 @@ def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
     footer_parts = [f"{k}: {v}" for k, v in device_info.items() if v]
     footer_parts.append(f"Generated: {timestamp}")
     footer_text = '  |  '.join(footer_parts)
-    plt.figtext(0.5, 0.02, footer_text, ha='center', fontsize=7, style='italic')
+    plt.figtext(0.02, 0.02, footer_text, ha='left', fontsize=7, style='italic')
     
     plt.tight_layout(rect=[0, 0.05, 1, 0.95])
     plt.savefig(output_dir / 'idle_power_table.png', dpi=150, bbox_inches='tight')
@@ -400,29 +382,89 @@ def generate_idle_power_table(df: pd.DataFrame, output_dir: Path,
     return True
 
 
-def main(log_path: Path) -> Path:
-    """Main entry point - parse log, load results, generate plots."""
-    log_path = Path(log_path)
+def collect_result_dirs(inputs: list[str]) -> list[Path]:
+    """Collect all result directories from provided inputs (logs or root dirs)."""
+    result_dirs = []
     
-    # Create output directory next to the log file
-    output_dir = log_path.parent / f"{log_path.stem}_graphs"
-    output_dir.mkdir(exist_ok=True)
+    for inp in inputs:
+        path = Path(inp)
+        if not path.exists():
+            print(f"Warning: Input {path} does not exist.")
+            continue
+            
+        if path.is_file():
+            # If it's a log file, parse it
+            if path.suffix == '.log' or 'suite_' in path.name:
+                print(f"Parsing log file: {path}")
+                result_dirs.extend(parse_suite_log(path))
+            else:
+                print(f"Warning: Skipping file {path} (not a recognized log).")
+        
+        elif path.is_dir():
+            # If it's a directory, look for summary.json recursively
+            print(f"Scanning directory: {path}")
+            found = list(path.rglob('summary.json'))
+            print(f"  Found {len(found)} result(s).")
+            # The result dir is the parent of summary.json
+            result_dirs.extend([f.parent for f in found])
+            
+    # Remove duplicates and resolve paths
+    unique_dirs = list(set([d.resolve() for d in result_dirs]))
+    return unique_dirs
+
+
+def main():
+    """Main entry point."""
+    import argparse
+    parser = argparse.ArgumentParser(description="Generate graphs from FMBench results.")
+    parser.add_argument('inputs', nargs='+', help="Path to suite logs (.log) or result directories.")
+    parser.add_argument('-o', '--output-dir', help="Directory to save graphs. Default: <first_input>_combined_graphs")
     
-    # Generate timestamp (accurate to minute)
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+    args = parser.parse_args()
     
-    # Parse log and load results
-    result_dirs = parse_suite_log(log_path)
+    # Collect all valid result directories
+    result_dirs = collect_result_dirs(args.inputs)
+    
     if not result_dirs:
-        print(f"No result directories found in {log_path}")
-        return output_dir
+        print("No result directories found from inputs.")
+        return
+        
+    print(f"Total entries to process: {len(result_dirs)}")
     
     df, device_info = load_results(result_dirs)
     if df.empty:
-        print("No results loaded")
-        return output_dir
+        print("No valid results loaded (data is empty).")
+        return
+
+    # Determine output directory
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    else:
+        first_input = Path(args.inputs[0])
+        
+        # If multiple inputs are provided, create a unique combined folder
+        if len(args.inputs) > 1:
+            # Create a descriptive name from input stems (limit to first 3 to avoid huge paths)
+            stems = [Path(i).stem.replace('suite_', '') for i in args.inputs[:3]]
+            base_name = "_".join(stems)
+            if len(args.inputs) > 3:
+                base_name += f"_and_{len(args.inputs)-3}_more"
+            
+            # Add timestamp to prevent overwriting
+            timestamp_suffix = datetime.now().strftime('%Y%m%d_%H%M%S')
+            folder_name = f"combined_graphs_{base_name}_{timestamp_suffix}"
+            
+            output_dir = first_input.parent / folder_name
+        else:
+            # Default name based on the single input
+            safe_stem = first_input.stem
+            output_dir = first_input.parent / f"{safe_stem}_graphs"
+        
+    output_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"Loaded {len(df)} results from {len(result_dirs)} directories")
+    # Generate timestamp
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+    
     print(f"Devices: {device_info}")
     
     # Generate plots
@@ -431,12 +473,7 @@ def main(log_path: Path) -> Path:
     generate_idle_power_table(df, output_dir, device_info, timestamp)
     
     print(f"Graphs saved to: {output_dir}")
-    return output_dir
 
 
 if __name__ == '__main__':
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python generate_graphs.py <suite_log_path>")
-        sys.exit(1)
-    main(Path(sys.argv[1]))
+    main()

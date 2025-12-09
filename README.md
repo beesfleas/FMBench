@@ -78,9 +78,30 @@ After running a suite, comparison graphs are automatically generated in `suite_l
 - `<scenario>_latency_vs_accuracy.png` - Per-scenario latency/accuracy
 - `<scenario>_latency_vs_energy.png` - Per-scenario latency/energy
 - `<scenario>_accuracy_vs_energy.png` - Per-scenario accuracy/energy
+- `<scenario>_smape_bar.png` - sMAPE by model (Time Series)
+- `<scenario>_latency_vs_smape.png` - Latency vs sMAPE
 
 **Idle Power Table**:
 - `idle_power_table.png` - Power consumption when model is loaded but idle
+
+### Manual Graph Generation
+
+If you need to regenerate graphs or combine results from multiple runs, use the manual utility:
+
+```bash
+# From a single log file
+python software/generate_graphs.py suite_logs/suite_20240101.log
+
+# From multiple log files (combines data)
+# Defaults to creating a 'combined_graphs' folder in the suite_logs directory
+python software/generate_graphs.py suite_logs/run1.log suite_logs/run2.log
+
+# Specify custom output directory
+python software/generate_graphs.py suite_logs/run1_graphs/ suite_logs/run2_graphs/ -o my_custom_graphs
+```
+
+> [!NOTE]
+> If multiple logs contain the same model/scenario combination, results are averaged in bar charts and summary plots, with scatter plots showing individual data points.
 
 <!-- Example graphs (TODO: add actual images)
 ![Summary: Latency vs Accuracy](docs/example_summary_latency_vs_accuracy.png)
