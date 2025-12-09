@@ -24,8 +24,9 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         model_id = config.get("model_id")
         self.config = config
         
-        log.debug("Loading tokenizer for %s", model_id)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+        trust_remote_code = config.get("trust_remote_code", True)
+        log.debug("Loading tokenizer for %s (trust_remote_code=%s)", model_id, trust_remote_code)
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=trust_remote_code)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
 
@@ -41,6 +42,10 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         log.debug("Loading model: device_map=%s, dtype=%s, quantization=%s",
                   load_kwargs.get("device_map"), load_kwargs.get("torch_dtype"),
                   "enabled" if quantization_config else "disabled")
+
+        if trust_remote_code:
+            load_kwargs["trust_remote_code"] = True
+            log.info("`trust_remote_code` is enabled (default behavior). This allows the model to execute custom code from the repository.")
 
         # Load model
         self.model = AutoModelForCausalLM.from_pretrained(model_id, **load_kwargs)
