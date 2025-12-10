@@ -6,163 +6,25 @@ Usage:
     python benchmark_suite.py [--device-level SoC|Mobile|Server] [--summary-only] [-y]
 
 Configuration:
-    Edit the BENCHMARK_CONFIG dictionary below to customize which models and
-    scenarios to run. Models are automatically matched with compatible scenarios
-    based on their category (LLM, VLM, or TIME_SERIES).
+    Edit fmbench_config.py to customize which models and scenarios to run.
 """
 import argparse
-import re
 import subprocess
 import sys
 import time
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
-from omegaconf import OmegaConf
-from generate_graphs import main as generate_graphs_main
-
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
-
-DEVICE_LEVEL = "Server"  # Default: "SoC", "Mobile", or "Server"
-GLOBAL_SETTINGS = {}
-DEFAULT_NUM_SAMPLES = "10"
-
-# Device capability limits (in billions of parameters)
-DEVICE_LIMITS = {
-    "SoC": 1.0,
-    "Mobile": 3.0,
-    "Server": float("inf"),  # No limit
-}
-
-# Known model parameter counts (for models without size in name)
-KNOWN_MODELS = {
-    "smolvlm": 0.256,
-    "tinyllama": 0.638,
-    "distilgpt2": 0.082,
-    "chronos-t5-tiny": 0.020,
-    "chronos-t5-small": 0.046,
-    "arima": 0.0,
-    "llava": 7.0,
-    "minicpm-v": 2.4,
-    "patchtst": 0.0,
-}
-
-BENCHMARK_CONFIG = {
-    "LLM": {
-        "models": [
-            "qwen3-0.6b",
-
-            "llama3.2-1b",
-            "llama3.2-1b-quantized",
-
-            "qwen2.5-1.5b",
-            "qwen2.5-1.5b-quantized",
-
-            "qwen3-4b",
-            "qwen3-4b-quantized",
-
-            "qwen2.5-7b",
-            "qwen2.5-7b-quantized",
-        ],
-        "scenarios": {
-            "idle": {"scenario.idle_duration": "10", "_skip_num_samples": True},
-            "arc_easy": {},
-            "arc_challenge": {},
-            "classification": {},
-            "ner": {},
-            "perplexity_c4": {},
-            "perplexity_wikitext2": {},
-            "sentiment": {},
-            "summarization": {},
-            "translation": {},
-            # "summarization": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
-            # "translation": {"scenario.use_expensive_metrics": "True", "scenario.num_samples": "10"},
-        },
-    },
-    "VLM": {
-        "models": ["smolvlm", "llava"],
-        "scenarios": {
-            "idle": {"scenario.idle_duration": "10", "_skip_num_samples": True},
-            "hagrid": {},
-            "gtsrb": {},
-            "countbenchqa": {},
-            "docvqa": {},
-            "vqa": {},
-        },
-    },
-    "TIME_SERIES": {
-        "models": ["patchtst", "chronos-t5-small", "arima"],
-        "scenarios": {
-            "idle": {"scenario.idle_duration": "10", "_skip_num_samples": True},
-            "fev_bench": {"_skip_num_samples": True},
-            "gift_eval": {"_skip_num_samples": True},
-            "m3_monthly": {},
-        },
-    },
-}
-
-# =============================================================================
-# MODEL UTILITIES
-# =============================================================================
-
-def load_model_config(model_name: str) -> Optional[Dict]:
-    """Load model config file, return None if not found."""
-    base_dir = Path(__file__).parent
-    config_path = base_dir / "conf/model" / f"{model_name}.yaml"
-    if not config_path.exists():
-        return None
-    return OmegaConf.load(config_path)
-
-
-def get_model_category(model_name: str) -> str:
-    """Get model category from config file, default to LLM."""
-    config = load_model_config(model_name)
-    return config.get("model_category", "LLM") if config else "LLM"
-
-
-def extract_param_count_from_text(text: str) -> Optional[float]:
-    """Extract parameter count (in billions) from text using regex."""
-    match = re.search(r'(\d+(?:\.\d+)?)b', text.lower())
-    return float(match.group(1)) if match else None
-
-
-def get_model_parameter_count(model_name: str) -> Optional[float]:
-    """Get model parameter count from name, config file, or known models."""
-    # Try filename first
-    if count := extract_param_count_from_text(model_name):
-        return count
-    
-    # Try model_id in config file
-    config = load_model_config(model_name)
-    if config and (model_id := config.get("model_id")):
-        if count := extract_param_count_from_text(model_id):
-            return count
-    
-    # Check known models
-    model_lower = model_name.lower()
-    for key, params in KNOWN_MODELS.items():
-        if key in model_lower:
-            return params
-    
-    # For quantized models, check base model
-    if "-quantized" in model_name:
-        return get_model_parameter_count(model_name.replace("-quantized", ""))
-    
-    return None
-
-
-def is_model_allowed_for_device(model_name: str, device_level: str) -> bool:
-    """Check if model can run on given device level."""
-    limit = DEVICE_LIMITS.get(device_level, float("inf"))
-    if limit == float("inf"):
-        return True  # Server: no limit
-    
-    param_count = get_model_parameter_count(model_name)
-    return param_count is not None and param_count <= limit
+from suite_utils.suite_config import (
+    DEVICE_LEVEL, GLOBAL_SETTINGS, DEFAULT_NUM_SAMPLES,
+    DEVICE_LIMITS, BENCHMARK_CONFIG
+)
+from suite_utils.suite_utils import (
+    get_model_category, get_model_parameter_count,
+    is_model_allowed_for_device, format_time
+)
 
 # =============================================================================
 # CONFIG BUILDING
@@ -224,7 +86,7 @@ def build_configs(device_level: str = DEVICE_LEVEL) -> List[Dict]:
             print(f"  • {model_info}")
         if any("unknown size" in info for info in filtered):
             print("  Note: Unknown models filtered conservatively.")
-            print("        Add to KNOWN_MODELS dict if needed.\n")
+            print("        Add to KNOWN_MODELS dict in fmbench_config.py if needed.\n")
         else:
             print()
     
@@ -296,15 +158,6 @@ def run_benchmark(config: Dict, log_file) -> Tuple[bool, float]:
     
     success = proc.returncode == 0 and not no_metrics
     return success, time.time() - start
-
-
-def format_time(seconds: float) -> str:
-    """Format seconds as human-readable duration."""
-    if seconds < 60:
-        return f"{seconds:.1f}s"
-    if seconds < 3600:
-        return f"{int(seconds // 60)}m {int(seconds % 60)}s"
-    return f"{int(seconds // 3600)}h {int((seconds % 3600) // 60)}m"
 
 
 def log_message(msg: str, log_file):
@@ -398,7 +251,7 @@ def main():
     if not configs:
         print("Error: No configurations to run.")
         print(f"Device Level: {args.device_level}")
-        print("Edit BENCHMARK_CONFIG in benchmark_suite.py to add models and scenarios.")
+        print("Edit BENCHMARK_CONFIG in fmbench_config.py to add models and scenarios.")
         sys.exit(1)
     
     # Print summary
