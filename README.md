@@ -63,7 +63,7 @@ python benchmark_suite.py --device-level Mobile  # ≤3B params
 python benchmark_suite.py --device-level Server  # No limit (default)
 ```
 
-Edit `BENCHMARK_CONFIG` in `benchmark_suite.py` to define your test matrix.
+Edit `BENCHMARK_CONFIG` in `suite_config.py` to define your test matrix.
 
 ### Auto-Generated Graphs
 
@@ -99,6 +99,14 @@ python software/generate_graphs.py suite_logs/run1.log suite_logs/run2.log
 # Specify custom output directory
 python software/generate_graphs.py suite_logs/run1_graphs/ suite_logs/run2_graphs/ -o my_custom_graphs
 ```
+
+### LaTeX Report Generation
+
+A comprehensive PDF-ready LaTeX report (`results.tex`) is generated in the output directory, featuring:
+- **Benchmark Summary**: A concise overview of evaluated models and scenario configurations (flags).
+- **Categorized Results**: Tables grouped by distinct categories (LLM, VLM, Time-Series).
+- **Hardware Info**: Details about the device (CPU, GPU, RAM) included in the header.
+
 
 > [!NOTE]
 > If multiple logs contain the same model/scenario combination, results are averaged in bar charts and summary plots, with scatter plots showing individual data points.
