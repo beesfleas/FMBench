@@ -71,13 +71,29 @@
                 utilize the underlying hardware.</p>
 
             <h4>Architectural Design & Workflow</h4>
-            <p>The profiling system uses a modular architecture managed by a <code>ProfilerManager</code> class. The
-                workflow consists of four stages:</p>
+            <p>The profiling system utilizes a robust architecture designed for extensibility, managed primarily by two
+                core components:</p>
+            <ul>
+                <li><strong>Profiler Manager</strong> (<code>profiler_manager.py</code>):
+                    This class acts as the central orchestrator. It is responsible for <strong>Platform
+                        Detection</strong> (automatically identifying if the system is Windows, Linux, Jetson, etc.) and
+                    initializing the appropriate profiler instances. It also implements the context manager protocol
+                    (<code>__enter__</code>/<code>__exit__</code>), ensuring that all profilers are started and stopped
+                    synchronously with the benchmark run.</li>
+                <li><strong>Base Device Profiler</strong> (<code>base.py</code>):
+                    This abstract base class (ABC) defines the strict contract for all hardware interfaces. It handles
+                    the low-level <strong>Concurrency Logic</strong> (managing distinct background threads and
+                    stop-events via <code>threading.Event</code>) so that specific implementations (like CPU or GPU
+                    profilers) can focus solely on metric collection in their <code>_monitor_process</code> method.</li>
+            </ul>
+            <p>The runtime workflow consists of four stages:</p>
             <ol>
-                <li><strong>Initialization</strong>: The system automatically detects the underlying hardware platform
-                    (Linux, macOS, Windows, Jetson, Raspberry Pi) and instantiates the appropriate profiler classes.
+                <li><strong>Initialization</strong>: The <code>ProfilerManager</code> detects the underlying hardware
+                    platform
+                    and instantiates the appropriate profiler classes.
                 </li>
-                <li><strong>Threaded Monitoring</strong>: Each profiler runs in a dedicated background thread to ensure
+                <li><strong>Threaded Monitoring</strong>: Each profiler runs in a dedicated background thread (provided
+                    by the Base class) to ensure
                     minimal impact on the benchmarking process.</li>
                 <li><strong>Sampling Loop</strong>: The profilers wake up at a configured interval (default: 1.0s),
                     collect metrics from system sensors, write raw data to CSV files, and update in-memory
@@ -102,7 +118,7 @@
             <p>FMBench includes specialized profilers for different hardware architectures:</p>
 
             <div class="profiler-card">
-                <h5>CPU Profiler (Universal)</h5>
+                <h5>CPU Profiler (Universal) (<code>cpu_profiler.py</code>)</h5>
                 <p><strong>Function</strong>: Monitors CPU and system memory usage on all platforms (Windows, Linux,
                     macOS) using <code>psutil</code>.</p>
                 <p><strong>Metrics</strong>: CPU Utilization %, System Memory (Used/%), CPU Temperature.</p>
@@ -111,7 +127,7 @@
             </div>
 
             <div class="profiler-card">
-                <h5>NVIDIA GPU Profiler</h5>
+                <h5>NVIDIA GPU Profiler (<code>nvidia_gpu_profiler.py</code>)</h5>
                 <p><strong>Function</strong>: Targeted at NVIDIA GPUs (Data Center & Consumer) using the NVML library
                     (via <code>pynvml</code>).</p>
                 <p><strong>Metrics</strong>: GPU Utilization %, Memory Usage, Power Draw (Watts), Temperature, Total
@@ -121,9 +137,9 @@
             </div>
 
             <div class="profiler-card">
-                <h5>Mac Profiler (Apple Silicon)</h5>
+                <h5>Mac Profiler (Apple Silicon) (<code>mac_profiler.py</code>)</h5>
                 <p><strong>Function</strong>: leverages the native <code>powermetrics</code> utility on macOS to capture
-                    high-fidelity energy data for M1/M2/M3 chips.</p>
+                    high-fidelity energy data for Apple Silicon chips.</p>
                 <p><strong>Metrics</strong>: CPU Power, GPU Power, Apple Neural Engine (ANE) Power, Combined Package
                     Power, GPU Frequency & Utilization.</p>
                 <p><strong>Features</strong>: Calculates accurate energy consumption by integrating power measures over
@@ -131,7 +147,7 @@
             </div>
 
             <div class="profiler-card">
-                <h5>Jetson Profiler</h5>
+                <h5>Jetson Profiler (<code>jetson_profiler.py</code>)</h5>
                 <p><strong>Function</strong>: Designed for NVIDIA Jetson devices (Orin, Xavier, Nano) using the
                     <code>jetson-stats</code> (jtop) library.
                 </p>
@@ -140,7 +156,7 @@
             </div>
 
             <div class="profiler-card">
-                <h5>Raspberry Pi Profiler</h5>
+                <h5>Raspberry Pi Profiler (<code>pi_profiler.py</code>)</h5>
                 <p><strong>Function</strong>: Optimized for Raspberry Pi devices.</p>
                 <p><strong>Metrics</strong>: CPU/RAM usage and Core Temperature.</p>
                 <p><strong>Power Monitoring</strong>: On Raspberry Pi 5, it connects to the PMIC to read real-time
