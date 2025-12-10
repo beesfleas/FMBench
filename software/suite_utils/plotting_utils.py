@@ -199,7 +199,7 @@ def generate_summary_plots(df: pd.DataFrame, output_dir: Path,
         # 3. Accuracy vs Energy
         create_scatter_plot(
             summary_df, 'accuracy', 'energy',
-            'Summary: Average Accuracy vs AverageEnergy',
+            'Summary: Average Accuracy vs Average Energy',
             output_dir / 'summary_accuracy_vs_energy.png',
             device_info, timestamp
         )
