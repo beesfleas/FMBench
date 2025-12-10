@@ -1,7 +1,7 @@
 """LaTeX report generation for FMBench."""
 import pandas as pd
 from pathlib import Path
-from .suite_config import SCENARIO_CATEGORIES
+from suite_config import SCENARIO_CATEGORIES
 
 def generate_latex_table(df: pd.DataFrame, output_dir: Path, device_info: dict, timestamp: str) -> None:
     """Generate a valid LaTeX file containing tables for all scenarios."""

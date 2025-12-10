@@ -2,7 +2,7 @@ import re
 from pathlib import Path
 from typing import Optional, Dict
 from omegaconf import OmegaConf
-from .suite_config import DEVICE_LIMITS, KNOWN_MODELS
+from suite_config import DEVICE_LIMITS, KNOWN_MODELS
 
 def load_model_config(model_name: str) -> Optional[Dict]:
     """Load model config file, return None if not found."""

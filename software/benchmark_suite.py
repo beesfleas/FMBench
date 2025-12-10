@@ -17,7 +17,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from suite_utils.suite_config import (
+from suite_config import (
     DEVICE_LEVEL, GLOBAL_SETTINGS, DEFAULT_NUM_SAMPLES,
     DEVICE_LIMITS, BENCHMARK_CONFIG
 )

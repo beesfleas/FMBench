@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 from pathlib import Path
-from .suite_config import AXIS_LABELS
+from suite_config import AXIS_LABELS
 
 def create_scatter_plot(df: pd.DataFrame, x_col: str, y_col: str, 
                         title: str, output_path: Path,

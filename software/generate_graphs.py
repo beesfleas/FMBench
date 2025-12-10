@@ -10,7 +10,7 @@ from typing import List, Tuple, Dict, Any
 
 import pandas as pd
 
-from suite_utils.suite_config import PROFILER_PATTERNS, SKIP_ACCURACY_SCENARIOS
+from suite_config import PROFILER_PATTERNS, SKIP_ACCURACY_SCENARIOS
 from suite_utils.plotting_utils import (
     generate_scenario_plots,
     generate_summary_plots,
