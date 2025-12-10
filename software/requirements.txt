@@ -12,7 +12,7 @@ unbabel-comet
 bert-score
 nltk
 psutil
-compressed_tensors
+compressed_tensors<0.7.0
 pandas
 matplotlib
 seaborn
