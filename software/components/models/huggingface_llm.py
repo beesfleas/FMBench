@@ -51,7 +51,14 @@ class HuggingFaceLLMLoader(BaseModelLoader):
 
         # Explicitly load config first to ensure model type is recognized
         log.debug("Loading config with trust_remote_code=%s", trust_remote_code)
-        model_config = AutoConfig.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+        try:
+            model_config = AutoConfig.from_pretrained(model_id, trust_remote_code=trust_remote_code)
+        except (ValueError, KeyError) as e:
+            if not trust_remote_code:
+                log.error("Failed to load config for %s. This model might require `trust_remote_code: true` in its config.", model_id)
+            else:
+                log.error("Failed to load config for %s even with `trust_remote_code=True`. Ensure `transformers` is up to date.", model_id)
+            raise e
         
         # Add explicit kwargs
         if trust_remote_code:

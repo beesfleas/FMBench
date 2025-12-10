@@ -1,4 +1,5 @@
 model_id: Qwen/Qwen3-0.6B
 model_category: LLM
+trust_remote_code: true
 max_tokens: 128
 # quantization: 4  
