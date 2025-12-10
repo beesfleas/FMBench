@@ -1,0 +1,383 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{adjustbox}
+\geometry{margin=1in}
+\begin{document}
+\title{FMBench Results}
+\date{\textbf{Jetson}: NVIDIA Jetson \\[1ex] Generated: 2025-12-10 00:07:35}
+\maketitle
+
+\section*{Benchmark Summary}
+\noindent
+\begin{minipage}[t]{0.45\textwidth}
+\subsection*{Evaluated Models}
+\begin{table}[H]
+\centering
+\begin{tabular}{l}
+\toprule
+\textbf{Model Name} \\
+\midrule
+Llama-3.2-1B \\
+Llama-3.2-1B-quantized.w8a8 \\
+Qwen2.5-1.5B \\
+Qwen2.5-1.5B-quantized.w8a8 \\
+SmolVLM-256M-Instruct \\
+arima \\
+chronos-t5-small \\
+granite-timeseries-patchtst \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.50\textwidth}
+\subsection*{Scenario Configurations}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l p{5cm}}
+\toprule
+\textbf{Scenario} & \textbf{Flags} \\
+\midrule
+ARC Challenge & num samples: 10 \\
+ARC Easy & num samples: 10 \\
+CountBenchQA & num samples: 10 \\
+FEV-Bench &  \\
+GIFT-EVAL &  \\
+GTSRB & num samples: 10 \\
+HaGRID & num samples: 10 \\
+Idle Baseline & idle duration: 10 \\
+M3 Monthly Forecasting & num samples: 10 \\
+VQAv2 & num samples: 10 \\
+classification & num samples: 10 \\
+docvqa & num samples: 10 \\
+ner & num samples: 10 \\
+perplexity\_c4 & num samples: 10 \\
+perplexity\_wikitext2 & num samples: 10 \\
+sentiment & num samples: 10 \\
+summarization & num samples: 10 \\
+translation & num samples: 10 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+\end{minipage}
+\newpage
+\section*{LLM Scenarios}
+\subsection*{ARC Challenge}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 2.14 & 3.001 & 2.0 & 0.40 & 417.4 & - & 7762 \\
+Llama-3.2-1B-quantized.w8a8 & 3.48 & 0.779 & 2.0 & 0.50 & 549.7 & - & 4239 \\
+Qwen2.5-1.5B & 103.37 & 0.872 & 128.0 & 1.00 & 16872.9 & 0.0 & 8757 \\
+Qwen2.5-1.5B-quantized.w8a8 & 220.05 & 0.871 & 128.0 & 1.00 & 33375.1 & - & 3995 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for ARC Challenge}
+\end{table}
+
+\subsection*{ARC Easy}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 1.70 & 0.818 & 2.0 & 0.50 & 307.7 & 7810 \\
+Llama-3.2-1B-quantized.w8a8 & 3.26 & 0.739 & 2.0 & 0.60 & 502.5 & 4178 \\
+Qwen2.5-1.5B & 103.68 & 0.896 & 128.0 & 1.00 & 16827.4 & 9399 \\
+Qwen2.5-1.5B-quantized.w8a8 & 224.82 & 0.891 & 128.0 & 1.00 & 33566.7 & 3976 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for ARC Easy}
+\end{table}
+
+\subsection*{classification}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 62.69 & 1.848 & 116.9 & 0.40 & 12214.7 & 0.0 & 7850 \\
+Llama-3.2-1B-quantized.w8a8 & 153.16 & 0.801 & 128.0 & 0.50 & 25036.0 & - & 4240 \\
+Qwen2.5-1.5B & 12.24 & 0.743 & 19.3 & 0.40 & 2796.2 & - & 8419 \\
+Qwen2.5-1.5B-quantized.w8a8 & 6.21 & 0.800 & 13.4 & 0.20 & 3785.5 & - & 3993 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for classification}
+\end{table}
+
+\subsection*{ner}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 13.36 & 0.772 & 30.0 & 0.40 & 3226.2 & 7904 \\
+Llama-3.2-1B-quantized.w8a8 & 27.75 & 0.767 & 26.4 & 0.20 & 5259.2 & 4311 \\
+Qwen2.5-1.5B & 15.80 & 0.849 & 24.8 & 0.70 & 3280.7 & 8392 \\
+Qwen2.5-1.5B-quantized.w8a8 & 23.66 & 0.856 & 18.9 & 0.70 & 5095.7 & 4003 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for ner}
+\end{table}
+
+\subsection*{perplexity\_c4}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccc}
+\toprule
+Model & Perplexity & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 23.79 & 841.1 & 0.0 & 8262 \\
+Llama-3.2-1B-quantized.w8a8 & 23.88 & 972.1 & 0.8 & 4816 \\
+Qwen2.5-1.5B & 24.97 & 943.1 & - & 8841 \\
+Qwen2.5-1.5B-quantized.w8a8 & 27.11 & 1205.5 & - & 4427 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for perplexity\_c4}
+\end{table}
+
+\subsection*{perplexity\_wikitext2}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccc}
+\toprule
+Model & Perplexity & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 495.42 & 135.7 & - & 7863 \\
+Llama-3.2-1B-quantized.w8a8 & 551.70 & 219.2 & 0.1 & 4275 \\
+Qwen2.5-1.5B & 689.63 & 179.4 & - & 8334 \\
+Qwen2.5-1.5B-quantized.w8a8 & 1742.01 & 274.6 & 1.2 & 4044 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for perplexity\_wikitext2}
+\end{table}
+
+\subsection*{sentiment}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 39.62 & 0.897 & 67.0 & 0.60 & 7512.9 & 0.0 & 7920 \\
+Llama-3.2-1B-quantized.w8a8 & 152.41 & 0.788 & 128.0 & 1.00 & 25412.5 & - & 4399 \\
+Qwen2.5-1.5B & 4.13 & 0.801 & 2.0 & 0.80 & 858.8 & 0.4 & 8418 \\
+Qwen2.5-1.5B-quantized.w8a8 & 6.86 & 0.804 & 2.0 & 0.80 & 1211.2 & 0.2 & 4005 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for sentiment}
+\end{table}
+
+\subsection*{summarization}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 73.95 & 2.693 & 118.1 & 0.00 & 14086.0 & 0.0 & 8374 \\
+Llama-3.2-1B-quantized.w8a8 & 158.91 & 0.766 & 128.0 & 0.00 & 26244.5 & - & 4699 \\
+Qwen2.5-1.5B & 109.88 & 0.797 & 126.6 & 0.00 & 18373.4 & - & 9130 \\
+Qwen2.5-1.5B-quantized.w8a8 & 209.75 & 0.811 & 124.7 & 0.00 & 33367.9 & - & 3733 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for summarization}
+\end{table}
+
+\subsection*{translation}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 61.49 & 0.863 & 117.9 & 0.10 & 12205.9 & 0.0 & 8133 \\
+Llama-3.2-1B-quantized.w8a8 & 150.21 & 0.770 & 128.0 & 0.00 & 24829.1 & - & 4471 \\
+Qwen2.5-1.5B & 17.66 & 0.775 & 19.1 & 0.00 & 2593.5 & - & 8886 \\
+Qwen2.5-1.5B-quantized.w8a8 & 38.62 & 0.865 & 19.5 & 0.00 & 5207.5 & - & 3476 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for translation}
+\end{table}
+
+\section*{VLM Scenarios}
+\subsection*{CountBenchQA}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l}
+\toprule
+Model \\
+\midrule
+SmolVLM-256M-Instruct \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for CountBenchQA}
+\end{table}
+
+\subsection*{GTSRB}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l}
+\toprule
+Model \\
+\midrule
+SmolVLM-256M-Instruct \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for GTSRB}
+\end{table}
+
+\subsection*{HaGRID}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l}
+\toprule
+Model \\
+\midrule
+SmolVLM-256M-Instruct \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for HaGRID}
+\end{table}
+
+\subsection*{VQAv2}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l}
+\toprule
+Model \\
+\midrule
+SmolVLM-256M-Instruct \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for VQAv2}
+\end{table}
+
+\subsection*{docvqa}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcc}
+\toprule
+Model & Energy (J) & VRAM (MB) \\
+\midrule
+SmolVLM-256M-Instruct & 314.7 & 4076 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for docvqa}
+\end{table}
+
+\section*{Time-Series Scenarios}
+\subsection*{FEV-Bench}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lc}
+\toprule
+Model & sMAPE (\%) \\
+\midrule
+granite-timeseries-patchtst & 11.23 \\
+chronos-t5-small & 200.00 \\
+arima & 200.00 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for FEV-Bench}
+\end{table}
+
+\subsection*{GIFT-EVAL}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccc}
+\toprule
+Model & sMAPE (\%) & Energy (J) & VRAM (MB) \\
+\midrule
+granite-timeseries-patchtst & 19.84 & 20.8 & 2580 \\
+chronos-t5-small & 200.00 & - & - \\
+arima & 200.00 & - & - \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for GIFT-EVAL}
+\end{table}
+
+\subsection*{M3 Monthly Forecasting}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lc}
+\toprule
+Model & sMAPE (\%) \\
+\midrule
+granite-timeseries-patchtst & 200.00 \\
+chronos-t5-small & 200.00 \\
+arima & 200.00 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for M3 Monthly Forecasting}
+\end{table}
+
+\section*{Baseline Scenarios}
+\subsection*{Idle Baseline}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccc}
+\toprule
+Model & Energy (J) & GPU Util (\%) & VRAM (MB) \\
+\midrule
+Llama-3.2-1B & 54.7 & - & 7910 \\
+Llama-3.2-1B-quantized.w8a8 & 54.7 & - & 3982 \\
+Qwen2.5-1.5B & 60.7 & 1.3 & 9694 \\
+Qwen2.5-1.5B-quantized.w8a8 & 56.1 & 4.1 & 4067 \\
+SmolVLM-256M-Instruct & 50.6 & 0.3 & 3347 \\
+granite-timeseries-patchtst & 52.2 & - & 2325 \\
+chronos-t5-small & 52.2 & - & 2413 \\
+arima & 51.5 & - & 2316 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for Idle Baseline}
+\end{table}
+
+\end{document}
