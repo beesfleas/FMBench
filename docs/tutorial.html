@@ -107,7 +107,8 @@ pip install bitsandbytes</code></pre>
                 <li><code>device=&lt;device_type&gt;</code>: (string) Device to use (auto, cpu, gpu, mac, jetson, pi).
                 </li>
                 <li><code>model.loader_type=&lt;loader&gt;</code>: (string) Specific loader to use (e.g.,
-                    <code>vllm</code>, <code>huggingface</code>).</li>
+                    <code>vllm</code>, <code>huggingface</code>).
+                </li>
                 <li><code>model.quantization=&lt;bits&gt;</code>: (int) Enable quantization (4 or 8 bit).</li>
                 <li><code>model.max_tokens=&lt;N&gt;</code>: (int) Maximum tokens for generation.</li>
                 <li><code>model.device_preference=&lt;device&gt;</code>: (string) Preferred device for model (auto, cpu,
@@ -131,6 +132,67 @@ python run.py model=qwen2.5 scenario=summarization model.quantization=4
 
 # Run time series forecasting
 python run.py model=timegpt1 scenario=ett num_samples=50</code></pre>
+        </section>
+
+        <hr>
+
+        <section class="section">
+            <h2>Benchmark Suite</h2>
+            <p>For comprehensive testing, FMBench allows you to run extensive suites across multiple model and scenario
+                combinations using the <code>benchmark_suite.py</code> script.</p>
+
+            <h3>Running a Suite</h3>
+            <pre><code># Preview what will run (dry run)
+python benchmark_suite.py --summary-only
+
+# Run the suite (with confirmation prompt)
+python benchmark_suite.py
+
+# Run immediately (skip confirmation)
+python benchmark_suite.py -y</code></pre>
+
+            <h3>Device Level Filtering</h3>
+            <p>You can filter the test matrix based on the capability of your target device:</p>
+            <ul>
+                <li><code>--device-level SoC</code>: Restricts models to those suitable for edge devices (≤1B params,
+                    e.g., Raspberry Pi).</li>
+                <li><code>--device-level Mobile</code>: Targets mobile-class hardware (≤3B params).</li>
+                <li><code>--device-level Server</code>: Runs all configured models (No limit). Default behavior.</li>
+            </ul>
+            <pre><code>python benchmark_suite.py --device-level SoC</code></pre>
+
+            <h3>Outputs & Visualization</h3>
+            <p>After a suite run completes, FMBench automatically generates comparative visualizations in the
+                <code>suite_logs/&lt;log_name&gt;_graphs/</code> directory.</p>
+
+            <h4>Summary Plots</h4>
+            <ul>
+                <li><strong>Latency vs Accuracy</strong>: <code>summary_latency_vs_accuracy.png</code></li>
+                <li><strong>Latency vs Energy</strong>: <code>summary_latency_vs_energy.png</code></li>
+                <li><strong>Accuracy vs Energy</strong>: <code>summary_accuracy_vs_energy.png</code></li>
+            </ul>
+
+            <h4>Per-Scenario Plots</h4>
+            <ul>
+                <li>Detailed scatter plots for specific scenarios (e.g.,
+                    <code>summarization_latency_vs_accuracy.png</code>).</li>
+                <li><strong>sMAPE Bar Charts</strong>: For time-series tasks
+                    (<code>&lt;scenario&gt;_smape_bar.png</code>).</li>
+            </ul>
+
+            <h4>LaTeX Report</h4>
+            <p>A comprehensive <code>results.tex</code> file is generated, containing LaTeX tables for specific hardware
+                metrics, model comparisons, and scenario breakdowns, ready for inclusion in academic papers or technical
+                reports.</p>
+
+            <h3>Manual Graph Generation</h3>
+            <p>If you need to regenerate plots or combine results from multiple distinct runs, use the
+                <code>generate_graphs.py</code> utility:</p>
+            <pre><code># Generate graphs from a single log
+python software/generate_graphs.py suite_logs/suite_20240101.log
+
+# Combine multiple logs into one set of graphs
+python software/generate_graphs.py suite_logs/run1.log suite_logs/run2.log</code></pre>
         </section>
 
         <footer>

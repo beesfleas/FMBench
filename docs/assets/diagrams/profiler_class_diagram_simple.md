@@ -21,6 +21,7 @@ classDiagram
         config: Dict
         profilers: List
         results_dir: Path
+        initialize_profilers()
         start_all()
         stop_all()
         get_all_metrics()

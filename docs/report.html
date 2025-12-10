@@ -114,53 +114,80 @@
                 </li>
             </ul>
 
+
+
             <h4>Available Profilers</h4>
-            <p>FMBench includes specialized profilers for different hardware architectures:</p>
+            <p>FMBench includes specialized profilers for different hardware architectures, each employing distinct
+                strategies to capture high-fidelity metrics:</p>
 
             <div class="profiler-card">
                 <h5>CPU Profiler (Universal) (<code>cpu_profiler.py</code>)</h5>
-                <p><strong>Function</strong>: Monitors CPU and system memory usage on all platforms (Windows, Linux,
-                    macOS) using <code>psutil</code>.</p>
-                <p><strong>Metrics</strong>: CPU Utilization %, System Memory (Used/%), CPU Temperature.</p>
-                <p><strong>Power Monitoring</strong>: On Linux, it attempts to read power sensors via Intel RAPL
-                    (Running Average Power Limit) or AMD Energy drivers if available.</p>
+                <p><strong>Methodology</strong>: Uses the cross-platform <code>psutil</code> library to query OS kernel
+                    counters for CPU and memory usage.</p>
+                <p><strong>Power Monitoring Strategy</strong>:</p>
+                <ul>
+                    <li><strong>Intel</strong>: Scans <code>/sys/class/powercap/intel-rapl:*</code> directories to read
+                        the package-level energy counters (RAPL) in microjoules.</li>
+                    <li><strong>AMD</strong>: Inspects <code>/sys/class/hwmon/hwmon*/energy1_input</code> to access the
+                        AMD Energy driver metrics.</li>
+                    <li><strong>Fallback</strong>: If root access is unavailable or drivers are missing, power metrics
+                        are gracefully omitted while still capturing utilization.</li>
+                </ul>
             </div>
 
             <div class="profiler-card">
                 <h5>NVIDIA GPU Profiler (<code>nvidia_gpu_profiler.py</code>)</h5>
-                <p><strong>Function</strong>: Targeted at NVIDIA GPUs (Data Center & Consumer) using the NVML library
-                    (via <code>pynvml</code>).</p>
-                <p><strong>Metrics</strong>: GPU Utilization %, Memory Usage, Power Draw (Watts), Temperature, Total
-                    Energy (Joules).</p>
-                <p><strong>Features</strong>: Supports multi-GPU setups by spawning a separate profiler instance for
-                    each detected device.</p>
+                <p><strong>Methodology</strong>: Interfaces directly with the NVIDIA Management Library (NVML) via
+                    <code>pynvml</code> bindings. This avoids the overhead of spawning <code>nvidia-smi</code>
+                    subprocesses.
+                </p>
+                <p><strong>Key Metrics Collected</strong>:</p>
+                <ul>
+                    <li><strong>Power</strong>: Real-time power draw in milliwatts
+                        (<code>nvmlDeviceGetPowerUsage</code>).</li>
+                    <li><strong>Utilization</strong>: GPU core and memory controller activity percentages.</li>
+                    <li><strong>Memory</strong>: Accurate VRAM usage (used/free/total).</li>
+                </ul>
+                <p><strong>Multi-GPU</strong>: Automatically enumerates all visible devices and creates independent
+                    profiler instances for granular per-card monitoring.</p>
             </div>
 
             <div class="profiler-card">
                 <h5>Mac Profiler (Apple Silicon) (<code>mac_profiler.py</code>)</h5>
-                <p><strong>Function</strong>: leverages the native <code>powermetrics</code> utility on macOS to capture
-                    high-fidelity energy data for Apple Silicon chips.</p>
-                <p><strong>Metrics</strong>: CPU Power, GPU Power, Apple Neural Engine (ANE) Power, Combined Package
-                    Power, GPU Frequency & Utilization.</p>
-                <p><strong>Features</strong>: Calculates accurate energy consumption by integrating power measures over
-                    time.</p>
+                <p><strong>Methodology</strong>: Spawns a background <code>subprocess</code> running the native
+                    command-line tool <code>powermetrics</code>. This is the only way to access the hardware energy
+                    counters on M-series chips.</p>
+                <p><strong>Implementation Details</strong>:</p>
+                <ul>
+                    <li><strong>Sampling</strong>: Runs <code>powermetrics --samplers cpu_power,gpu_power</code> at the
+                        configured interval.</li>
+                    <li><strong>Parsing</strong>: Uses regex to specific fields from the stdout stream, separately
+                        tracking CPU, GPU, and Apple Neural Engine (ANE) power.</li>
+                    <li><strong>Integration</strong>: Calculates total energy (Joules) by mathematically integrating the
+                        instantaneous power readings over the exact time delta between samples.</li>
+                </ul>
             </div>
 
             <div class="profiler-card">
                 <h5>Jetson Profiler (<code>jetson_profiler.py</code>)</h5>
-                <p><strong>Function</strong>: Designed for NVIDIA Jetson devices (Orin, Xavier, Nano) using the
-                    <code>jetson-stats</code> (jtop) library.
-                </p>
-                <p><strong>Metrics</strong>: System Power (POM_5V_IN/VDD_GPU_SOC), GPU/CPU Frequencies, Thermal data,
-                    and hardware-specific rail power.</p>
+                <p><strong>Methodology</strong>: leverages the <code>jetson-stats</code> (jtop) library, which provides
+                    a high-level API for reading the specialized sensors on Orin, Xavier, and Nano modules.</p>
+                <p><strong>Hardware Rails</strong>: specifically monitors the <code>VDD_GPU_SOC</code> rail to capture
+                    the combined power consumption of the GPU and System-on-Chip.</p>
+                <p><strong>Thermal/Frequency</strong>: Captures real-time clock frequencies (CPU cores/GPU clusters) and
+                    thermal zone temperatures to detect throttling events.</p>
             </div>
 
             <div class="profiler-card">
                 <h5>Raspberry Pi Profiler (<code>pi_profiler.py</code>)</h5>
-                <p><strong>Function</strong>: Optimized for Raspberry Pi devices.</p>
-                <p><strong>Metrics</strong>: CPU/RAM usage and Core Temperature.</p>
-                <p><strong>Power Monitoring</strong>: On Raspberry Pi 5, it connects to the PMIC to read real-time
-                    voltage and current for accurate power measurement.</p>
+                <p><strong>Methodology</strong>: optimized for the intricacies of the Raspberry Pi ecosystem.</p>
+                <p><strong>Power (Pi 5)</strong>: Uses <code>vcgencmd</code> and <code>pmic_read_adc</code> to query the onboard Power
+                    Management IC (PMIC), calculating watts determining the real-time voltage and current of the
+                    <code>VDD_CORE</code> rail.
+                </p>
+                <p><strong>Thermal</strong>: Reads raw millidegree Celsius values directly from
+                    <code>/sys/class/thermal/thermal_zone0/temp</code>.
+                </p>
             </div>
 
             <h3 id="scenarios">Scenarios</h3>
