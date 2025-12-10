@@ -1,0 +1,226 @@
+\documentclass{article}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{adjustbox}
+\geometry{margin=1in}
+\begin{document}
+\title{FMBench Results}
+\date{\textbf{Raspberry Pi}: Raspberry Pi \\[1ex] Generated: 2025-12-10 05:06:37}
+\maketitle
+
+\section*{Benchmark Summary}
+\noindent
+\begin{minipage}[t]{0.45\textwidth}
+\subsection*{Evaluated Models}
+\begin{table}[H]
+\centering
+\begin{tabular}{l}
+\toprule
+\textbf{Model Name} \\
+\midrule
+Llama-3.2-1B \\
+Llama-3.2-1B-quantized.w8a8 \\
+Qwen3-0.6B \\
+\bottomrule
+\end{tabular}
+\end{table}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.50\textwidth}
+\subsection*{Scenario Configurations}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{l p{5cm}}
+\toprule
+\textbf{Scenario} & \textbf{Flags} \\
+\midrule
+ARC Challenge & num samples: 10 \\
+ARC Easy & num samples: 10 \\
+Idle Baseline & idle duration: 10 \\
+classification & num samples: 10 \\
+ner & num samples: 10 \\
+perplexity\_c4 & num samples: 10 \\
+perplexity\_wikitext2 & num samples: 10 \\
+sentiment & num samples: 10 \\
+summarization & num samples: 10 \newline use expensive metrics: True \\
+translation & num samples: 10 \newline use expensive metrics: True \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+\end{minipage}
+\newpage
+\section*{LLM Scenarios}
+\subsection*{ARC Challenge}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 202.99 & 0.001 & 128.0 & 1.00 & 3637.8 & 3583 \\
+Llama-3.2-1B & 10.66 & 0.020 & 2.0 & 0.30 & 232.1 & 5722 \\
+Llama-3.2-1B-quantized.w8a8 & 25.50 & 0.004 & 2.0 & 0.60 & 504.0 & 6432 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for ARC Challenge}
+\end{table}
+
+\subsection*{ARC Easy}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 198.44 & 0.025 & 128.0 & 1.00 & 3706.9 & 3585 \\
+Llama-3.2-1B & 8.31 & 0.039 & 2.0 & 0.40 & 176.1 & 5741 \\
+Llama-3.2-1B-quantized.w8a8 & 23.73 & 0.009 & 2.0 & 0.50 & 459.6 & 6575 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for ARC Easy}
+\end{table}
+
+\subsection*{classification}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 203.52 & 0.001 & 128.0 & 0.90 & 3700.7 & 3600 \\
+Llama-3.2-1B & 420.90 & 0.029 & 104.1 & 0.30 & 7419.9 & 5785 \\
+Llama-3.2-1B-quantized.w8a8 & 1415.87 & 0.002 & 128.0 & 0.40 & 26847.1 & 6535 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for classification}
+\end{table}
+
+\subsection*{ner}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 198.99 & 0.001 & 128.0 & 0.80 & 3613.4 & 3574 \\
+Llama-3.2-1B & 160.26 & 0.036 & 26.4 & 0.10 & 1805.2 & 5772 \\
+Llama-3.2-1B-quantized.w8a8 & 252.15 & 0.004 & 26.4 & 0.20 & 5583.8 & 6616 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for ner}
+\end{table}
+
+\subsection*{perplexity\_c4}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccc}
+\toprule
+Model & Perplexity & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 60.38 & 409.1 & 3674 \\
+Llama-3.2-1B & 23.78 & 892.9 & 5830 \\
+Llama-3.2-1B-quantized.w8a8 & 23.89 & 953.7 & 6202 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for perplexity\_c4}
+\end{table}
+
+\subsection*{perplexity\_wikitext2}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccc}
+\toprule
+Model & Perplexity & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 1448.93 & 58.8 & 3529 \\
+Llama-3.2-1B & 495.39 & 105.7 & 5793 \\
+Llama-3.2-1B-quantized.w8a8 & 454.20 & 182.5 & 5923 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for perplexity\_wikitext2}
+\end{table}
+
+\subsection*{sentiment}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 209.96 & 0.002 & 128.0 & 1.00 & 3942.2 & 3725 \\
+Llama-3.2-1B & 441.66 & 0.020 & 91.7 & 0.70 & 6957.9 & 5788 \\
+Llama-3.2-1B-quantized.w8a8 & 1390.01 & 0.012 & 128.0 & 1.00 & 27051.6 & 6573 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for sentiment}
+\end{table}
+
+\subsection*{summarization}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 223.63 & 0.002 & 128.0 & 0.00 & 4475.8 & 3795 \\
+Llama-3.2-1B & 504.82 & 0.025 & 128.0 & 0.00 & 9825.0 & 5802 \\
+Llama-3.2-1B-quantized.w8a8 & 1464.52 & 0.002 & 128.0 & 0.00 & 28145.5 & 6725 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for summarization}
+\end{table}
+
+\subsection*{translation}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lcccccc}
+\toprule
+Model & Latency (s) & TTFT (s) & Tok/Out & Accuracy & Energy (J) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 201.76 & 0.002 & 128.0 & 0.10 & 3944.9 & 6652 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for translation}
+\end{table}
+
+\section*{Baseline Scenarios}
+\subsection*{Idle Baseline}
+\begin{table}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{lccc}
+\toprule
+Model & Energy (J) & Idle Power (W) & VRAM (MB) \\
+\midrule
+Qwen3-0.6B & 9.2 & 0.9 & 3734 \\
+Llama-3.2-1B & 10.3 & 1.0 & 5594 \\
+Llama-3.2-1B-quantized.w8a8 & 11.1 & 1.1 & 2292 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\caption{Results for Idle Baseline}
+\end{table}
+
+\end{document}
