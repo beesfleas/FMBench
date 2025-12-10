@@ -189,7 +189,7 @@ def get_quantization_config(config, use_cuda):
             "Install with: pip install bitsandbytes"
         )
 
-def get_load_kwargs(use_cuda, use_mps, quantization_config, device_map_override=None):
+def get_load_kwargs(use_cuda, use_mps, quantization_config):
     """
     Get keyword arguments for model loading.
     
@@ -197,15 +197,13 @@ def get_load_kwargs(use_cuda, use_mps, quantization_config, device_map_override=
         use_cuda: Whether to use CUDA
         use_mps: Whether to use MPS
         quantization_config: Quantization config or None
-        device_map_override: Optional override for device map (e.g. from config)
         
     Returns:
         dict: Load kwargs
     """
     if use_cuda:
         dtype = torch.float16
-        # Use override if provided, otherwise default to "auto"
-        device_map = device_map_override if device_map_override else "auto"
+        device_map = auto
     elif use_mps:
         # Use float16 on MPS for better performance (Apple Silicon supports it well)
         dtype = torch.float16
@@ -269,9 +267,7 @@ def get_mps_safe_load_kwargs(config, model_id: str) -> Tuple[dict, bool, bool, s
                 use_mps = False
                 device_name = "CPU"
     
-    # Pass explicit device_map from config if present
-    device_map_override = config.get("device_map")
-    load_kwargs = get_load_kwargs(use_cuda, use_mps, quantization_config, device_map_override)
+    load_kwargs = get_load_kwargs(use_cuda, use_mps, quantization_config)
     
     return load_kwargs, use_cuda, use_mps, device_name, quantization_config
 

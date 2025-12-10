@@ -68,9 +68,8 @@ class HuggingFaceLLMLoader(BaseModelLoader):
         # If we loaded to CPU due to unknown size, try moving to MPS now
         if "pending MPS check" in device_name:
             moved, device_name = try_move_to_mps(self.model, model_id, config)
-        elif (use_mps or use_cuda) and not quantization_config:
+        elif use_mps and not quantization_config:
             # Ensure model is on the right device
-            # This handles cases where device_map="auto" might have defaulted to CPU (e.g. on Jetson)
             move_to_device(self.model, use_mps, quantization_config)
         
         log.info("Model loaded: %s on %s", model_id, device_name)
