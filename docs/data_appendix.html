@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Appendix - HoliBench</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .graphs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .graphs img {
+            width: 30%;
+            height: auto;
+        }
+    </style>
 </head>
 
 <body>
@@ -27,9 +40,59 @@
     <div class="main-content">
         <h1>Data Appendix</h1>
 
-        <section class="section">
-            <p>This section contains detailed data, charts, and raw results from our experiments.</p>
-            <p>[PLACEHOLDER: Data appendix content from report to be moved here...]</p>
+        <!-- Table of Contents -->
+        <section class="toc">
+            <h2>Table of Contents</h2>
+            <ul>
+                <li><a href="#gtx1070">GTX 1070</a></li>
+                <li><a href="#rtx3070">RTX 3070</a></li>
+                <li><a href="#jetson">Jetson</a></li>
+                <li><a href="#pi">Raspberry Pi</a></li>
+            </ul>
+        </section>
+
+        <!-- GTX 1070 Section -->
+        <section id="gtx1070" class="section">
+            <h2>GTX 1070</h2>
+            <p><a href="assets/tables/gtx1070-results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/arc_challenge_accuracy_vs_energy.png" alt="GTX 1070 Graph 1">
+                <img src="assets/graphs/gtx1070_graphs/arc_challenge_latency_vs_accuracy.png" alt="GTX 1070 Graph 2">
+                <img src="assets/graphs/gtx1070_graphs/arc_challenge_latency_vs_energy.png" alt="GTX 1070 Graph 3">
+            </div>
+        </section>
+
+        <!-- RTX 3070 Section -->
+        <section id="rtx3070" class="section">
+            <h2>RTX 3070</h2>
+            <p><a href="assets/tables/rtx3070_results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/arc_challenge_accuracy_vs_energy.png" alt="RTX 3070 Graph 1">
+                <img src="assets/graphs/rtx3070_graphs/arc_challenge_latency_vs_accuracy.png" alt="RTX 3070 Graph 2">
+                <img src="assets/graphs/rtx3070_graphs/arc_challenge_latency_vs_energy.png" alt="RTX 3070 Graph 3">
+            </div>
+        </section>
+
+        <!-- Jetson Section -->
+        <section id="jetson" class="section">
+            <h2>Jetson</h2>
+            <p><a href="assets/tables/jetson-results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/arc_challenge_accuracy_vs_energy.png" alt="Jetson Graph 1">
+                <img src="assets/graphs/jetson_graphs/arc_challenge_latency_vs_accuracy.png" alt="Jetson Graph 2">
+                <img src="assets/graphs/jetson_graphs/arc_challenge_latency_vs_energy.png" alt="Jetson Graph 3">
+            </div>
+        </section>
+
+        <!-- Raspberry Pi Section -->
+        <section id="pi" class="section">
+            <h2>Raspberry Pi</h2>
+            <p><a href="assets/tables/pi-results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/arc_challenge_accuracy_vs_energy.png" alt="Raspberry Pi Graph 1">
+                <img src="assets/graphs/pi_graphs/arc_challenge_latency_vs_accuracy.png" alt="Raspberry Pi Graph 2">
+                <img src="assets/graphs/pi_graphs/arc_challenge_latency_vs_energy.png" alt="Raspberry Pi Graph 3">
+            </div>
         </section>
 
         <footer>
