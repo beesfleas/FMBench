@@ -1,4 +1,4 @@
-# FMBench
+# HoliBench
 
 A flexible benchmarking framework for evaluating foundation models across different hardware platforms. Supports LLMs, VLMs, and time-series models with automatic device detection, comprehensive performance profiling, and auto-generated comparison graphs and LaTeX tables.
 

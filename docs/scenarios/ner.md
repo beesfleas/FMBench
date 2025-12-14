@@ -18,9 +18,9 @@ NER is a critical capability for Large Language Models (LLMs) for several reason
 3.  **Search and Indexing**: Improves search relevance by understanding the specific entities users are looking for.
 4.  **Context Understanding**: Helps the model understand the "who", "what", and "where" of a text passage.
 
-## Implementation in FMBench
+## Implementation in HoliBench
 
-In FMBench, the NER scenario is implemented to evaluate an LLM's ability to accurately extract specific entities from a given text.
+In HoliBench, the NER scenario is implemented to evaluate an LLM's ability to accurately extract specific entities from a given text.
 
 ### Implementation Details
 

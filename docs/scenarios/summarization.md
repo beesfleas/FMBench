@@ -13,9 +13,9 @@ Summarization is a flagship capability for Large Language Models (LLMs) because:
 2.  **Content Generation**: It demonstrates the model's deep understanding of context, nuance, and hierarchy of importance within a text.
 3.  **Cross-domain Utility**: It is applicable in legal, medical, technical, and general domains.
 
-## Implementation in FMBench
+## Implementation in HoliBench
 
-In FMBench, the Summarization scenario measures an LLM's ability to generate meaningful abstracts for news articles or other long-form text.
+In HoliBench, the Summarization scenario measures an LLM's ability to generate meaningful abstracts for news articles or other long-form text.
 
 ### Implementation Details
 
