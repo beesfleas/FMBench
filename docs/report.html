@@ -184,7 +184,25 @@
 
         <section id="technical-approach" class="section">
             <h2>3. Technical Approach</h2>
-            <p>Overview of the technical approach.</p>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/architecture.png" alt="HoliBench System Architecture"
+                    style="width: 100%; max-width: 800px; height: auto;">
+                <figcaption>Figure 4: HoliBench System Architecture.</figcaption>
+            </figure>
+
+            <p>Our overall approach is described in Figure 4. The entrypoint for the user is through the
+                <code>run</code> function, but they can also utilize the <code>benchmark_suite</code> in order to get
+                comprehensive benchmarks, plots, as well as tables generated for them. The other components of the
+                diagram are described in more detail in the following sections.</p>
+
+            <p>Generally, the <code>run</code> function connects to a <code>runner</code> that coordinates loading the
+                model through <code>model_factory</code>, loading the scenario (task) through <code>scenarios</code>,
+                and loading the profiler through <code>profiler_manager</code>. This modular structure allows us to
+                easily add new models, scenarios, or profilers. The configurations of these are done through YAML files
+                and CLI flags through <a href="references.html#ref-hydra">Hydra from Meta</a>.</p>
+
+            <p>Overview of the technical components:</p>
             <ul>
                 <li><a href="#hardware-profiler">Hardware Profiler</a></li>
                 <li><a href="#scenarios">Scenarios</a></li>
