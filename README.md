@@ -113,11 +113,27 @@ A comprehensive PDF-ready LaTeX report (`results.tex`) is generated in the outpu
 
 ### Example Graphs
 
-![Summary: Latency vs Accuracy](docs/assets/graphs/gtx1070_graphs/summary_latency_vs_accuracy.png)
-
-![Summary: Latency vs Energy](docs/assets/graphs/gtx1070_graphs/summary_latency_vs_energy.png)
-
-![Idle Power Table](docs/assets/graphs/gtx1070_graphs/idle_power_table.png)
+<table>
+  <tr>
+    <th></th>
+    <th>GTX 1070</th>
+    <th>RTX 3070</th>
+  </tr>
+  <tr>
+    <td><b>NER</b></td>
+    <td><img src="docs/assets/graphs/gtx1070_graphs/ner_accuracy_vs_energy.png" width="350"/></td>
+    <td><img src="docs/assets/graphs/rtx3070_graphs/ner_accuracy_vs_energy.png" width="350"/></td>
+  </tr>
+  <tr>
+    <td><b>Summarization</b></td>
+    <td><img src="docs/assets/graphs/gtx1070_graphs/summarization_latency_vs_energy.png" width="350"/></td>
+    <td><img src="docs/assets/graphs/rtx3070_graphs/summarization_latency_vs_energy.png" width="350"/></td>
+  </tr>
+  <tr>
+    <td><b>Idle Power</b></td>
+    <td colspan="2" align="center"><img src="docs/assets/graphs/rtx3070_graphs/idle_power_table.png" width="450"/></td>
+  </tr>
+</table>
 
 ## Available Models
 
