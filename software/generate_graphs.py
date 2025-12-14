@@ -222,7 +222,7 @@ def collect_result_dirs(inputs: List[str]) -> List[Tuple[Path, str]]:
 def main():
     """Main entry point."""
     import argparse
-    parser = argparse.ArgumentParser(description="Generate graphs from FMBench results.")
+    parser = argparse.ArgumentParser(description="Generate graphs from HoliBench results.")
     parser.add_argument('inputs', nargs='+', help="Path to suite logs (.log) or result directories.")
     parser.add_argument('-o', '--output-dir', help="Directory to save graphs. Default: <first_input>_combined_graphs")
     
