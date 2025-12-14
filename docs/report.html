@@ -47,36 +47,143 @@
         <hr>
 
         <section id="introduction" class="section">
-            <h2>Introduction</h2>
-            <p>HoliBench is a flexible benchmarking framework designed to evaluate foundation models, including LLMs,
-                VLMs, and time-series models, across diverse hardware platforms ranging from servers to embedded
-                devices. Addressing the need for consistent performance profiling, HoliBench offers automatic device
-                detection and real-time monitoring of key metrics such as latency, accuracy, and energy consumption. Our
-                approach enables rapid swapping of models and scenarios with minimal configuration, ensuring easy
-                extensibility and cross-platform compatibility. The results demonstrate HoliBench's capability to provide
-                comprehensive insights into model performance, significantly simplifying the benchmarking process for
-                researchers and developers.
+            <h2>1. Introduction: Foundation Model Performance Benchmarking</h2>
+            <p>HoliBench is a flexible benchmarking framework designed to evaluate foundation models across diverse
+                hardware platforms.
+                To understand our approach, we must first look at how foundation models are typically benchmarked today.
+                Popular models often compete intensely to see who can achieve better scores on specific capability
+                metrics.
             </p>
+
+            <p>These capability metrics vary by model type:</p>
+            <ul>
+                <li><strong>Large Language Models (LLMs)</strong>: Evaluated on <em>Perplexity</em> (how well they
+                    predict the next token), <em>Reasoning</em> (logic and problem solving), and tasks like
+                    <em>Summarization</em>.
+                </li>
+                <li><strong>Visual Language Models (VLMs)</strong>: Tested via <em>Visual Reasoning Tests</em>, <em>OCR
+                        Tests</em> (reading text in images), and <em>Counting Tests</em>.</li>
+                <li><strong>Time Series Models</strong>: Assessed using statistical error metrics like <em>SMAPE</em>
+                    (Symmetric Mean Absolute Percentage Error) and <em>MSLE</em> (Mean Squared Logarithmic Error).</li>
+            </ul>
+
+            <h3>1.1 Performance Benchmarking Landscapes</h3>
+            <p>A variety of well-established benchmarks exist solely to determine how "good" a model is compared to
+                others in terms of these performance capabilities. Prominent examples include:</p>
+            <ul>
+                <li><strong><a href="references.html#ref-helm">HELM (Holistic Evaluation of Language
+                            Models)</a></strong> from Liang et al. (Stanford CRFM), 2022: Evaluates models across a wide
+                    breadth of scenarios to ensure holistic coverage.</li>
+                <li><strong><a href="references.html#ref-bigbench">Big-Bench (Beyond the Imitation Game
+                            Benchmark)</a></strong> from Srivastava et al. (Google), 2022: A diverse, collaborative
+                    benchmark for measuring capabilities.</li>
+                <li><strong><a href="references.html#ref-lmsys">LMSYS Chatbot Arena</a></strong> from Chiang et al. (UC
+                    Berkeley), 2024: Uses an Elo rating system based on human pairwise comparisons.</li>
+                <li><strong><a href="references.html#ref-hf-leaderboard">Hugging Face Open LLM leaderboard</a></strong>
+                    from Beeching et al. (Hugging Face), 2024: Automates evaluation on standard datasets to rank open
+                    models.</li>
+            </ul>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/onePillar.png" alt="Performance Benchmarks Only"
+                    style="height: 250px; width: auto;">
+                <figcaption>Figure 1: Current Benchmarking Landscape focuses heavily on Model Capability (Performance).
+                </figcaption>
+            </figure>
+
+            <h3>1.2 Hardware Level Metrics</h3>
+            <p>While model capability is crucial, it is not the only factor that matters. <strong>Hardware level
+                    metrics</strong> are equally critical, especially when deploying models on edge devices, IoT
+                sensors, or resource-constrained environments. People are actively solving these efficiency issues and
+                benchmarking them.</p>
+
+            <p>Examples of this focus include:</p>
+            <ul>
+                <li><strong><a href="references.html#ref-neuricam">NeuriCam</a></strong>: A system for key-frame video
+                    super-resolution on power-constrained IoT cameras.</li>
+                <li><strong><a href="references.html#ref-flashattention">FlashAttention</a></strong>: Introduced by Tri
+                    Dao et al., this innovation significantly improved latency by optimizing IO-awareness, benefiting
+                    both datacenter and edge deployments.</li>
+                <li>Research on <strong><a href="references.html#ref-micro-npu">Benchmarking Ultra-Low-Power
+                            micro-NPUs</a></strong> demonstrates the need for specialized evaluation on tiny silicon.
+                </li>
+            </ul>
+
+            <p>Typically, there are two key metrics for models running on IoTs and SoCs:</p>
+            <ul>
+                <li><strong>Energy</strong>: Small devices are power-constrained (battery life) and subject to carbon
+                    emission concerns.</li>
+                <li><strong>Latency</strong>: Real-time tasks require fast responses. Edge devices have less compute,
+                    making them naturally slower and more sensitive to inefficiency.</li>
+            </ul>
+
+            <p>Several works have addressed these hardware-centric metrics. <strong><a
+                        href="references.html#ref-pagoda">Pagoda</a></strong> utilizes a roofline model to analyze
+                latency vs. energy and latency vs. performance limits. Other notable efficiency benchmarks include
+                <strong><a href="references.html#ref-mltiny">MLPerf Tiny</a></strong> and <strong><a
+                        href="references.html#ref-elib">ELIB</a></strong>.
+            </p>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/twoPillar.png" alt="Energy and Latency Benchmarks Only"
+                    style="height: 250px; width: auto;">
+                <figcaption>Figure 2: The Efficiency Benchmarking Landscape focuses on Energy and Latency.</figcaption>
+            </figure>
+
+            <h3>1.3 HoliBench</h3>
+
+            <h4>1.3.1 Limitations</h4>
+            <p><strong>Hardware Level Fragmentation:</strong> Developers currently have to use different, incompatible
+                tools for every hardware platform to measure system efficiency.</p>
+            <ul>
+                <li><strong>NVIDIA GPUs</strong>: Require interfacing with NVML or spawning nvidia-smi subprocesses.
+                </li>
+                <li><strong>Apple Silicon</strong>: Require powermetrics (CLI tool).</li>
+                <li><strong>Jetson Edge Devices</strong>: Require jetson-stats library to read specialized sensors on
+                    Orin/Xavier.</li>
+                <li><strong>CPUs</strong>: Require psutil for OS kernel counters.</li>
+                <li><strong>Raspberry Pi</strong>: Uses vcgencmd and pmic_read_adc to query onboard Power Management
+                    ICs.</li>
+            </ul>
+
+            <p><strong>Benchmark Gaps:</strong> Current benchmarking ecosystems suffer from critical limitations:</p>
+            <ul>
+                <li>Most benchmarks focus on server-grade hardware or pure inference speed.</li>
+                <li>There is a lack of Edge-focused benchmarks that treat Energy and Latency as first-class citizens
+                    alongside service level goals.</li>
+                <li>Small devices are constrained by power and thermal limits (carbon emissions/heat), making these
+                    metrics critical for IoT/SoCs.</li>
+                <li>There is a need for a library allowing anyone to benchmark models easily across these diverse
+                    constraints.</li>
+            </ul>
+
+            <h4>1.3.2 Novelty</h4>
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/threePillar.png" alt="HoliBench Three Pillar Approach"
+                    style="height: 250px; width: auto;">
+                <figcaption>Figure 3: HoliBench bridges the gap by unifying Performance, Energy, and Latency.
+                </figcaption>
+            </figure>
+
+            <p>HoliBench introduces several novel contributions to address these challenges:</p>
+            <ul>
+                <li><strong>Unified "Three Pillar" Approach</strong>: We unify three primary metrics — Latency, Energy,
+                    and Performance — into one comprehensive report.</li>
+                <li><strong>Modular Design</strong>: Allows for easy addition of new models, scenarios, and hardware
+                    profilers.</li>
+                <li><strong>Standardization and Control</strong>: Provides a consistent interface for benchmarking
+                    across disparate hardware.</li>
+                <li><strong>Ease of Use</strong>: YAML-based configuration makes running complex benchmarks simple.</li>
+                <li><strong>Hardware Profiler Wrapper</strong>: Features a specialized context manager
+                    (<code>__enter__</code>/<code>__exit__</code>) to ensure all profilers start and stop synchronously
+                    with the model inference.</li>
+            </ul>
         </section>
 
-        <section id="related-work" class="section">
-            <h2>Related Work</h2>
-            <p>Several benchmarking frameworks exist for ML evaluation:</p>
-            <ul>
-                <li><strong>MLPerf/MLPerf Tiny</strong> (MLCommons): Industry-standard benchmarks for datacenter
-                    inference/training and ultra-low-power TinyML devices respectively.</li>
-                <li><strong>Pagoda</strong>: Roofline model analyzing compute/memory bottlenecks and energy efficiency
-                    for DNN workloads on edge accelerators.</li>
-                <li><strong>EEMBC MLMark</strong>: Standardized ML inference benchmarking for embedded platforms.</li>
-                <li>Etc.</li>
-            </ul>
-            <p>HoliBench differentiates by supporting the full hardware spectrum (Raspberry Pi to datacenter GPUs),
-                offering native LLM/VLM/time-series support, integrated real-time profiling, and simple YAML-based
-                configuration with auto-generated comparison graphs.</p>
-        </section>
+        <!-- Related Work section removed as it is now integrated into Introduction as subsections 1.1 and 1.2 -->
 
         <section id="technical-approach" class="section">
-            <h2>Technical Approach</h2>
+            <h2>3. Technical Approach</h2>
             <p>Overview of the technical approach.</p>
             <ul>
                 <li><a href="#hardware-profiler">Hardware Profiler</a></li>
@@ -84,12 +191,12 @@
                 <li><a href="#models">Models</a></li>
             </ul>
 
-            <h3 id="hardware-profiler">Hardware Profiler</h3>
+            <h3 id="hardware-profiler">3.1 Hardware Profiler</h3>
             <p>The Hardware Profiler is a core component of HoliBench that monitors system resources and energy
                 consumption in real-time during benchmark execution. It provides granular insights into how models
                 utilize the underlying hardware.</p>
 
-            <h4>Architectural Design & Workflow</h4>
+            <h4>3.1.1 Architectural Design & Workflow</h4>
             <p>The profiling system utilizes a robust architecture designed for extensibility, managed primarily by two
                 core components:</p>
             <ul>
@@ -121,7 +228,7 @@
                     and aggregates statistics (min, max, average, totals) for the final report.</li>
             </ol>
 
-            <h4>Outputs</h4>
+            <h4>3.1.2 Outputs</h4>
             <p>For every benchmark run, the profiler generates:</p>
             <ul>
                 <li><strong>CSV Time-Series Data</strong>: Detailed, timestamped logs of all metrics (e.g.,
@@ -135,7 +242,7 @@
 
 
 
-            <h4>Available Profilers</h4>
+            <h4>3.1.3 Available Profilers</h4>
             <p>HoliBench includes specialized profilers for different hardware architectures, each employing distinct
                 strategies to capture high-fidelity metrics:</p>
 
@@ -210,20 +317,20 @@
                 </p>
             </div>
 
-            <h3 id="scenarios">Scenarios</h3>
+            <h3 id="scenarios">3.2 Scenarios</h3>
             <p>[Details about Scenarios...]</p>
             <p>For a comprehensive list of datasets used across all scenarios, see the <a
                     href="supplementary.html#datasets-used">Datasets Used</a> section in the Supplementary Materials.
             </p>
 
-            <h3 id="models">Models</h3>
+            <h3 id="models">3.3 Models</h3>
             <p>Models are the core entities being benchmarked. The framework uses a flexible, plugin-based architecture
                 to support a wide variety of foundation models, ranging from Large Language Models (LLMs) to
                 Vision-Language Models (VLMs) and Time-Series Forecasting models.</p>
             <p>For a detailed list of models, see the <a href="supplementary.html#models-used">Models Used</a> section
                 in the Supplementary Materials.</p>
 
-            <h4>Architectural Design</h4>
+            <h4>3.3.1 Architectural Design</h4>
             <p>The model loading system abstracts the complexities of different libraries (Hugging Face Transformers,
                 momentfm, chronos, statsmodels) into a unified interface. The core components are:</p>
             <ul>
@@ -241,7 +348,7 @@
                     availability, and int4/int8 quantization configuration.</li>
             </ul>
 
-            <h4>Supported Model Types</h4>
+            <h4>3.3.2 Supported Model Types</h4>
 
             <div class="model-card">
                 <h5>Large Language Models (LLMs)</h5>
@@ -284,7 +391,7 @@
                 </ul>
             </div>
 
-            <h4>Loading Workflow</h4>
+            <h4>3.3.3 Loading Workflow</h4>
             <p>The framework implements a robust "safe-loading" mechanism to prevent Out-Of-Memory (OOM) errors,
                 particularly on edge devices:</p>
             <ol>
@@ -303,18 +410,18 @@
         </section>
 
         <section id="evaluation" class="section">
-            <h2>Evaluation and Results</h2>
+            <h2>4. Evaluation and Results</h2>
             <p>Overview of evaluation and results.</p>
             <p>For detailed data and raw results, please see the <a href="data_appendix.html">Data Appendix</a>.</p>
         </section>
 
         <section id="discussions" class="section">
-            <h2>Discussions and Conclusions</h2>
+            <h2>5. Discussions and Conclusions</h2>
             <p>[Content for Discussions and Conclusions goes here...]</p>
         </section>
 
         <section id="references" class="section">
-            <h2>References</h2>
+            <h2>6. References</h2>
             <p>For a complete list of references including datasets and libraries used in this project, please see the
                 <a href="references.html">References</a> page.
             </p>
