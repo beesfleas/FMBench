@@ -18,6 +18,15 @@
             width: 30%;
             height: auto;
         }
+
+        .section h3 {
+            font-size: 1.2rem;
+            color: #555;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.2rem;
+        }
     </style>
 </head>
 
@@ -55,10 +64,128 @@
         <section id="gtx1070" class="section">
             <h2>GTX 1070</h2>
             <p><a href="assets/tables/gtx1070-results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <!-- ARC Challenge -->
+            <h3>ARC Challenge</h3>
             <div class="graphs">
-                <img src="assets/graphs/gtx1070_graphs/arc_challenge_accuracy_vs_energy.png" alt="GTX 1070 Graph 1">
-                <img src="assets/graphs/gtx1070_graphs/arc_challenge_latency_vs_accuracy.png" alt="GTX 1070 Graph 2">
-                <img src="assets/graphs/gtx1070_graphs/arc_challenge_latency_vs_energy.png" alt="GTX 1070 Graph 3">
+                <img src="assets/graphs/gtx1070_graphs/arc_challenge_accuracy_vs_energy.png"
+                    alt="GTX 1070 ARC Challenge Accuracy vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/arc_challenge_latency_vs_accuracy.png"
+                    alt="GTX 1070 ARC Challenge Latency vs Accuracy">
+                <img src="assets/graphs/gtx1070_graphs/arc_challenge_latency_vs_energy.png"
+                    alt="GTX 1070 ARC Challenge Latency vs Energy">
+            </div>
+
+            <!-- ARC Easy -->
+            <h3>ARC Easy</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/arc_easy_accuracy_vs_energy.png"
+                    alt="GTX 1070 ARC Easy Accuracy vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/arc_easy_latency_vs_accuracy.png"
+                    alt="GTX 1070 ARC Easy Latency vs Accuracy">
+                <img src="assets/graphs/gtx1070_graphs/arc_easy_latency_vs_energy.png"
+                    alt="GTX 1070 ARC Easy Latency vs Energy">
+            </div>
+
+            <!-- Classification -->
+            <h3>Classification</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/classification_accuracy_vs_energy.png"
+                    alt="GTX 1070 Classification Accuracy vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/classification_latency_vs_accuracy.png"
+                    alt="GTX 1070 Classification Latency vs Accuracy">
+                <img src="assets/graphs/gtx1070_graphs/classification_latency_vs_energy.png"
+                    alt="GTX 1070 Classification Latency vs Energy">
+            </div>
+
+            <!-- CountBenchQA -->
+            <h3>CountBenchQA</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/countbenchqa_accuracy_vs_energy.png"
+                    alt="GTX 1070 CountBenchQA Accuracy vs Energy">
+            </div>
+
+            <!-- DocVQA -->
+            <h3>DocVQA</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/docvqa_accuracy_vs_energy.png"
+                    alt="GTX 1070 DocVQA Accuracy vs Energy">
+            </div>
+
+            <!-- GTSRB -->
+            <h3>GTSRB</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/gtsrb_accuracy_vs_energy.png"
+                    alt="GTX 1070 GTSRB Accuracy vs Energy">
+            </div>
+
+            <!-- HaGRID -->
+            <h3>HaGRID</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/hagrid_accuracy_vs_energy.png"
+                    alt="GTX 1070 HaGRID Accuracy vs Energy">
+            </div>
+
+            <!-- M3 Monthly Forecasting -->
+            <h3>M3 Monthly Forecasting</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/m3_monthly_forecasting_smape_bar.png"
+                    alt="GTX 1070 M3 Monthly SMAPE Bar">
+                <img src="assets/graphs/gtx1070_graphs/m3_monthly_forecasting_smape_vs_energy.png"
+                    alt="GTX 1070 M3 Monthly SMAPE vs Energy">
+            </div>
+
+            <!-- NER -->
+            <h3>NER</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/ner_accuracy_vs_energy.png"
+                    alt="GTX 1070 NER Accuracy vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/ner_latency_vs_accuracy.png"
+                    alt="GTX 1070 NER Latency vs Accuracy">
+                <img src="assets/graphs/gtx1070_graphs/ner_latency_vs_energy.png" alt="GTX 1070 NER Latency vs Energy">
+            </div>
+
+            <!-- Sentiment Analysis -->
+            <h3>Sentiment Analysis</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/sentiment_accuracy_vs_energy.png"
+                    alt="GTX 1070 Sentiment Accuracy vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/sentiment_latency_vs_accuracy.png"
+                    alt="GTX 1070 Sentiment Latency vs Accuracy">
+                <img src="assets/graphs/gtx1070_graphs/sentiment_latency_vs_energy.png"
+                    alt="GTX 1070 Sentiment Latency vs Energy">
+            </div>
+
+            <!-- Summarization -->
+            <h3>Summarization</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/summarization_latency_vs_energy.png"
+                    alt="GTX 1070 Summarization Latency vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/summary_accuracy_vs_energy.png"
+                    alt="GTX 1070 Summary Accuracy vs Energy">
+                <img src="assets/graphs/gtx1070_graphs/summary_latency_vs_accuracy.png"
+                    alt="GTX 1070 Summary Latency vs Accuracy">
+                <img src="assets/graphs/gtx1070_graphs/summary_latency_vs_energy.png"
+                    alt="GTX 1070 Summary Latency vs Energy">
+            </div>
+
+            <!-- Translation -->
+            <h3>Translation</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/translation_latency_vs_energy.png"
+                    alt="GTX 1070 Translation Latency vs Energy">
+            </div>
+
+            <!-- VQAv2 -->
+            <h3>VQAv2</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/vqav2_accuracy_vs_energy.png"
+                    alt="GTX 1070 VQAv2 Accuracy vs Energy">
+            </div>
+
+            <!-- Idle Power -->
+            <h3>Idle Power</h3>
+            <div class="graphs">
+                <img src="assets/graphs/gtx1070_graphs/idle_power_table.png" alt="GTX 1070 Idle Power Table">
             </div>
         </section>
 
@@ -66,10 +193,128 @@
         <section id="rtx3070" class="section">
             <h2>RTX 3070</h2>
             <p><a href="assets/tables/rtx3070_results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <!-- ARC Challenge -->
+            <h3>ARC Challenge</h3>
             <div class="graphs">
-                <img src="assets/graphs/rtx3070_graphs/arc_challenge_accuracy_vs_energy.png" alt="RTX 3070 Graph 1">
-                <img src="assets/graphs/rtx3070_graphs/arc_challenge_latency_vs_accuracy.png" alt="RTX 3070 Graph 2">
-                <img src="assets/graphs/rtx3070_graphs/arc_challenge_latency_vs_energy.png" alt="RTX 3070 Graph 3">
+                <img src="assets/graphs/rtx3070_graphs/arc_challenge_accuracy_vs_energy.png"
+                    alt="RTX 3070 ARC Challenge Accuracy vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/arc_challenge_latency_vs_accuracy.png"
+                    alt="RTX 3070 ARC Challenge Latency vs Accuracy">
+                <img src="assets/graphs/rtx3070_graphs/arc_challenge_latency_vs_energy.png"
+                    alt="RTX 3070 ARC Challenge Latency vs Energy">
+            </div>
+
+            <!-- ARC Easy -->
+            <h3>ARC Easy</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/arc_easy_accuracy_vs_energy.png"
+                    alt="RTX 3070 ARC Easy Accuracy vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/arc_easy_latency_vs_accuracy.png"
+                    alt="RTX 3070 ARC Easy Latency vs Accuracy">
+                <img src="assets/graphs/rtx3070_graphs/arc_easy_latency_vs_energy.png"
+                    alt="RTX 3070 ARC Easy Latency vs Energy">
+            </div>
+
+            <!-- Classification -->
+            <h3>Classification</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/classification_accuracy_vs_energy.png"
+                    alt="RTX 3070 Classification Accuracy vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/classification_latency_vs_accuracy.png"
+                    alt="RTX 3070 Classification Latency vs Accuracy">
+                <img src="assets/graphs/rtx3070_graphs/classification_latency_vs_energy.png"
+                    alt="RTX 3070 Classification Latency vs Energy">
+            </div>
+
+            <!-- CountBenchQA -->
+            <h3>CountBenchQA</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/countbenchqa_accuracy_vs_energy.png"
+                    alt="RTX 3070 CountBenchQA Accuracy vs Energy">
+            </div>
+
+            <!-- DocVQA -->
+            <h3>DocVQA</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/docvqa_accuracy_vs_energy.png"
+                    alt="RTX 3070 DocVQA Accuracy vs Energy">
+            </div>
+
+            <!-- GTSRB -->
+            <h3>GTSRB</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/gtsrb_accuracy_vs_energy.png"
+                    alt="RTX 3070 GTSRB Accuracy vs Energy">
+            </div>
+
+            <!-- HaGRID -->
+            <h3>HaGRID</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/hagrid_accuracy_vs_energy.png"
+                    alt="RTX 3070 HaGRID Accuracy vs Energy">
+            </div>
+
+            <!-- M3 Monthly Forecasting -->
+            <h3>M3 Monthly Forecasting</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/m3_monthly_forecasting_smape_bar.png"
+                    alt="RTX 3070 M3 Monthly SMAPE Bar">
+                <img src="assets/graphs/rtx3070_graphs/m3_monthly_forecasting_smape_vs_energy.png"
+                    alt="RTX 3070 M3 Monthly SMAPE vs Energy">
+            </div>
+
+            <!-- NER -->
+            <h3>NER</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/ner_accuracy_vs_energy.png"
+                    alt="RTX 3070 NER Accuracy vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/ner_latency_vs_accuracy.png"
+                    alt="RTX 3070 NER Latency vs Accuracy">
+                <img src="assets/graphs/rtx3070_graphs/ner_latency_vs_energy.png" alt="RTX 3070 NER Latency vs Energy">
+            </div>
+
+            <!-- Sentiment Analysis -->
+            <h3>Sentiment Analysis</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/sentiment_accuracy_vs_energy.png"
+                    alt="RTX 3070 Sentiment Accuracy vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/sentiment_latency_vs_accuracy.png"
+                    alt="RTX 3070 Sentiment Latency vs Accuracy">
+                <img src="assets/graphs/rtx3070_graphs/sentiment_latency_vs_energy.png"
+                    alt="RTX 3070 Sentiment Latency vs Energy">
+            </div>
+
+            <!-- Summarization -->
+            <h3>Summarization</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/summarization_latency_vs_energy.png"
+                    alt="RTX 3070 Summarization Latency vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/summary_accuracy_vs_energy.png"
+                    alt="RTX 3070 Summary Accuracy vs Energy">
+                <img src="assets/graphs/rtx3070_graphs/summary_latency_vs_accuracy.png"
+                    alt="RTX 3070 Summary Latency vs Accuracy">
+                <img src="assets/graphs/rtx3070_graphs/summary_latency_vs_energy.png"
+                    alt="RTX 3070 Summary Latency vs Energy">
+            </div>
+
+            <!-- Translation -->
+            <h3>Translation</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/translation_latency_vs_energy.png"
+                    alt="RTX 3070 Translation Latency vs Energy">
+            </div>
+
+            <!-- VQAv2 -->
+            <h3>VQAv2</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/vqav2_accuracy_vs_energy.png"
+                    alt="RTX 3070 VQAv2 Accuracy vs Energy">
+            </div>
+
+            <!-- Idle Power -->
+            <h3>Idle Power</h3>
+            <div class="graphs">
+                <img src="assets/graphs/rtx3070_graphs/idle_power_table.png" alt="RTX 3070 Idle Power Table">
             </div>
         </section>
 
@@ -77,10 +322,97 @@
         <section id="jetson" class="section">
             <h2>Jetson</h2>
             <p><a href="assets/tables/jetson-results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <!-- ARC Challenge -->
+            <h3>ARC Challenge</h3>
             <div class="graphs">
-                <img src="assets/graphs/jetson_graphs/arc_challenge_accuracy_vs_energy.png" alt="Jetson Graph 1">
-                <img src="assets/graphs/jetson_graphs/arc_challenge_latency_vs_accuracy.png" alt="Jetson Graph 2">
-                <img src="assets/graphs/jetson_graphs/arc_challenge_latency_vs_energy.png" alt="Jetson Graph 3">
+                <img src="assets/graphs/jetson_graphs/arc_challenge_accuracy_vs_energy.png"
+                    alt="Jetson ARC Challenge Accuracy vs Energy">
+                <img src="assets/graphs/jetson_graphs/arc_challenge_latency_vs_accuracy.png"
+                    alt="Jetson ARC Challenge Latency vs Accuracy">
+                <img src="assets/graphs/jetson_graphs/arc_challenge_latency_vs_energy.png"
+                    alt="Jetson ARC Challenge Latency vs Energy">
+            </div>
+
+            <!-- ARC Easy -->
+            <h3>ARC Easy</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/arc_easy_accuracy_vs_energy.png"
+                    alt="Jetson ARC Easy Accuracy vs Energy">
+                <img src="assets/graphs/jetson_graphs/arc_easy_latency_vs_accuracy.png"
+                    alt="Jetson ARC Easy Latency vs Accuracy">
+                <img src="assets/graphs/jetson_graphs/arc_easy_latency_vs_energy.png"
+                    alt="Jetson ARC Easy Latency vs Energy">
+            </div>
+
+            <!-- Classification -->
+            <h3>Classification</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/classification_accuracy_vs_energy.png"
+                    alt="Jetson Classification Accuracy vs Energy">
+                <img src="assets/graphs/jetson_graphs/classification_latency_vs_accuracy.png"
+                    alt="Jetson Classification Latency vs Accuracy">
+                <img src="assets/graphs/jetson_graphs/classification_latency_vs_energy.png"
+                    alt="Jetson Classification Latency vs Energy">
+            </div>
+
+            <!-- FEV-Bench -->
+            <h3>FEV-Bench</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/fev-bench_smape_bar.png" alt="Jetson FEV-Bench SMAPE Bar">
+            </div>
+
+            <!-- Gift-Eval -->
+            <h3>Gift-Eval</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/gift-eval_smape_bar.png" alt="Jetson Gift-Eval SMAPE Bar">
+                <img src="assets/graphs/jetson_graphs/gift-eval_smape_vs_energy.png"
+                    alt="Jetson Gift-Eval SMAPE vs Energy">
+            </div>
+
+            <!-- M3 Monthly Forecasting -->
+            <h3>M3 Monthly Forecasting</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/m3_monthly_forecasting_smape_bar.png"
+                    alt="Jetson M3 Monthly SMAPE Bar">
+            </div>
+
+            <!-- NER -->
+            <h3>NER</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/ner_accuracy_vs_energy.png" alt="Jetson NER Accuracy vs Energy">
+                <img src="assets/graphs/jetson_graphs/ner_latency_vs_accuracy.png" alt="Jetson NER Latency vs Accuracy">
+                <img src="assets/graphs/jetson_graphs/ner_latency_vs_energy.png" alt="Jetson NER Latency vs Energy">
+            </div>
+
+            <!-- Sentiment Analysis -->
+            <h3>Sentiment Analysis</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/sentiment_accuracy_vs_energy.png"
+                    alt="Jetson Sentiment Accuracy vs Energy">
+                <img src="assets/graphs/jetson_graphs/sentiment_latency_vs_accuracy.png"
+                    alt="Jetson Sentiment Latency vs Accuracy">
+                <img src="assets/graphs/jetson_graphs/sentiment_latency_vs_energy.png"
+                    alt="Jetson Sentiment Latency vs Energy">
+            </div>
+
+            <!-- Summarization -->
+            <h3>Summarization</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/summarization_latency_vs_energy.png"
+                    alt="Jetson Summarization Latency vs Energy">
+                <img src="assets/graphs/jetson_graphs/summary_accuracy_vs_energy.png"
+                    alt="Jetson Summary Accuracy vs Energy">
+                <img src="assets/graphs/jetson_graphs/summary_latency_vs_accuracy.png"
+                    alt="Jetson Summary Latency vs Accuracy">
+                <img src="assets/graphs/jetson_graphs/summary_latency_vs_energy.png"
+                    alt="Jetson Summary Latency vs Energy">
+            </div>
+
+            <!-- Translation -->
+            <h3>Translation</h3>
+            <div class="graphs">
+                <img src="assets/graphs/jetson_graphs/translation_latency_vs_energy.png"
+                    alt="Jetson Translation Latency vs Energy">
             </div>
         </section>
 
@@ -88,10 +420,83 @@
         <section id="pi" class="section">
             <h2>Raspberry Pi</h2>
             <p><a href="assets/tables/pi-results.pdf" target="_blank">Download Results (PDF)</a></p>
+            <!-- ARC Challenge -->
+            <h3>ARC Challenge</h3>
             <div class="graphs">
-                <img src="assets/graphs/pi_graphs/arc_challenge_accuracy_vs_energy.png" alt="Raspberry Pi Graph 1">
-                <img src="assets/graphs/pi_graphs/arc_challenge_latency_vs_accuracy.png" alt="Raspberry Pi Graph 2">
-                <img src="assets/graphs/pi_graphs/arc_challenge_latency_vs_energy.png" alt="Raspberry Pi Graph 3">
+                <img src="assets/graphs/pi_graphs/arc_challenge_accuracy_vs_energy.png"
+                    alt="Raspberry Pi ARC Challenge Accuracy vs Energy">
+                <img src="assets/graphs/pi_graphs/arc_challenge_latency_vs_accuracy.png"
+                    alt="Raspberry Pi ARC Challenge Latency vs Accuracy">
+                <img src="assets/graphs/pi_graphs/arc_challenge_latency_vs_energy.png"
+                    alt="Raspberry Pi ARC Challenge Latency vs Energy">
+            </div>
+
+            <!-- ARC Easy -->
+            <h3>ARC Easy</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/arc_easy_accuracy_vs_energy.png"
+                    alt="Raspberry Pi ARC Easy Accuracy vs Energy">
+                <img src="assets/graphs/pi_graphs/arc_easy_latency_vs_accuracy.png"
+                    alt="Raspberry Pi ARC Easy Latency vs Accuracy">
+                <img src="assets/graphs/pi_graphs/arc_easy_latency_vs_energy.png"
+                    alt="Raspberry Pi ARC Easy Latency vs Energy">
+            </div>
+
+            <!-- Classification -->
+            <h3>Classification</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/classification_accuracy_vs_energy.png"
+                    alt="Raspberry Pi Classification Accuracy vs Energy">
+                <img src="assets/graphs/pi_graphs/classification_latency_vs_accuracy.png"
+                    alt="Raspberry Pi Classification Latency vs Accuracy">
+                <img src="assets/graphs/pi_graphs/classification_latency_vs_energy.png"
+                    alt="Raspberry Pi Classification Latency vs Energy">
+            </div>
+
+            <!-- NER -->
+            <h3>NER</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/ner_accuracy_vs_energy.png" alt="Raspberry Pi NER Accuracy vs Energy">
+                <img src="assets/graphs/pi_graphs/ner_latency_vs_accuracy.png"
+                    alt="Raspberry Pi NER Latency vs Accuracy">
+                <img src="assets/graphs/pi_graphs/ner_latency_vs_energy.png" alt="Raspberry Pi NER Latency vs Energy">
+            </div>
+
+            <!-- Sentiment Analysis -->
+            <h3>Sentiment Analysis</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/sentiment_accuracy_vs_energy.png"
+                    alt="Raspberry Pi Sentiment Accuracy vs Energy">
+                <img src="assets/graphs/pi_graphs/sentiment_latency_vs_accuracy.png"
+                    alt="Raspberry Pi Sentiment Latency vs Accuracy">
+                <img src="assets/graphs/pi_graphs/sentiment_latency_vs_energy.png"
+                    alt="Raspberry Pi Sentiment Latency vs Energy">
+            </div>
+
+            <!-- Summarization -->
+            <h3>Summarization</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/summarization_latency_vs_energy.png"
+                    alt="Raspberry Pi Summarization Latency vs Energy">
+                <img src="assets/graphs/pi_graphs/summary_accuracy_vs_energy.png"
+                    alt="Raspberry Pi Summary Accuracy vs Energy">
+                <img src="assets/graphs/pi_graphs/summary_latency_vs_accuracy.png"
+                    alt="Raspberry Pi Summary Latency vs Accuracy">
+                <img src="assets/graphs/pi_graphs/summary_latency_vs_energy.png"
+                    alt="Raspberry Pi Summary Latency vs Energy">
+            </div>
+
+            <!-- Translation -->
+            <h3>Translation</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/translation_latency_vs_energy.png"
+                    alt="Raspberry Pi Translation Latency vs Energy">
+            </div>
+
+            <!-- Idle Power -->
+            <h3>Idle Power</h3>
+            <div class="graphs">
+                <img src="assets/graphs/pi_graphs/idle_power_table.png" alt="Raspberry Pi Idle Power Table">
             </div>
         </section>
 
