@@ -13,8 +13,8 @@ A flexible benchmarking framework for evaluating foundation models across differ
 ## Setup
 
 ```bash
-git clone https://github.com/beesfleas/FMBench
-cd FMBench/software
+git clone https://github.com/beesfleas/ECM202A_2025Fall_Project_13.git
+cd ECM202A_2025Fall_Project_13/software
 pip install -r requirements.txt
 pip install bitsandbytes  # Optional: for quantization
 ```
@@ -111,10 +111,13 @@ A comprehensive PDF-ready LaTeX report (`results.tex`) is generated in the outpu
 > [!NOTE]
 > If multiple logs contain the same model/scenario combination, results are averaged in bar charts and summary plots, with scatter plots showing individual data points.
 
-<!-- Example graphs (TODO: add actual images)
-![Summary: Latency vs Accuracy](docs/example_summary_latency_vs_accuracy.png)
-![Idle Power Table](docs/example_idle_power_table.png)
--->
+### Example Graphs
+
+![Summary: Latency vs Accuracy](docs/assets/graphs/gtx1070_graphs/summary_latency_vs_accuracy.png)
+
+![Summary: Latency vs Energy](docs/assets/graphs/gtx1070_graphs/summary_latency_vs_energy.png)
+
+![Idle Power Table](docs/assets/graphs/gtx1070_graphs/idle_power_table.png)
 
 ## Available Models
 
