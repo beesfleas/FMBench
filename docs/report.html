@@ -9,13 +9,13 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Report - FMBench</title>
+        <title>Report - HoliBench</title>
         <link rel="stylesheet" href="style.css">
     </head>
 
 <body>
     <div class="sidebar">
-        <h2>FMBench</h2>
+        <h2>HoliBench</h2>
         <nav>
             <ul>
                 <li><a href="index.html">Home</a></li>
@@ -48,12 +48,31 @@
 
         <section id="introduction" class="section">
             <h2>Introduction</h2>
-            <p>[Content for Introduction goes here...]</p>
+            <p>HoliBench is a flexible benchmarking framework designed to evaluate foundation models, including LLMs,
+                VLMs, and time-series models, across diverse hardware platforms ranging from servers to embedded
+                devices. Addressing the need for consistent performance profiling, HoliBench offers automatic device
+                detection and real-time monitoring of key metrics such as latency, accuracy, and energy consumption. Our
+                approach enables rapid swapping of models and scenarios with minimal configuration, ensuring easy
+                extensibility and cross-platform compatibility. The results demonstrate HoliBench's capability to provide
+                comprehensive insights into model performance, significantly simplifying the benchmarking process for
+                researchers and developers.
+            </p>
         </section>
 
         <section id="related-work" class="section">
             <h2>Related Work</h2>
-            <p>[Content for Related Work goes here...]</p>
+            <p>Several benchmarking frameworks exist for ML evaluation:</p>
+            <ul>
+                <li><strong>MLPerf/MLPerf Tiny</strong> (MLCommons): Industry-standard benchmarks for datacenter
+                    inference/training and ultra-low-power TinyML devices respectively.</li>
+                <li><strong>Pagoda</strong>: Roofline model analyzing compute/memory bottlenecks and energy efficiency
+                    for DNN workloads on edge accelerators.</li>
+                <li><strong>EEMBC MLMark</strong>: Standardized ML inference benchmarking for embedded platforms.</li>
+                <li>Etc.</li>
+            </ul>
+            <p>HoliBench differentiates by supporting the full hardware spectrum (Raspberry Pi to datacenter GPUs),
+                offering native LLM/VLM/time-series support, integrated real-time profiling, and simple YAML-based
+                configuration with auto-generated comparison graphs.</p>
         </section>
 
         <section id="technical-approach" class="section">
@@ -66,7 +85,7 @@
             </ul>
 
             <h3 id="hardware-profiler">Hardware Profiler</h3>
-            <p>The Hardware Profiler is a core component of FMBench that monitors system resources and energy
+            <p>The Hardware Profiler is a core component of HoliBench that monitors system resources and energy
                 consumption in real-time during benchmark execution. It provides granular insights into how models
                 utilize the underlying hardware.</p>
 
@@ -117,7 +136,7 @@
 
 
             <h4>Available Profilers</h4>
-            <p>FMBench includes specialized profilers for different hardware architectures, each employing distinct
+            <p>HoliBench includes specialized profilers for different hardware architectures, each employing distinct
                 strategies to capture high-fidelity metrics:</p>
 
             <div class="profiler-card">
@@ -181,7 +200,8 @@
             <div class="profiler-card">
                 <h5>Raspberry Pi Profiler (<code>pi_profiler.py</code>)</h5>
                 <p><strong>Methodology</strong>: optimized for the intricacies of the Raspberry Pi ecosystem.</p>
-                <p><strong>Power (Pi 5)</strong>: Uses <code>vcgencmd</code> and <code>pmic_read_adc</code> to query the onboard Power
+                <p><strong>Power (Pi 5)</strong>: Uses <code>vcgencmd</code> and <code>pmic_read_adc</code> to query the
+                    onboard Power
                     Management IC (PMIC), calculating watts determining the real-time voltage and current of the
                     <code>VDD_CORE</code> rail.
                 </p>
@@ -301,7 +321,7 @@
         </section>
 
         <footer>
-            <p>&copy; 2025 FMBench Project</p>
+            <p>&copy; 2025 HoliBench Project</p>
         </footer>
     </div>
 </body>

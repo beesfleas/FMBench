@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quickstart Guide - FMBench</title>
+    <title>Quickstart Guide - HoliBench</title>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
     <div class="sidebar">
-        <h2>FMBench</h2>
+        <h2>HoliBench</h2>
         <nav>
             <ul>
                 <li><a href="index.html">Home</a></li>
@@ -38,8 +38,8 @@
 
             <h3>Setup</h3>
             <pre><code># Clone the repository
-git clone https://github.com/beesfleas/FMBench
-cd FMBench/software
+git clone https://github.com/beesfleas/HoliBench
+cd HoliBench/software
 
 # Install dependencies
 pip install -r requirements.txt
@@ -52,7 +52,7 @@ pip install bitsandbytes</code></pre>
 
         <section class="section">
             <h2>Model Classes</h2>
-            <p>FMBench supports three main classes of models:</p>
+            <p>HoliBench supports three main classes of models:</p>
             <ul>
                 <li><strong>LLM (Large Language Model)</strong>: For text generation and NLP tasks.</li>
                 <li><strong>VLM (Vision Language Model)</strong>: For tasks involving both images and text.</li>
@@ -138,7 +138,7 @@ python run.py model=timegpt1 scenario=ett num_samples=50</code></pre>
 
         <section class="section">
             <h2>Benchmark Suite</h2>
-            <p>For comprehensive testing, FMBench allows you to run extensive suites across multiple model and scenario
+            <p>For comprehensive testing, HoliBench allows you to run extensive suites across multiple model and scenario
                 combinations using the <code>benchmark_suite.py</code> script.</p>
 
             <h3>Running a Suite</h3>
@@ -162,7 +162,7 @@ python benchmark_suite.py -y</code></pre>
             <pre><code>python benchmark_suite.py --device-level SoC</code></pre>
 
             <h3>Outputs & Visualization</h3>
-            <p>After a suite run completes, FMBench automatically generates comparative visualizations in the
+            <p>After a suite run completes, HoliBench automatically generates comparative visualizations in the
                 <code>suite_logs/&lt;log_name&gt;_graphs/</code> directory.</p>
 
             <h4>Summary Plots</h4>
@@ -196,7 +196,7 @@ python software/generate_graphs.py suite_logs/run1.log suite_logs/run2.log</code
         </section>
 
         <footer>
-            <p>&copy; 2025 FMBench Project</p>
+            <p>&copy; 2025 HoliBench Project</p>
         </footer>
     </div>
 </body>
