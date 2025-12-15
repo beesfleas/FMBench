@@ -38,9 +38,9 @@
                 <li><a href="#introduction">Introduction</a></li>
                 <li><a href="#technical-approach">Technical Approach</a></li>
                 <li><a href="#evaluation">Results and Findings</a></li>
-                <li><a href="#discussions">Discussions and Conclusions</a></li>
-                <li><a href="#references">References</a></li>
+                <li><a href="#difficulties">Challenges and Lessons Learned</a></li>
                 <li><a href="#future_work">Future Work</a></li>
+                <li><a href="#references">References</a></li>
             </ol>
         </div>
 
@@ -730,9 +730,32 @@
             </ul>
         </section>
 
-        <section id="discussions" class="section">
-            <h2>5. Discussions and Conclusions</h2>
-            <p>[Content for Discussions and Conclusions goes here...]</p>
+        <section id="difficulties" class="section">
+            <h2>5. Challenges and Lessons Learned</h2>
+            <p>Throughout the development of HoliBench, we encountered several technical challenges that shaped our
+                design decisions and implementation strategies. The following summarizes the key difficulties and how we
+                addressed them.</p>
+            <ul>
+                <li><strong>Inference Time Constraints</strong>: Model inference, particularly for Vision-Language
+                    Models (VLMs), proved to be extremely time-consuming. This significantly extended the duration of
+                    comprehensive benchmark runs and limited the number of evaluation samples we could feasibly collect
+                    within reasonable timeframes.</li>
+                <li><strong>Library Dependency Management</strong>: Different foundation models require distinct and
+                    often conflicting library dependencies. To mitigate dependency bloat and potential version
+                    conflicts, we implemented a lazy-loading architecture that imports model-specific libraries only
+                    when the corresponding model type is requested.</li>
+                <li><strong>Jetson JetPack Version Compatibility</strong>: NVIDIA Jetson devices running JetPack 5
+                    presented unique challenges. Certain library versions and hardware acceleration features are only
+                    available on specific JetPack releases, requiring careful version management and conditional feature
+                    enabling. For example, JetPack 5 only supported Python 3.8, which made some libraries incompatible.</li>
+                <li><strong>Architecture-Specific Optimizations</strong>: Not all model architectures support the same
+                    optimization techniques. For example, FlashAttention is only compatible with certain attention
+                    implementations, necessitating runtime detection and graceful fallback mechanisms.</li>
+                <li><strong>Maintaining Modularity</strong>: Balancing extensibility with code complexity required
+                    continuous refactoring. We prioritized a clean separation of concerns between the profiler,
+                    scenario, and model components to ensure that new additions do not introduce regressions or
+                    architectural debt.</li>
+            </ul>
         </section>
 
         <section id="future_work" class="section">
