@@ -26,6 +26,8 @@
 
     <div class="main-content">
         <h1>Quickstart Guide</h1>
+        <p>Note: A more in-depth explanation can be found in the README on our <a
+                href="https://github.com/beesfleas/HoliBench">GitHub</a>.</p>
 
         <section class="section">
             <h2>Installation</h2>
@@ -138,7 +140,8 @@ python run.py model=timegpt1 scenario=ett num_samples=50</code></pre>
 
         <section class="section">
             <h2>Benchmark Suite</h2>
-            <p>For comprehensive testing, HoliBench allows you to run extensive suites across multiple model and scenario
+            <p>For comprehensive testing, HoliBench allows you to run extensive suites across multiple model and
+                scenario
                 combinations using the <code>benchmark_suite.py</code> script.</p>
 
             <h3>Running a Suite</h3>
@@ -163,7 +166,8 @@ python benchmark_suite.py -y</code></pre>
 
             <h3>Outputs & Visualization</h3>
             <p>After a suite run completes, HoliBench automatically generates comparative visualizations in the
-                <code>suite_logs/&lt;log_name&gt;_graphs/</code> directory.</p>
+                <code>suite_logs/&lt;log_name&gt;_graphs/</code> directory.
+            </p>
 
             <h4>Summary Plots</h4>
             <ul>
@@ -175,7 +179,8 @@ python benchmark_suite.py -y</code></pre>
             <h4>Per-Scenario Plots</h4>
             <ul>
                 <li>Detailed scatter plots for specific scenarios (e.g.,
-                    <code>summarization_latency_vs_accuracy.png</code>).</li>
+                    <code>summarization_latency_vs_accuracy.png</code>).
+                </li>
                 <li><strong>sMAPE Bar Charts</strong>: For time-series tasks
                     (<code>&lt;scenario&gt;_smape_bar.png</code>).</li>
             </ul>
@@ -187,7 +192,8 @@ python benchmark_suite.py -y</code></pre>
 
             <h3>Manual Graph Generation</h3>
             <p>If you need to regenerate plots or combine results from multiple distinct runs, use the
-                <code>generate_graphs.py</code> utility:</p>
+                <code>generate_graphs.py</code> utility:
+            </p>
             <pre><code># Generate graphs from a single log
 python software/generate_graphs.py suite_logs/suite_20240101.log
 

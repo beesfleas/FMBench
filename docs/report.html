@@ -36,9 +36,8 @@
             <h3>Table of Contents</h3>
             <ol>
                 <li><a href="#introduction">Introduction</a></li>
-                <li><a href="#related-work">Related Work</a></li>
                 <li><a href="#technical-approach">Technical Approach</a></li>
-                <li><a href="#evaluation">Evaluation and Results</a></li>
+                <li><a href="#evaluation">Results and Findings</a></li>
                 <li><a href="#discussions">Discussions and Conclusions</a></li>
                 <li><a href="#references">References</a></li>
             </ol>
@@ -194,7 +193,8 @@
             <p>Our overall approach is described in Figure 4. The entrypoint for the user is through the
                 <code>run</code> function, but they can also utilize the <code>benchmark_suite</code> in order to get
                 comprehensive benchmarks, plots, as well as tables generated for them. The other components of the
-                diagram are described in more detail in the following sections.</p>
+                diagram are described in more detail in the following sections.
+            </p>
 
             <p>Generally, the <code>run</code> function connects to a <code>runner</code> that coordinates loading the
                 model through <code>model_factory</code>, loading the scenario (task) through <code>scenarios</code>,
@@ -215,8 +215,22 @@
                 utilize the underlying hardware.</p>
 
             <h4>3.1.1 Architectural Design & Workflow</h4>
-            <p>The profiling system utilizes a robust architecture designed for extensibility, managed primarily by two
-                core components:</p>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/hardwareProfiler.png" alt="Hardware Profiler Architecture"
+                    style="width: 100%; max-width: 1000px; height: auto;">
+                <figcaption>Figure 5: Hardware Profiler Architecture. <a
+                        href="assets/diagrams/img/completeProfilerChart.svg" target="_blank">View full diagram</a>.
+                </figcaption>
+            </figure>
+
+            <p>The profiling system utilizes a robust architecture designed for extensibility. The <code>runner</code>
+                communicates exclusively with the <code>profiler_manager</code>, maintaining a clean separation of
+                concerns. The <code>profiler_manager</code> logic ensures that <strong>only one class of profiler is
+                    instantiated at a time</strong>, depending on which one it deems necessary for the detected
+                hardware.</p>
+
+            <p>The system is managed primarily by two core components:</p>
             <ul>
                 <li><strong>Profiler Manager</strong> (<code>profiler_manager.py</code>):
                     This class acts as the central orchestrator. It is responsible for <strong>Platform
@@ -336,7 +350,29 @@
             </div>
 
             <h3 id="scenarios">3.2 Scenarios</h3>
-            <p>[Details about Scenarios...]</p>
+            <p>Scenarios are the tasks that we verify the model performance on. Examples include standard NLP tasks like
+                summarization, or vision tasks like OCR (Optical Character Recognition). A full list of available
+                scenarios is shown in Figure 10.</p>
+
+            <p>Figure 11 describes the architectural design of a Scenario. The <code>runner.py</code> file interacts
+                only with the abstract `Scenario` class, ensuring decoupling. We primarily use the
+                <code>DatasetScenario</code> subclass (formerly known as DatasetScenario), which facilitates loading
+                datasets and defining evaluation metrics as per the configuration. Concrete implementations, such as
+                <code>NERScenario</code>, inherit from `DatasetScenario` to handle specific dataset loading logic and
+                metric calculations.
+            </p>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/scenarioList.png" alt="List of Scenarios"
+                    style="width: 100%; max-width: 600px; height: auto;">
+                <figcaption>Figure 10: Major Available Scenarios.</figcaption>
+            </figure>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/scenarioDiagram.png" alt="Scenario Class Diagram"
+                    style="width: 100%; max-width: 350px; height: auto;">
+                <figcaption>Figure 11: Scenario Class Diagram structure.</figcaption>
+            </figure>
             <p>For a comprehensive list of datasets used across all scenarios, see the <a
                     href="supplementary.html#datasets-used">Datasets Used</a> section in the Supplementary Materials.
             </p>
@@ -425,12 +461,83 @@
                     <code>device_map="auto"</code>), the model is explicitly moved to the target device.
                 </li>
             </ol>
+
+            <h3 id="configurability">3.4 Configurability (Through Hydra)</h3>
+            <p>We use <a href="references.html#ref-hydra">Meta Hydra</a> to pass flags for fine-grained control over
+                every
+                configuration of the benchmark. For a full list of configurable flags, check out the <a
+                    href="tutorial.html">Quickstart Guide</a>. For instructions on adding new models or scenarios,
+                please see our <a
+                    href="https://github.com/beesfleas/ECM202A_2025Fall_Project_13/?tab=readme-ov-file#adding-new-modelsscenarios">GitHub
+                    README</a>.</p>
+
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/configChart.png" alt="Configuration Chart"
+                    style="width: 100%; max-width: 800px; height: auto;">
+                <figcaption>Figure 6: Configuration Options via Hydra.</figcaption>
+            </figure>
+
+            <p>Using hydra and our .yaml configuration structure has several benefits including:</p>
+            <ul>
+                <li><strong>Ease of Use</strong>: Instead of having to change actual code, we can simply add CLI flags.
+                </li>
+                <li><strong>Modular</strong>: Easy to quickly support new scenarios, new models, and even new devices.
+                </li>
+                <li><strong>Standardization/Control</strong>: We give the user the ability to keep specific conditions
+                    constant if they want to (absolute control).</li>
+            </ul>
+
+            <h3 id="benchmark-suite">3.5 Benchmark Suite</h3>
+            <p>For comprehensive testing, the <code>benchmark_suite.py</code> script allows extensive suites across
+                multiple
+                model and scenario combinations. More detail on how to run can be found in the <a
+                    href="tutorial.html">Tutorial</a>. For more in-depth explanations on features like graph and report
+                generation, see our <a
+                    href="https://github.com/beesfleas/ECM202A_2025Fall_Project_13?tab=readme-ov-file#benchmark-suite">GitHub
+                    README</a>.</p>
+
+            <p>Command: <code>python benchmark_suite.py</code></p>
+
+            <p>After a suite run completes, the script will automatically generate comparative visualizations.</p>
+
+            <div style="display: flex; justify-content: center; gap: 10px; margin: 2rem 0;">
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/benchmarkConfig.png" alt="Benchmark Configuration"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 7: Edit BENCHMARK_CONFIG in suite_config.py to define your test matrix.
+                    </figcaption>
+                </figure>
+
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/benchmarkPreSummary.png" alt="Benchmark Pre-Summary Output"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 8: Terminal output confirming the benchmark run.</figcaption>
+                </figure>
+
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/benchmarkSummary.png" alt="Benchmark Summary Output"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 9: Summary output indicating which tests worked.</figcaption>
+                </figure>
+            </div>
+
+            <p>Note that the outputs are logged as both <code>.json</code> for the full set of results, and the script
+                also
+                generates tables and figures for us. This can be seen later in the Results section or on our <a
+                    href="https://github.com/beesfleas/ECM202A_2025Fall_Project_13/?tab=readme-ov-file#example-graphs">GitHub
+                    README</a>.</p>
         </section>
 
         <section id="evaluation" class="section">
-            <h2>4. Evaluation and Results</h2>
-            <p>Overview of evaluation and results.</p>
-            <p>For detailed data and raw results, please see the <a href="data_appendix.html">Data Appendix</a>.</p>
+            <h2>4. Results and Findings</h2>
+            <p>The full set of results can be found in the <a href="data_appendix.html">Data Appendix</a>. This section
+                will go over a couple case studies with interesting results.</p>
+
+            <h3>Case Study 1</h3>
+            <p>[Content for Case Study 1]</p>
+
+            <h3>Case Study 2</h3>
+            <p>[Content for Case Study 2]</p>
         </section>
 
         <section id="discussions" class="section">
