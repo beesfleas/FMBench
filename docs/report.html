@@ -23,7 +23,7 @@
                 <li><a href="report.html" class="active">Report</a></li>
                 <li><a href="data_appendix.html">Data Appendix</a></li>
                 <li><a href="supplementary.html">Supplementary</a></li>
-                <li><a href="tutorial.html">Tutorial</a></li>
+                <li><a href="tutorial.html">Quickstart Guide</a></li>
                 <li><a href="references.html">References</a></li>
             </ul>
         </nav>
@@ -132,7 +132,7 @@
 
             <h3>1.3 HoliBench</h3>
 
-            <h4>1.3.1 Limitations</h4>
+            <h4>1.3.1 Current Limitations</h4>
             <p><strong>Hardware Level Fragmentation:</strong> Developers currently have to use different, incompatible
                 tools for every hardware platform to measure system efficiency.</p>
             <ul>
@@ -747,7 +747,8 @@
                 <li><strong>Jetson JetPack Version Compatibility</strong>: NVIDIA Jetson devices running JetPack 5
                     presented unique challenges. Certain library versions and hardware acceleration features are only
                     available on specific JetPack releases, requiring careful version management and conditional feature
-                    enabling. For example, JetPack 5 only supported Python 3.8, which made some libraries incompatible.</li>
+                    enabling. For example, JetPack 5 only supported Python 3.8, which made some libraries incompatible.
+                </li>
                 <li><strong>Architecture-Specific Optimizations</strong>: Not all model architectures support the same
                     optimization techniques. For example, FlashAttention is only compatible with certain attention
                     implementations, necessitating runtime detection and graceful fallback mechanisms.</li>
@@ -794,9 +795,24 @@
             </ol>
 
             <h3>6.3 Model Selection Decision Tree</h3>
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/thresholdingGraph.png" alt="Thresholding Graph"
+                    style="width: 100%; max-width: 600px; height: auto;">
+                <figcaption>Figure 21: Model Selection Thresholding Example.</figcaption>
+            </figure>
             <p>To assist users in selecting the optimal model for their specific deployment constraints, we plan
-                to implement a decision tree system...</p>
-            <p><em>[tbd]</em></p>
+                to implement a decision tree system. Our results show that finding pareto optimum models is not too
+                difficult
+                as optimizing over latency and energy is essnetially the same thing. Thresholding is also simple, as we
+                can simply a boundary
+                as shown above. In this case, we note that given across 20 sentiment analysis tasks on the RTX 3070, we
+                can assign
+                thresholds as the red or orange line (40 kJ and 20 kJ). In this case, we can choose the best model that
+                satisfies the constraints
+                we put on it. This same process can be done across accuracy, or latency as well, allowing us to select
+                the best model for the user.
+            </p>
+
         </section>
 
         <section id="references" class="section">
