@@ -40,6 +40,7 @@
                 <li><a href="#evaluation">Results and Findings</a></li>
                 <li><a href="#discussions">Discussions and Conclusions</a></li>
                 <li><a href="#references">References</a></li>
+                <li><a href="#future_work">Future Work</a></li>
             </ol>
         </div>
 
@@ -545,8 +546,49 @@
             <p>[Content for Discussions and Conclusions goes here...]</p>
         </section>
 
+        <section id="future_work" class="section">
+            <h2>6. Future Work</h2>
+            <p>While HoliBench provides a comprehensive benchmarking framework, several avenues for future development
+                remain. The following sections outline planned improvements and new features that will further enhance
+                the framework's capabilities.</p>
+
+            <h3>6.1 Planned Improvements</h3>
+            <ul>
+                <li><strong>Per-Architecture Model Loaders</strong>: Develop specialized model loaders optimized for
+                    each hardware architecture (e.g., ARM, x86, RISC-V) to improve model compatibility and maximize
+                    hardware performance across diverse deployment targets.</li>
+                <li><strong>Expanded Benchmark Coverage</strong>: Extend the benchmark dataset by collecting additional
+                    evaluation results across a broader range of models and scenarios. Given the significant time
+                    investment required for accuracy and service-level metric evaluations, this remains an ongoing
+                    priority.</li>
+            </ul>
+
+            <h3>6.2 Latency and Energy Estimator</h3>
+            <p>A key future enhancement is the development of a predictive model capable of estimating latency and
+                energy consumption for arbitrary PyTorch models without requiring full benchmark execution. The proposed
+                approach consists of the following stages:</p>
+            <ol>
+                <li><strong>Representative Block Formation</strong>: Decompose common model architectures into small,
+                    reusable computational blocks (e.g., attention layers, convolutional blocks, feed-forward networks).
+                </li>
+                <li><strong>Relationship Modeling</strong>: Train a predictive model to learn the relationship between
+                    combinations of these representative blocks and their corresponding latency and energy
+                    characteristics on target hardware.</li>
+                <li><strong>Graph Similarity Analysis</strong>: Develop a graph similarity algorithm that can analyze a
+                    novel model's computational graph and map it to combinations of the predefined representative
+                    blocks.</li>
+                <li><strong>Inference-Time Estimation</strong>: Utilize the trained model to provide rapid latency and
+                    energy estimates for new models based on their block decomposition.</li>
+            </ol>
+
+            <h3>6.3 Model Selection Decision Tree</h3>
+            <p>To assist users in selecting the optimal model for their specific deployment constraints, we plan
+                to implement a decision tree system...</p>
+            <p><em>[tbd]</em></p>
+        </section>
+
         <section id="references" class="section">
-            <h2>6. References</h2>
+            <h2>7. References</h2>
             <p>For a complete list of references including datasets and libraries used in this project, please see the
                 <a href="references.html">References</a> page.
             </p>
