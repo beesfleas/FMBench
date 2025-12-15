@@ -533,11 +533,200 @@
             <p>The full set of results can be found in the <a href="data_appendix.html">Data Appendix</a>. This section
                 will go over a couple case studies with interesting results.</p>
 
-            <h3>Case Study 1</h3>
-            <p>[Content for Case Study 1]</p>
+            <h3>Case Study 1: NER Task</h3>
 
-            <h3>Case Study 2</h3>
-            <p>[Content for Case Study 2]</p>
+            <h4>Scenario description</h4>
+            <p>The NER scenario is implemented to evaluate an LLM's ability to accurately extract specific entities from
+                a
+                given text.</p>
+            <p>NER is a critical capability for Large Language Models (LLMs) for several reasons:</p>
+            <ul>
+                <li><strong>Information Extraction</strong>: It allows LLMs to structure unstructured data, turning raw
+                    text into actionable insights.</li>
+                <li><strong>Knowledge Graph Construction</strong>: Identifying entities is the first step in building
+                    relationships between them.</li>
+                <li><strong>Search and Indexing</strong>: Improves search relevance by understanding the specific
+                    entities
+                    users are looking for.</li>
+                <li><strong>Context Understanding</strong>: Helps the model understand the "who", "what", and "where" of
+                    a text passage.</li>
+            </ul>
+
+            <p><strong>Class</strong>: The core logic is implemented in the <code>NERScenario</code> class within
+                <code>software/components/scenarios/common_nlp_scenarios.py</code>.
+            </p>
+            <p><strong>Dataset</strong>: By default, it uses the <a href="references.html#ref-wikiann">Wikiann
+                    dataset</a>
+                (multilingual named entity
+                recognition), but this is configurable.</p>
+            <p><strong>Prompt Engineering</strong>: The scenario uses a prompt template to instruct the model.</p>
+            <ul>
+                <li><strong>Default Template</strong>: "Extract named entities from the following text: {input}"</li>
+                <li><strong>Input</strong>: A sentence from the dataset.</li>
+                <li><strong>Target Output</strong>: A formatted list of entities, e.g., "Barack Obama (PER), USA (LOC)".
+                </li>
+            </ul>
+
+            <h4>Data</h4>
+            <figure style="text-align: center; margin: 2rem 0;">
+                <img src="assets/diagrams/img/nerScenarioTable.png" alt="NER Scenario Table (GTX 1070)"
+                    style="width: 100%; max-width: 800px; height: auto;">
+                <figcaption>Figure 12: NER Task Results (GTX 1070).</figcaption>
+            </figure>
+            <p>This table reflects the results for a GTX 1070 on the task. The full table is available in the <a
+                    href="data_appendix.html">Data Appendix</a>.</p>
+
+            <div style="display: flex; justify-content: center; gap: 10px; margin: 2rem 0;">
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/ner1070Graph.png" alt="NER Graph GTX 1070"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 13: NER Results on GTX 1070.</figcaption>
+                </figure>
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/ner3070Graph.png" alt="NER Graph RTX 3070"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 14: NER Results on RTX 3070.</figcaption>
+                </figure>
+            </div>
+
+            <p>We have left out the smaller devices for this case study as their small <em>n</em> (number of models) for
+                this scenario makes it difficult to draw useful conclusions. From here, we draw our first key
+                observation.</p>
+
+            <h4>Observations</h4>
+            <p><strong>Diminishing Returns on Accuracy:</strong></p>
+            <p>Our analysis reveals a distinct Pareto-optimal frontier where larger models generally yield higher
+                accuracy, but at a disproportionately increasing energy cost.</p>
+            <ul>
+                <li><strong>GTX 1070 Analysis</strong>: Beyond the <strong>0.7 F1-score</strong> threshold, achieving
+                    marginal gains requires exponentially more computationally expensive models. The "knee" of the curve
+                    suggests that for many applications, <a href="references.html#ref-qwen2.5">Qwen2.5-1.5B</a> offers
+                    the best balance.</li>
+                <li><strong>RTX 3070 Analysis</strong>: We observe a similar trend. However, three distinct "winners"
+                    emerge (highlighted in Figure 14) that optimize for different constraints:
+                    <ul>
+                        <li><em>Low Power</em>: <a href="references.html#ref-qwen2.5">Qwen2.5-1.5B</a> - Efficient
+                            model suitable for strictly constrained environments.</li>
+                        <li><em>Balanced</em>: <strong><a href="references.html#ref-qwen3">Qwen 3.0-6B</a></strong> -
+                            Offers a significant accuracy jump for
+                            moderate energy increase.</li>
+                        <li><em>High Performance</em>: <strong><a href="references.html#ref-qwen3">Qwen3-4B</a></strong>
+                            - The most accurate model in this set,
+                            justifiable only when energy is abundant.</li>
+                    </ul>
+                </li>
+            </ul>
+            <p>This highlights the importance of selecting a model not just based on raw capability, but tailored to the
+                specific energy budget of the deployment hardware.</p>
+
+            <h3>Case Study 2: Task Summarization Across Devices</h3>
+
+            <h4>Scenario description</h4>
+            <p>The Summarization scenario measures an LLM's ability to generate meaningful abstracts for news articles
+                or
+                other long-form text.</p>
+            <p>Summarization is a flagship capability for LLMs because:</p>
+            <ul>
+                <li><strong>Efficiency</strong>: It helps users quickly digest large volumes of information (news,
+                    reports, papers).</li>
+                <li><strong>Content Generation</strong>: It demonstrates the model's deep understanding of context,
+                    nuance, and hierarchy of importance within a text.</li>
+                <li><strong>Cross-domain Utility</strong>: It is applicable in legal, medical, technical, and general
+                    domains.</li>
+            </ul>
+
+            <p><strong>Class</strong>: The logic is encapsulated in the <code>SummarizationScenario</code> class within
+                <code>software/components/scenarios/common_nlp_scenarios.py</code>.
+            </p>
+            <p><strong>Dataset</strong>: The default configuration uses the <a
+                    href="references.html#ref-cnndm">CNN/DailyMail
+                    dataset</a> (version 3.0.0).</p>
+            <p><strong>Prompt Engineering</strong>:</p>
+            <ul>
+                <li><strong>Default Template</strong>: "Summarize the following article.\n\nArticle:
+                    {input}\n\nSummary:"
+                </li>
+                <li><strong>Input</strong>: The full text of an article.</li>
+                <li><strong>Target Output</strong>: The "highlights" or human-written summary associated with the
+                    article.</li>
+            </ul>
+
+            <h4>Data</h4>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 2rem 0; width: 100%;">
+                <figure style="text-align: center;">
+                    <img src="assets/graphs/gtx1070_graphs/summarization_latency_vs_energy.png"
+                        alt="GTX 1070 Summarization Latency vs Energy" style="width: 100%; height: auto;">
+                    <figcaption>Figure 15: GTX 1070 Latency vs Energy.</figcaption>
+                </figure>
+                <figure style="text-align: center;">
+                    <img src="assets/graphs/rtx3070_graphs/summarization_latency_vs_energy.png"
+                        alt="RTX 3070 Summarization Latency vs Energy" style="width: 100%; height: auto;">
+                    <figcaption>Figure 16: RTX 3070 Latency vs Energy.</figcaption>
+                </figure>
+                <figure style="text-align: center;">
+                    <img src="assets/graphs/jetson_graphs/summarization_latency_vs_energy.png"
+                        alt="Jetson Summarization Latency vs Energy" style="width: 100%; height: auto;">
+                    <figcaption>Figure 17: Jetson Latency vs Energy.</figcaption>
+                </figure>
+                <figure style="text-align: center;">
+                    <img src="assets/graphs/pi_graphs/summarization_latency_vs_energy.png"
+                        alt="Raspberry Pi Summarization Latency vs Energy" style="width: 100%; height: auto;">
+                    <figcaption>Figure 18: Raspberry Pi Latency vs Energy.</figcaption>
+                </figure>
+            </div>
+
+            <div style="display: flex; justify-content: center; gap: 10px; margin: 2rem 0;">
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/1070Summarization.png" alt="GTX 1070 Summarization Table"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 19: GTX 1070 Summarization Results.</figcaption>
+                </figure>
+                <figure style="text-align: center; flex: 1; margin: 0;">
+                    <img src="assets/diagrams/img/3070Summarization.png" alt="RTX 3070 Summarization Table"
+                        style="width: 100%; height: auto;">
+                    <figcaption>Figure 20: RTX 3070 Summarization Results.</figcaption>
+                </figure>
+            </div>
+
+            <h4>Observations</h4>
+            <p><strong>Linear Trend:</strong></p>
+            <p>The first observation is the clear <strong>linear trend</strong> between latency and energy. This is
+                evident from the earlier graphs. This relationship makes independent comparisons of latency vs. energy
+                less critical and suggests we can use simple linear regression to estimate the energy consumed by any
+                arbitrary model given its latency. This significantly simplifies solving for the Pareto optimum, as we
+                only need to optimize across 2 parameters.</p>
+
+            <p><strong>Quantization Effects:</strong></p>
+            <p>We note interesting findings regarding <strong>quantization</strong> in the tables above:</p>
+            <ul>
+                <li><strong>Latency Impact</strong>: Contrary to our expectations, quantization did not improve latency,
+                    especially on older hardware. It only showed significant improvement on the RTX 3070.
+                    <ul>
+                        <li><strong>Tensor Cores</strong>: Older devices lack Tensor Cores required for efficient
+                            low-precision arithmetic. This hypothesis is supported by the fact that there are
+                            significant changes in GPU utilization between quantized and unquantized models on the newer
+                            RTX 3070 (which possesses Tensor Cores). For example, the RTX 3070 shows almost double the
+                            utilization for the Qwen2-7B model, whereas the older device (GTX 1070) does not show this
+                            behavior.</li>
+                        <li><strong>Unoptimized Kernels</strong>: Some operations may fall back to slower
+                            implementations. For example, we support <a href="references.html#ref-flashattention">Flash
+                                Attention</a> via a configuration flag, but since it could only be run on one device
+                            accessible to us (RTX 3070), we did not conduct widespread experiments with it.</li>
+                        <li><strong>KV Cache</strong>: Quantization allows for a larger KV Cache (memory), although this
+                            does not always translate to lower latency.</li>
+                    </ul>
+                </li>
+                <li><strong>Accuracy Stability</strong>: The change in accuracy is minimal between quantized and
+                    unquantized models.
+                    <ul>
+                        <li>Our <em>n</em> for the number of tasks per summarization scenario was low at 20, so it may
+                            be difficult to detect small differences between the quantized and unquantized models. It is
+                            possible, and quite likely however, that the loss is genuinely not significant for
+                            reasonable SLO margins.
+                        </li>
+                    </ul>
+                </li>
+            </ul>
         </section>
 
         <section id="discussions" class="section">
